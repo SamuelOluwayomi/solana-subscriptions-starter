@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useWallet } from '@lazorkit/wallet'
 import { useState, useEffect } from 'react'
@@ -8,6 +8,15 @@ export default function PasskeyAuth() {
     const [mounted, setMounted] = useState(false)
 
     const address = smartWalletPubkey?.toBase58()
+
+    const handleConnect = async () => {
+        try {
+            await connect()
+        } catch (error) {
+            console.error("Passkey connection error:", error)
+            alert("Failed to connect. Please make sure you didn't cancel the prompt and that your device supports Passkeys (TouchID/FaceID/Windows Hello).")
+        }
+    }
 
     // Avoid hydration mismatch
     useEffect(() => {
@@ -32,10 +41,10 @@ export default function PasskeyAuth() {
                 </div>
             ) : (
                 <button
-                    onClick={() => connect()}
+                    onClick={handleConnect}
                     className="flex h-12 items-center justify-center rounded-full bg-zinc-900 px-5 text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                 >
-                    Connect Wallet
+                    Log in with Passkey
                 </button>
             )}
         </div>

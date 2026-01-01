@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { LazorkitProvider, DEFAULTS } from '@lazorkit/wallet'
 import { ReactNode, useState, useEffect, useMemo } from 'react'
@@ -22,7 +22,7 @@ export function Providers({ children }: { children: ReactNode }) {
     return (
         <LazorkitProvider
             paymasterConfig={paymasterConfig}
-            rpcUrl={DEFAULTS.RPC_ENDPOINT}
+            rpcUrl="https://api.devnet.solana.com"
         >
             {children}
         </LazorkitProvider>
