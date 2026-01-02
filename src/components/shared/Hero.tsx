@@ -16,7 +16,7 @@ type Phase =
   | 'connecting'  // Linking Apps
   | 'dash-final'; // Active Subscriptions Manager
 
-export default function LaptopHero() {
+export default function Hero() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [isMobile, setIsMobile] = useState(false);
 
