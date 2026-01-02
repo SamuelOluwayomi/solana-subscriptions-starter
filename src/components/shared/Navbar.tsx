@@ -10,24 +10,27 @@ export default function NavBar() {
 
     return (
         <>
-            <nav className="fixed top-0 w-full z-50 transition-all duration-300">
+            <nav className="absolute top-0 w-full z-50 transition-all duration-300">
 
                 {/* Glass Background */}
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-xl border-b border-white/5" />
 
                 <div className="relative max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 
-                    {/* LOGO */}
-                    <Link href="/" className="font-black italic tracking-tighter text-xl text-white z-10 flex items-center gap-2">
-                        <div className="w-6 h-6 bg-white text-black flex items-center justify-center rounded-sm not-italic">C</div>
-                        CADPAY
-                    </Link>
+                    {/* LEFT SIDE: LOGO + NAV LINKS */}
+                    <div className="flex items-center gap-12">
+                        {/* LOGO */}
+                        <Link href="/" className="font-black italic tracking-tighter text-xl text-white z-10 flex items-center gap-2">
+                            <div className="w-6 h-6 bg-white text-black flex items-center justify-center rounded-sm not-italic">C</div>
+                            CADPAY
+                        </Link>
 
-                    {/* DESKTOP LINKS (Hidden on Mobile) */}
-                    <div className="hidden md:flex items-center gap-8">
-                        <NavLink href="/mechanism">The Bridge</NavLink>
-                        <NavLink href="/merchants">For Merchants</NavLink>
-                        <NavLink href="/engine">Lazorkit Engine</NavLink>
+                        {/* DESKTOP LINKS (Hidden on Mobile) */}
+                        <div className="hidden md:flex items-center gap-8">
+                            <NavLink href="/mechanism">The Bridge</NavLink>
+                            <NavLink href="/merchants">For Merchants</NavLink>
+                            <NavLink href="/engine">Lazorkit Engine</NavLink>
+                        </div>
                     </div>
 
                     {/* DESKTOP ACTIONS (Hidden on Mobile) */}
@@ -37,7 +40,7 @@ export default function NavBar() {
                         </Link>
                         <Link href="/create" className="group flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-full text-sm font-bold hover:bg-zinc-200 transition-all">
                             <Fingerprint size={14} className="text-zinc-600" />
-                            Create Wallet
+                            Create Account
                         </Link>
                     </div>
 

@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cadpay",
   description: "Next Gen Subscriptions on Solana",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

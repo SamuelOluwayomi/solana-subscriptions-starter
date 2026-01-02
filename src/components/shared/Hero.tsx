@@ -101,26 +101,43 @@ export default function LaptopHero() {
         <div className="flex flex-col gap-6 md:gap-8 text-center lg:text-left pt-10 lg:pt-0">
 
           <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 w-fit backdrop-blur-md mx-auto lg:mx-0"
           >
           </motion.div>
 
-          <h1 className="text-4xl md:text-7xl font-bold tracking-tight leading-[1.1] text-white">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+            className="text-4xl md:text-7xl font-bold tracking-tight leading-[1.1] text-white"
+          >
             Your face is your <br />
             <span className="text-indigo-400">Private Key.</span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-base md:text-lg text-zinc-400 max-w-lg leading-relaxed mx-auto lg:mx-0">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.4 }}
+            className="text-base md:text-lg text-zinc-400 max-w-lg leading-relaxed mx-auto lg:mx-0"
+          >
             CadPay is the operating system for recurring on-chain revenue.
             Replace seed phrases with device biometrics and automate billing instantly.
-          </p>
+          </motion.p>
 
-          <div className="flex items-center justify-center lg:justify-start gap-4 pt-2">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.5 }}
+            className="flex items-center justify-center lg:justify-start gap-4 pt-2"
+          >
             <button className="px-8 py-3.5 bg-white text-black rounded-full font-semibold text-sm hover:bg-zinc-200 transition-all flex items-center gap-2">
               <Fingerprint size={16} /> Start Demo
             </button>
-          </div>
+          </motion.div>
         </div>
 
         {/* RIGHT: The Laptop (SCALED FOR MOBILE) */}
