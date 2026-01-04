@@ -20,8 +20,8 @@ export default function NavBar() {
                     {/* LEFT SIDE: LOGO + NAV LINKS */}
                     <div className="flex items-center gap-12">
                         {/* LOGO */}
-                        <Link href="/" className="font-black italic tracking-tighter text-xl text-white z-10 flex items-center gap-2">
-                            <div className="w-6 h-6 bg-white text-black flex items-center justify-center rounded-sm not-italic">C</div>
+                        <Link href="/" className="font-black italic tracking-tighter text-xl text-orange-100 z-10 flex items-center gap-2">
+                            <div className="w-6 h-6 bg-orange-500 text-black flex items-center justify-center rounded-sm not-italic">C</div>
                             CADPAY
                         </Link>
 
@@ -38,8 +38,8 @@ export default function NavBar() {
                         <Link href="/signin" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
                             Log in
                         </Link>
-                        <Link href="/create" className="group flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-full text-sm font-bold hover:bg-zinc-200 transition-all">
-                            <Fingerprint size={14} className="text-zinc-600" />
+                        <Link href="/create" className="group flex items-center gap-2 bg-orange-500 text-white px-4 py-1.5 rounded-full text-sm font-bold hover:bg-orange-600 transition-all">
+                            <Fingerprint size={14} className="text-white/90" />
                             Create Account
                         </Link>
                     </div>

@@ -75,7 +75,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
                     initial={{ x: -60, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                    className="w-16 h-16 sm:w-20 sm:h-20 bg-orange-500 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)]"
                 >
                     <span className="text-black font-black text-4xl sm:text-5xl not-italic select-none pt-1">
                         C

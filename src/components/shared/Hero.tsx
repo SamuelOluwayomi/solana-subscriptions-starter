@@ -49,12 +49,18 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
   };
 
   return (
-    <section className="relative min-h-dvh w-full overflow-hidden bg-black text-white pt-24 md:pt-36 pb-20 perspective-[2000px]">
+    // INCREASED padding-bottom (pb-32) to make space
+    <section
+      className="relative z-20 min-h-[110dvh] w-full overflow-hidden text-white pt-24 md:pt-36 pb-0 perspective-[2000px]"
+    >
 
-      <div className="absolute inset-0 z-0">
+      {/* BACKGROUND VIDEO */}
+      <div
+        className="absolute inset-0 z-0 bg-black"
+      >
         <video
           autoPlay loop muted playsInline
-          className="w-full h-full object-cover opacity-40 md:opacity-50"
+          className="w-full h-full object-cover opacity-70 md:opacity-80"
         >
           <source src="/hero-bg.webm" type="video/webm" />
           <source src="/hero-bg.mp4" type="video/mp4" />
@@ -63,8 +69,22 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-black to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center h-full">
+      {/* WHITE SLANT OVERLAY (Fixes pixelation) */}
+      <div className="absolute bottom-0 left-0 w-full z-10 pointer-events-none translate-y-px">
+        <svg
+          viewBox="0 0 1200 120"
+          preserveAspectRatio="none"
+          className="w-full h-[150px] md:h-[200px] fill-[#1a120b]"
+        >
+          <path d="M0,120 L1200,0 L1200,120 Z" />
+          <line x1="0" y1="120" x2="1200" y2="0" stroke="#f97316" strokeWidth="1" />
+        </svg>
+      </div>
 
+      {/* CONTENT CONTAINER - CHANGED z-10 to z-30 to sit ON TOP of the slant */}
+      <div className="relative z-30 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center h-full">
+
+        {/* LEFT COLUMN */}
         <div className="flex flex-col gap-6 md:gap-8 text-center lg:text-left pt-10 lg:pt-0">
 
           <motion.div
@@ -83,7 +103,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             className="text-4xl md:text-7xl font-bold tracking-tight leading-[1.1] text-white"
           >
             Your face is your <br />
-            <span className="text-indigo-400">Password.</span>
+            <span className="text-orange-500">Password.</span>
           </motion.h1>
 
           <motion.p
@@ -104,13 +124,13 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             transition={{ delay: 0.3 }}
             className="flex items-center justify-center lg:justify-start gap-4 pt-2"
           >
-            <button className="px-8 py-3.5 bg-white text-black rounded-full font-semibold text-sm hover:bg-zinc-200 transition-all flex items-center gap-2">
+            <button className="px-8 py-3.5 bg-orange-400 text-black rounded-full font-semibold text-sm hover:bg-orange-300 transition-all flex items-center gap-2">
               <Fingerprint size={16} /> Start Demo
             </button>
           </motion.div>
         </div>
 
-        {/* RIGHT: The Laptop */}
+        {/* RIGHT COLUMN (Laptop) */}
         <div className="relative w-full flex justify-center perspective-[1000px]">
           <motion.div
             variants={laptopEntrance}
@@ -118,7 +138,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             animate={startAnimation ? "visible" : "hidden"} // Laptop waits too!
             className="relative w-[120%] -mx-6 sm:w-full sm:mx-0 max-w-[650px] origin-top transform scale-[0.9] sm:scale-100 md:scale-100 lg:scale-110"
           >
-            <div className="relative bg-[#111] rounded-t-3xl border border-zinc-800 shadow-2xl overflow-hidden aspect-3/4 md:aspect-16/10 ring-1 ring-white/10">
+            <div className="relative bg-[#111] rounded-3xl border border-zinc-800 shadow-2xl overflow-hidden aspect-3/4 md:aspect-16/10 ring-1 ring-white/10">
 
               <div className="absolute inset-0 bg-[#09090b] flex flex-col font-sans overflow-hidden">
 
@@ -156,7 +176,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                         <h3 className="text-lg font-bold">Create Secure Account</h3>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="p-4 bg-zinc-900 border border-white/10 rounded-xl flex flex-col items-center gap-2">
-                            <ScanFace size={32} className="text-indigo-400" />
+                            <ScanFace size={32} className="text-orange-500" />
                             <span className="text-xs font-medium">Face ID</span>
                           </div>
                           <div className="p-4 bg-zinc-900 border border-white/10 rounded-xl flex flex-col items-center gap-2">
@@ -175,7 +195,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                       >
                         <div className="relative">
                           <ScanFace size={64} className="text-white" />
-                          <motion.div animate={{ height: ["0%", "100%", "0%"] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute inset-0 w-full bg-indigo-500/30 blur-sm border-b-2 border-indigo-400" />
+                          <motion.div animate={{ height: ["0%", "100%", "0%"] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute inset-0 w-full bg-orange-500/30 blur-sm border-b-2 border-orange-500" />
                         </div>
                         <div className="flex flex-col items-center">
                           <span className="text-sm font-bold">Verifying Biometrics</span>
@@ -191,7 +211,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                           <CreditCard size={24} />
                           <span className="text-xs">No funds available</span>
                         </div>
-                        <div className="mt-4 w-full py-3 bg-indigo-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+                        <div className="mt-4 w-full py-3 bg-orange-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
                           <Plus size={16} /> Add Funds
                         </div>
                       </DashboardFrame>
@@ -246,6 +266,15 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                             <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><Check size={12} className="text-black" /></div>
                           </motion.div>
                         </div>
+                        <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <SiSpotify size={20} className="text-[#1DB954]" />
+                            <span className="text-sm font-bold">Spotify</span>
+                          </div>
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.8 }}>
+                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><Check size={12} className="text-black" /></div>
+                          </motion.div>
+                        </div>
                       </motion.div>
                     )}
 
@@ -264,8 +293,18 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                             </div>
                             <div className="text-xs font-mono">-$19.99</div>
                           </div>
+                          <div className="p-3 bg-zinc-800/50 rounded-lg flex items-center justify-between border border-white/5">
+                            <div className="flex items-center gap-3">
+                              <SiSpotify size={16} className="text-[#1DB954]" />
+                              <div>
+                                <div className="text-xs font-bold">Spotify</div>
+                                <div className="text-[10px] text-zinc-500">Next: Aug 28</div>
+                              </div>
+                            </div>
+                            <div className="text-xs font-mono">-$12.99</div>
+                          </div>
                           <div className="mt-4 pt-2 border-t border-white/5 flex gap-2">
-                            <div className="flex-1 py-2 bg-zinc-800 rounded-lg text-[10px] font-bold text-center text-zinc-400">Add New</div>
+                            <div className="flex-1 py-2 bg-orange-600 rounded-lg text-[10px] font-bold text-center text-white hover:bg-orange-900 transition-colors cursor-pointer">Add New</div>
                             <div className="flex-1 py-2 bg-zinc-800 rounded-lg text-[10px] font-bold text-center text-zinc-400">History</div>
                           </div>
                         </div>
@@ -277,12 +316,13 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
               </div>
 
             </div>
-            {/* BASE */}
-            <div className="h-3 bg-[#1a1a1a] rounded-b-xl mx-4 shadow-xl border-t border-black" />
           </motion.div>
         </div>
 
       </div>
+
+
+
     </section>
   );
 }
@@ -301,7 +341,7 @@ function DashboardFrame({ children, balance, status }: { children: React.ReactNo
             </div>
           </div>
           <div className="text-4xl font-bold text-white tracking-tight">${balance}</div>
-        </div>
+        </div>x
         <div className="p-4 bg-black/20">{children}</div>
       </div>
     </motion.div>

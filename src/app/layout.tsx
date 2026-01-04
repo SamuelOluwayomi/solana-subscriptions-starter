@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/providers/Providers";
+import ClickBirdEffect from "@/components/shared/ClickBirdEffect";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   title: "Cadpay",
   description: "Next Gen Subscriptions on Solana",
   icons: {
-    icon: "/icon.svg",
+    icon: "/icon.ico",
   },
 };
 
@@ -30,6 +31,7 @@ export default function RootLayout({
     <html suppressHydrationWarning>
       <body>
         <Providers>
+          <ClickBirdEffect />
           <div className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
             {children}
           </div>
