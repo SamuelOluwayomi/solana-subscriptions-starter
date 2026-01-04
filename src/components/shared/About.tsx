@@ -6,11 +6,17 @@ import CoreFeatures from './CoreFeatures';
 
 export default function About() {
     const containerRef = useRef(null);
+    const isInView = useInView(containerRef, { once: true, amount: 0.2 });
 
     return (
         // Increased z-index relative to previous section to ensure clean stacking
-        <section ref={containerRef} className="relative min-h-[60vh] bg-[#1c1209] flex flex-col items-center pt-30 -mt-1 overflow-hidden z-30">
-
+        <motion.section 
+            ref={containerRef} 
+            className="relative min-h-[60vh] bg-[#1c1209] flex flex-col items-center pt-30 -mt-1 overflow-hidden z-30"
+            initial={{ opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
             {/* 4. CORE FEATURES (Replaces simple text) */}
             <div className="w-full mt-0 relative z-50">
                 <CoreFeatures />
@@ -29,6 +35,6 @@ export default function About() {
                 </svg>
             </div>
 
-        </section>
+        </motion.section>
     );
 }
