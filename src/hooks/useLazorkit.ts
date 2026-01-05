@@ -21,9 +21,13 @@ export function useLazorkit() {
             setLocalLoading(true);
             await connect();
             router.push('/dashboard');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Authentication failed:", error);
-            // Handle error (toast?)
+            if (error.name === 'NotAllowedError' || error.message?.includes('timed out') || error.message?.includes('not allowed')) {
+                alert("Authentication canceled or not allowed. \n\n1. Ensure you are on 'localhost' or HTTPS.\n2. Ensure your device has biometrics or PIN (Windows Hello) set up.\n3. Make sure you didn't cancel the prompt.");
+            } else {
+                alert(`Authentication failed: ${error.message || error}`);
+            }
         } finally {
             setLocalLoading(false);
         }

@@ -189,34 +189,80 @@ export default function CoreFeatures() {
         );
     }
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1,
+                delayChildren: 0.2
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 30 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+        }
+    };
+
+    const cardContainerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const cardVariants = {
+        hidden: { opacity: 0, x: 100, scale: 0.9 },
+        visible: {
+            opacity: 1,
+            x: 0,
+            scale: 1,
+            transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+        }
+    };
+
     return (
         <div className="w-full max-w-7xl mx-auto px-6 py-12 -mt-32 relative z-50">
             <motion.div
                 className="mb-20 text-center"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial="hidden"
+                whileInView="visible"
                 viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transform: 'translateZ(0)' }}
+                variants={containerVariants}
             >
-                <div className="flex items-center justify-center gap-2 mb-4">
+                <motion.div variants={itemVariants} className="flex items-center justify-center gap-2 mb-4">
                     <span className="bg-zinc-800/80 backdrop-blur-md rounded-full px-4 py-1.5 text-xs font-bold text-white border border-white/10 flex items-center gap-2">
                         <SiSolana className="text-[#9945FF]" /> Built on Solana
                     </span>
-                </div>
-                <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4">
+                </motion.div>
+                <motion.h2 variants={itemVariants} className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4">
                     The CadPay Ecosystem
-                </h2>
-                <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
+                </motion.h2>
+                <motion.p variants={itemVariants} className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
                     The 4 Core Pillars
-                </p>
+                </motion.p>
             </motion.div>
 
             {/* Cards Section - Horizontal Layout with Staggered Positioning */}
             <div className="relative w-full max-w-7xl mx-auto mb-12 min-h-[500px]">
                 {/* Desktop: Cards in horizontal row, staggered vertically */}
                 {mounted && isDesktop && (
-                    <div className="flex flex-row items-start justify-center gap-6 md:gap-8 relative z-50 w-full" style={{ minHeight: '550px' }}>
+                    <motion.div
+                        className="flex flex-row items-start justify-center gap-6 md:gap-8 relative z-50 w-full"
+                        style={{ minHeight: '550px' }}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true, amount: 0.2 }}
+                        variants={cardContainerVariants}
+                    >
                         {cadpayFeatures.map((feature, index) => {
                             // Staggered positions: first (0) and last (3) are highest, middle two (1,2) are lower and same height
                             // Heights: [450px, 400px, 400px, 450px]
@@ -233,15 +279,7 @@ export default function CoreFeatures() {
                                         willChange: 'transform',
                                         transform: 'translateZ(0)'
                                     }}
-                                    initial={{ opacity: 0, x: 200, scale: 0.8 }}
-                                    whileInView={{ opacity: 1, x: 0, scale: 1 }}
-                                    viewport={{ once: true, amount: 0.2 }}
-                                    transition={{
-                                        duration: 0.6,
-                                        delay: index * 0.1,
-                                        ease: [0.16, 1, 0.3, 1],
-                                        type: "tween"
-                                    }}
+                                    variants={cardVariants}
                                 >
                                     <Card
                                         feature={feature}
@@ -252,24 +290,22 @@ export default function CoreFeatures() {
                                 </motion.div>
                             );
                         })}
-                    </div>
+                    </motion.div>
                 )}
 
                 {/* Mobile: Grid Layout - Smaller cards */}
                 {mounted && !isDesktop && (
-                    <div className="grid grid-cols-1 gap-4 relative z-50 w-full max-w-md mx-auto">
+                    <motion.div
+                        className="grid grid-cols-1 gap-4 relative z-50 w-full max-w-md mx-auto"
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true, amount: 0.2 }}
+                        variants={cardContainerVariants}
+                    >
                         {cadpayFeatures.map((feature, index) => (
                             <motion.div
                                 key={feature.id}
-                                initial={{ opacity: 0, x: 200, scale: 0.8 }}
-                                whileInView={{ opacity: 1, x: 0, scale: 1 }}
-                                viewport={{ once: true, amount: 0.2 }}
-                                transition={{
-                                    duration: 0.6,
-                                    delay: index * 0.1,
-                                    ease: [0.16, 1, 0.3, 1],
-                                    type: "tween"
-                                }}
+                                variants={cardVariants}
                                 style={{
                                     willChange: 'transform',
                                     transform: 'translateZ(0)'
@@ -283,7 +319,7 @@ export default function CoreFeatures() {
                                 />
                             </motion.div>
                         ))}
-                    </div>
+                    </motion.div>
                 )}
             </div>
 

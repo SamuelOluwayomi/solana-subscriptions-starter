@@ -2,6 +2,7 @@
 
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { SiSolana } from 'react-icons/si';
 
@@ -20,7 +21,8 @@ interface LogoItem {
     driftY: number;
 }
 
-export default function LogoField({ count = 20, className = '' }: { count?: number; className?: string }) {
+
+const LogoFieldContent = React.memo(function LogoFieldContentInner({ count, className }: { count: number; className: string }) {
     const [items, setItems] = useState<LogoItem[]>([]);
 
     // Mouse Position for proximity effect
@@ -101,7 +103,7 @@ export default function LogoField({ count = 20, className = '' }: { count?: numb
             ))}
         </div>
     );
-}
+});
 
 function DriftingLogo({ item, mouseX, mouseY }: { item: LogoItem; mouseX: any; mouseY: any }) {
     // Optimization: Only use transform if close? 
@@ -136,7 +138,7 @@ function DriftingLogo({ item, mouseX, mouseY }: { item: LogoItem; mouseX: any; m
 
     return (
         <motion.div
-            className="absolute pointer-events-auto mix-blend-screen"
+            className="absolute pointer-events-auto mix-blend-screen will-change-transform"
             style={{
                 top: `${item.top}%`,
                 left: `${item.left}%`,
@@ -183,4 +185,8 @@ function DriftingLogo({ item, mouseX, mouseY }: { item: LogoItem; mouseX: any; m
             )}
         </motion.div>
     );
+}
+
+export default function LogoField({ count = 20, className = '' }: { count?: number; className?: string }) {
+    return <LogoFieldContent count={count} className={className} />;
 }

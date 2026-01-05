@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { useInView } from 'framer-motion';
 import CoreFeatures from './CoreFeatures';
 import LogoField from './LogoField';
 // Removed unused imports
@@ -10,12 +10,9 @@ export default function About() {
     const containerRef = useRef(null);
     const isInView = useInView(containerRef, { once: true, amount: 0.2 });
     return (
-        <motion.section
+        <section
             ref={containerRef}
             className="relative min-h-[60vh] bg-[#1c1209] flex flex-col items-center pt-30 -mt-1 overflow-hidden z-30"
-            initial={{ opacity: 0 }}
-            animate={isInView ? { opacity: 1 } : { opacity: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
             {/* Background Logos */}
             <LogoField count={25} className="absolute inset-0 z-0" />
@@ -36,6 +33,6 @@ export default function About() {
                 </svg>
             </div>
 
-        </motion.section>
+        </section>
     );
 }

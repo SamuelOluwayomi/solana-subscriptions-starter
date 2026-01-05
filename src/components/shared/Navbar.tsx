@@ -30,9 +30,9 @@ export default function NavBar() {
 
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
                         <div className="hidden md:flex items-center gap-8">
-                            <NavLink href="/mechanism">The Bridge</NavLink>
-                            <NavLink href="/merchants">For Merchants</NavLink>
-                            <NavLink href="/engine">Lazorkit Engine</NavLink>
+                            <NavLink href="#">The Bridge</NavLink>
+                            <NavLink href="#">For Merchants</NavLink>
+                            <NavLink href="#">Lazorkit Engine</NavLink>
                         </div>
                     </div>
 
