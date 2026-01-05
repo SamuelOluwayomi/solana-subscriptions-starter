@@ -11,7 +11,7 @@ export default function Footer() {
     return (
         <footer className="relative bg-[#1c1209] pt-24 pb-12 overflow-hidden">
             {/* Background Logos */}
-            <LogoField count={12} className="absolute inset-0 z-0" />
+            <LogoField count={20} className="absolute inset-0 z-0" />
             <div className="max-w-7xl mx-auto px-6 relative z-10">
 
                 {/* THE "GIVE US A FOLLOW" CARD */}

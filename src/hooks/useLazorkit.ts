@@ -1,21 +1,83 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+// @ts-ignore - Assuming export exists, will fix if error
+import { useWallet } from '@lazorkit/wallet';
 
 export function useLazorkit() {
-    const [loading, setLoading] = useState(false);
     const router = useRouter();
+    // @ts-ignore
+    const { connect, disconnect, wallet, isConnected, isLoading: sdkLoading } = useWallet();
+    const [localLoading, setLocalLoading] = useState(false);
 
-    const handleAuth = async () => {
-        setLoading(true);
-        // Simulate the Lazorkit SDK delay (Biometric prompt + Blockchain confirm)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setLoading(false);
-        router.push('/'); // Redirect to home or dashboard after login
-    };
+    // Derived address from wallet object or hook state
+    // @ts-ignore
+    const address = wallet?.smartWallet || null;
+    // @ts-ignore
+    const isAuthenticated = isConnected;
+
+    const handleAuth = useCallback(async () => {
+        try {
+            setLocalLoading(true);
+            await connect();
+            router.push('/dashboard');
+        } catch (error) {
+            console.error("Authentication failed:", error);
+            // Handle error (toast?)
+        } finally {
+            setLocalLoading(false);
+        }
+    }, [connect, router]);
+
+    const handleLogin = handleAuth;
+    const handleCreate = handleAuth;
+
+    const [balance, setBalance] = useState<number | null>(null);
+
+    const refreshBalance = useCallback(async () => {
+        if (!address) return;
+        try {
+            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const lamports = await connection.getBalance(new PublicKey(address));
+            setBalance(lamports / LAMPORTS_PER_SOL);
+        } catch (e) {
+            console.error("Failed to fetch balance", e);
+        }
+    }, [address]);
+
+    // Fetch balance on mount/auth
+    useEffect(() => {
+        if (address) {
+            refreshBalance();
+            // Set up polling interval for real-time updates
+            const interval = setInterval(refreshBalance, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [address, refreshBalance]);
+
+    const requestAirdrop = useCallback(async () => {
+        if (!address) return;
+        try {
+            setLocalLoading(true);
+            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const signature = await connection.requestAirdrop(new PublicKey(address), 1 * LAMPORTS_PER_SOL);
+            await connection.confirmTransaction(signature);
+            await refreshBalance();
+        } catch (error) {
+            console.error("Airdrop failed:", error);
+            alert("Airdrop failed. You may be rate limited.");
+        } finally {
+            setLocalLoading(false);
+        }
+    }, [address, refreshBalance]);
 
     return {
-        loading,
-        loginWithPasskey: handleAuth,
-        createPasskeyWallet: handleAuth
+        loading: localLoading || sdkLoading,
+        loginWithPasskey: handleLogin,
+        createPasskeyWallet: handleCreate,
+        address,
+        isAuthenticated,
+        balance,
+        requestAirdrop
     };
 }

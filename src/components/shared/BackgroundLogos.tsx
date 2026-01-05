@@ -9,7 +9,7 @@ import LogoField from './LogoField';
 
 export default function BackgroundLogos() {
     return (
-        <LogoField count={25} className="fixed z-0" />
+        <LogoField count={35} className="fixed z-0" />
     );
 }
 

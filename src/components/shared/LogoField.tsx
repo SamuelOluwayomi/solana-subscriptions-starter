@@ -20,50 +20,74 @@ interface LogoItem {
     driftY: number;
 }
 
-export default function LogoField({ count = 15, className = '' }: { count?: number; className?: string }) {
-    const [mounted, setMounted] = useState(false);
+export default function LogoField({ count = 20, className = '' }: { count?: number; className?: string }) {
     const [items, setItems] = useState<LogoItem[]>([]);
 
-    // Mouse Parallax Logic
-    const mouseX = useMotionValue(0);
-    const mouseY = useMotionValue(0);
-    const springConfig = { damping: 25, stiffness: 150 };
-    const springX = useSpring(mouseX, springConfig);
-    const springY = useSpring(mouseY, springConfig);
+    // Mouse Position for proximity effect
+    const mouseX = useMotionValue(0.5);
+    const mouseY = useMotionValue(0.5);
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
-            const { clientX, clientY } = e;
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
-            mouseX.set((clientX / screenWidth) * 2 - 1);
-            mouseY.set((clientY / screenHeight) * 2 - 1);
+            // Throttled update could go here if needed, but MotionValue is usually fast
+            mouseX.set(e.clientX / window.innerWidth);
+            mouseY.set(e.clientY / window.innerHeight);
         };
         window.addEventListener('mousemove', handleMouseMove);
 
-        // Generate random items
         const newItems: LogoItem[] = [];
+        const maxAttempts = 500; // Prevent infinite loop
+
         for (let i = 0; i < count; i++) {
-            newItems.push({
-                id: i,
-                type: LOGO_TYPES[Math.floor(Math.random() * LOGO_TYPES.length)],
-                top: Math.random() * 100,
-                left: Math.random() * 100,
-                size: Math.random() * (80 - 30) + 30, // 30px to 80px
-                opacity: Math.random() * (0.15 - 0.05) + 0.05,
-                rotation: Math.random() * 360,
-                driftDuration: Math.random() * (20 - 10) + 10, // 10s to 20s
-                driftX: Math.random() * (50 - 20) + 20 * (Math.random() > 0.5 ? 1 : -1),
-                driftY: Math.random() * (50 - 20) + 20 * (Math.random() > 0.5 ? 1 : -1),
-            });
+            let attempt = 0;
+            let added = false;
+
+            while (attempt < maxAttempts && !added) {
+                // Random Candidate
+                const size = Math.random() * (40 - 20) + 20; // 20px to 40px
+                const top = Math.random() * 95; // 0-95%
+                const left = Math.random() * 95; // 0-95%
+
+                // Check Collision
+                let overlapping = false;
+                for (const existing of newItems) {
+                    // Simple distance check (approximate, assuming square aspect ratio roughly)
+                    // Convert % to approximate relative units for check or just use Euclidean dist in % space
+                    // Aspect ratio matters for precise collision in %, but rough check is usually fine.
+                    // Let's assume 100% = 100 units. 
+                    const dx = existing.left - left;
+                    const dy = existing.top - top;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = 6; // ~6% clearance required
+
+                    if (dist < minDistance) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+
+                if (!overlapping) {
+                    newItems.push({
+                        id: i,
+                        type: LOGO_TYPES[Math.floor(Math.random() * LOGO_TYPES.length)],
+                        top,
+                        left,
+                        size,
+                        opacity: Math.random() * (0.3 - 0.1) + 0.1,
+                        rotation: Math.random() * 360,
+                        driftDuration: Math.random() * (30 - 20) + 20, // Slower for less lag feel
+                        driftX: Math.random() * (20 - 5) + 5 * (Math.random() > 0.5 ? 1 : -1),
+                        driftY: Math.random() * (20 - 5) + 5 * (Math.random() > 0.5 ? 1 : -1),
+                    });
+                    added = true;
+                }
+                attempt++;
+            }
         }
         setItems(newItems);
-        setMounted(true);
 
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, [count, mouseX, mouseY]);
-
-    if (!mounted) return null;
 
     return (
         <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
@@ -71,68 +95,90 @@ export default function LogoField({ count = 15, className = '' }: { count?: numb
                 <DriftingLogo
                     key={item.id}
                     item={item}
-                    x={springX}
-                    y={springY}
+                    mouseX={mouseX}
+                    mouseY={mouseY}
                 />
             ))}
         </div>
     );
 }
 
-function DriftingLogo({ item, x, y }: { item: LogoItem; x: any; y: any }) {
-    // Parallax depth based on size (larger = clearer = closer = moves more)
-    // Actually standard parallax: closer objects move *more* opposite to creation? 
-    // Usually background moves slower. Let's say smaller = further = slower.
-    const depth = (item.size / 80) * 30;
+function DriftingLogo({ item, mouseX, mouseY }: { item: LogoItem; mouseX: any; mouseY: any }) {
+    // Optimization: Only use transform if close? 
+    // Hard to do conditionally with hooks. 
+    // Reduced radius and force for subtler, smoother effect.
 
-    const moveX = useTransform(x, (v: number) => v * depth * -1);
-    const moveY = useTransform(y, (v: number) => v * depth * -1);
+    const radius = 0.15; // 15% range
+
+    const x = useTransform(mouseX, (mX: number) => {
+        const itemX = item.left / 100;
+        const dist = mX - itemX;
+        if (Math.abs(dist) < radius) {
+            const force = (radius - Math.abs(dist)) / radius;
+            return dist * -1 * force * 50; // Reduced force 150 -> 50
+        }
+        return 0;
+    });
+
+    const y = useTransform(mouseY, (mY: number) => {
+        const itemY = item.top / 100;
+        const dist = mY - itemY;
+        if (Math.abs(dist) < radius) {
+            const force = (radius - Math.abs(dist)) / radius;
+            return dist * -1 * force * 50;
+        }
+        return 0;
+    });
+
+    // Softer spring for less jitter
+    const smoothX = useSpring(x, { damping: 30, stiffness: 100 });
+    const smoothY = useSpring(y, { damping: 30, stiffness: 100 });
 
     return (
         <motion.div
-            className="absolute pointer-events-auto" // Enable pointer events for hover
+            className="absolute pointer-events-auto mix-blend-screen"
             style={{
                 top: `${item.top}%`,
                 left: `${item.left}%`,
-                x: moveX,
-                y: moveY,
+                x: smoothX,
+                y: smoothY,
             }}
             initial={{ opacity: 0, scale: 0 }}
             animate={{
-                opacity: item.opacity,
+                opacity: [item.opacity, item.opacity * 1.2, item.opacity],
                 scale: 1,
-                // Continuous Drift
                 translateX: [0, item.driftX, 0],
                 translateY: [0, item.driftY, 0],
-                rotate: [item.rotation, item.rotation + 10, item.rotation],
+                rotate: [item.rotation, item.rotation + 45, item.rotation],
             }}
             transition={{
-                opacity: { duration: 1 },
-                scale: { duration: 0.5 },
+                opacity: { duration: 5, repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 0.8 },
                 translateX: { duration: item.driftDuration, repeat: Infinity, ease: "easeInOut" },
-                translateY: { duration: item.driftDuration * 1.2, repeat: Infinity, ease: "easeInOut" },
-                rotate: { duration: item.driftDuration * 1.5, repeat: Infinity, ease: "easeInOut" }
+                translateY: { duration: item.driftDuration * 1.5, repeat: Infinity, ease: "easeInOut" },
+                rotate: { duration: item.driftDuration * 2, repeat: Infinity, ease: "linear" }
             }}
             whileHover={{
                 scale: 1.5,
-                opacity: item.opacity * 2,
-                transition: { duration: 0.2 }
+                opacity: 0.8,
+                zIndex: 50,
+                transition: { duration: 0.3 }
             }}
         >
             {item.type === 'lazorkit' && (
                 <div style={{ width: item.size, height: item.size }} className="relative">
-                    <Image src="/lazorkit-logo.png" alt="" fill className="object-contain grayscale" />
+                    <Image src="/lazorkit-logo.png" alt="" fill className="object-contain grayscale opacity-60" />
                 </div>
             )}
             {item.type === 'solana' && (
-                <SiSolana size={item.size} className="text-white" />
+                <SiSolana size={item.size} className="text-white opacity-30" />
             )}
             {item.type === 'cadpay' && (
                 <div
                     style={{ width: item.size, height: item.size }}
-                    className="rounded-xl bg-orange-500/10 flex items-center justify-center backdrop-blur-sm"
+                    className="rounded-lg bg-orange-500/5 flex items-center justify-center backdrop-blur-[1px] border border-orange-500/5"
                 >
-                    <span className="font-black italic text-orange-500/40" style={{ fontSize: item.size * 0.6 }}>C</span>
+                    <span className="font-black italic text-orange-500/30" style={{ fontSize: item.size * 0.6 }}>C</span>
                 </div>
             )}
         </motion.div>

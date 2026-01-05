@@ -18,7 +18,7 @@ export default function About() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
             {/* Background Logos */}
-            <LogoField count={15} className="absolute inset-0 z-0" />
+            <LogoField count={25} className="absolute inset-0 z-0" />
 
             <div className="w-full mt-0 relative z-50">
                 <CoreFeatures />

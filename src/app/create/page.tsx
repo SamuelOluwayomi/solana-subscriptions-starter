@@ -77,7 +77,7 @@ export default function CreateAccount() {
                         disabled={loading}
                         className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-900/20 disabled:opacity-50 disabled:grayscale"
                     >
-                        {loading ? 'Deploying Wallet...' : 'Create Passkey'}
+                        {loading ? 'Deploying Wallet...' : 'Create Account'}
                     </button>
 
                     <div className="mt-6 text-center">
