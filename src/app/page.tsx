@@ -7,25 +7,26 @@ import Hero from '@/components/shared/Hero';
 import TrailerLoader from '@/components/shared/TrailerLoader';
 import About from '@/components/shared/About';
 import Footer from '@/components/shared/Footer';
+import { useLoader } from '@/context/LoaderContext';
 // import BentoGrid from '@/components/landing/BentoGrid'; // Component not yet available
 
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(true);
+  const { hasLoaded, setHasLoaded } = useLoader();
 
   return (
     <div className="min-h-screen bg-black selection:bg-orange-500/30">
 
       {/* THE MERGE & REVEAL LOADER */}
       <AnimatePresence mode='wait'>
-        {isLoading && (
-          <TrailerLoader onComplete={() => setIsLoading(false)} />
+        {!hasLoaded && (
+          <TrailerLoader onComplete={() => setHasLoaded(true)} />
         )}
       </AnimatePresence>
 
       <Navbar />
 
       <main className="w-full">
-        <Hero startAnimation={!isLoading} />
+        <Hero startAnimation={hasLoaded} />
         <About />
         <Footer />
       </main>

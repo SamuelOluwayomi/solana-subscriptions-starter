@@ -23,3 +23,29 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+  border-left: 1px solid #1c1917;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #f97316; /* Orange-500 */
+  border-radius: 9999px;
+  border: 2px solid #000000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ea580c; /* Orange-600 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #f97316 #000000;
+}

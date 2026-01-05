@@ -1,8 +1,9 @@
 'use client';
 
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Fingerprint, ScanFace, QrCode, Copy, Check, Plus, ArrowRight, CreditCard, Lock } from 'lucide-react';
-import { SiNetflix, SiSpotify } from "react-icons/si";
+import { ScanFace } from 'lucide-react';
+import { Fingerprint, QrCode, Copy, Check, Plus, ArrowRight, CreditCard, Lock } from '@phosphor-icons/react';
+import { SiNetflix, SiSpotify, SiSolana } from "react-icons/si";
 import { useState, useEffect } from 'react';
 
 type Phase = 'intro' | 'auth-choice' | 'scanning' | 'dash-empty' | 'fund-action' | 'dash-funded' | 'connecting' | 'dash-final';
@@ -93,6 +94,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             animate={startAnimation ? "visible" : "hidden"}
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 w-fit backdrop-blur-md mx-auto lg:mx-0"
           >
+            <SiSolana className="text-[#9945FF] text-xs" /> <span className="text-xs font-bold text-zinc-300">Solana Subscription Protocol</span>
           </motion.div>
 
           <motion.h1

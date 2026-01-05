@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { X, ArrowUpRight } from 'lucide-react';
+import { SiSolana } from "react-icons/si";
+import { X, ArrowUpRight } from '@phosphor-icons/react';
 
 type Feature = {
     id: string;
@@ -17,9 +18,9 @@ type Feature = {
 const cadpayFeatures: Feature[] = [
     {
         id: 'biometric',
-        headline: 'Your Face is Your Private Key.',
-        description: 'Powered by Lazorkit, we map your device\'s FaceID directly to a Solana keypair.',
-        fullDescription: 'Powered by Lazorkit, we map your device\'s FaceID directly to a Solana keypair. This eliminates the need for seed phrases, creating a non-custodial wallet that is as secure as a ledger but as easy to access as your phone.',
+        headline: 'Your Face or Fingerprint is Your Private Key.',
+        description: 'Powered by Lazorkit, we map your device\'s biometric authenticator directly to a Solana keypair.',
+        fullDescription: 'Powered by Lazorkit, we map your device\'s biometric authenticator directly to a Solana keypair. This eliminates the need for seed phrases, creating a non-custodial wallet that is as secure as a ledger but as easy to access as your phone.',
         image: '/features/identity.png'
     },
     {
@@ -70,12 +71,12 @@ type Bird = {
 // Bird Animation Component
 function BirdAnimation({ bird, onComplete }: { bird: Bird; onComplete: () => void }) {
     const direction = bird.direction;
-    const xDist = direction === 'open' 
-        ? (Math.random() - 0.5) * 300 - 50  // Fly outward when opening
-        : (Math.random() - 0.5) * 400 + (Math.random() > 0.5 ? 150 : -150); // Fly away when closing
+    const xDist = direction === 'open'
+        ? (Math.random() - 0.5) * 500 - 100 // Fly wider
+        : (Math.random() - 0.5) * 600 + (Math.random() > 0.5 ? 200 : -200);
     const yDist = direction === 'open'
-        ? -100 - Math.random() * 100  // Fly upward when opening
-        : -200 - Math.random() * 150; // Fly more upward when closing
+        ? -150 - Math.random() * 200 // Fly higher
+        : -250 - Math.random() * 300;
 
     return (
         <motion.div
@@ -89,18 +90,18 @@ function BirdAnimation({ bird, onComplete }: { bird: Bird; onComplete: () => voi
             animate={{
                 x: bird.x + xDist,
                 y: bird.y + yDist,
-                opacity: [0, 1, 1, 0],
-                scale: [0.3, 1, 1.2, 0.5],
-                rotate: bird.rotation + (xDist > 0 ? 30 : -30)
+                opacity: [0, 1, 1, 0, 0], // Lengthen fade out
+                scale: [0.3, 1, 1.5, 1.2, 0.5],
+                rotate: bird.rotation + (xDist > 0 ? 45 : -45)
             }}
-            transition={{ 
-                duration: direction === 'open' ? 0.8 : 1.2, 
-                ease: [0.16, 1, 0.3, 1],
-                times: [0, 0.2, 0.7, 1]
+            transition={{
+                duration: direction === 'open' ? 2.5 : 3, // Significantly longer duration
+                ease: [0.2, 0.8, 0.2, 1], // Smoother ease
+                times: [0, 0.1, 0.5, 0.8, 1]
             }}
             onAnimationComplete={onComplete}
             className="absolute w-8 h-8 text-orange-500 pointer-events-none"
-            style={{ 
+            style={{
                 transform: 'translateZ(0)',
                 willChange: 'transform, opacity',
                 backfaceVisibility: 'hidden'
@@ -190,7 +191,7 @@ export default function CoreFeatures() {
 
     return (
         <div className="w-full max-w-7xl mx-auto px-6 py-12 -mt-32 relative z-50">
-            <motion.div 
+            <motion.div
                 className="mb-20 text-center"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -198,6 +199,11 @@ export default function CoreFeatures() {
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 style={{ transform: 'translateZ(0)' }}
             >
+                <div className="flex items-center justify-center gap-2 mb-4">
+                    <span className="bg-zinc-800/80 backdrop-blur-md rounded-full px-4 py-1.5 text-xs font-bold text-white border border-white/10 flex items-center gap-2">
+                        <SiSolana className="text-[#9945FF]" /> Built on Solana
+                    </span>
+                </div>
                 <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4">
                     The CadPay Ecosystem
                 </h2>
@@ -207,7 +213,7 @@ export default function CoreFeatures() {
             </motion.div>
 
             {/* Cards Section - Horizontal Layout with Staggered Positioning */}
-            <div className="relative w-full max-w-7xl mx-auto mb-32 min-h-[500px]">
+            <div className="relative w-full max-w-7xl mx-auto mb-12 min-h-[500px]">
                 {/* Desktop: Cards in horizontal row, staggered vertically */}
                 {mounted && isDesktop && (
                     <div className="flex flex-row items-start justify-center gap-6 md:gap-8 relative z-50 w-full" style={{ minHeight: '550px' }}>
@@ -218,10 +224,10 @@ export default function CoreFeatures() {
                             const cardHeights = [450, 400, 400, 450];
                             const staggerOffsets = [0, 50, 50, 0];
                             return (
-                                <motion.div 
-                                    key={feature.id} 
-                                    className="relative flex-1 max-w-[280px] hover:z-[60]"
-                                    style={{ 
+                                <motion.div
+                                    key={feature.id}
+                                    className="relative flex-1 max-w-[280px] hover:z-60"
+                                    style={{
                                         zIndex: 50 + index,
                                         marginTop: `${staggerOffsets[index]}px`,
                                         willChange: 'transform',
@@ -230,16 +236,16 @@ export default function CoreFeatures() {
                                     initial={{ opacity: 0, x: 200, scale: 0.8 }}
                                     whileInView={{ opacity: 1, x: 0, scale: 1 }}
                                     viewport={{ once: true, amount: 0.2 }}
-                                    transition={{ 
+                                    transition={{
                                         duration: 0.6,
                                         delay: index * 0.1,
                                         ease: [0.16, 1, 0.3, 1],
                                         type: "tween"
                                     }}
                                 >
-                                    <Card 
-                                        feature={feature} 
-                                        onClick={() => setSelectedId(feature.id)} 
+                                    <Card
+                                        feature={feature}
+                                        onClick={() => setSelectedId(feature.id)}
                                         isSelected={selectedId === feature.id}
                                         cardHeight={cardHeights[index]}
                                     />
@@ -258,20 +264,20 @@ export default function CoreFeatures() {
                                 initial={{ opacity: 0, x: 200, scale: 0.8 }}
                                 whileInView={{ opacity: 1, x: 0, scale: 1 }}
                                 viewport={{ once: true, amount: 0.2 }}
-                                transition={{ 
+                                transition={{
                                     duration: 0.6,
                                     delay: index * 0.1,
                                     ease: [0.16, 1, 0.3, 1],
                                     type: "tween"
                                 }}
-                                style={{ 
+                                style={{
                                     willChange: 'transform',
                                     transform: 'translateZ(0)'
                                 }}
                             >
-                                <Card 
-                                    feature={feature} 
-                                    onClick={() => setSelectedId(feature.id)} 
+                                <Card
+                                    feature={feature}
+                                    onClick={() => setSelectedId(feature.id)}
                                     isSelected={selectedId === feature.id}
                                     isMobile={true}
                                 />
@@ -282,8 +288,8 @@ export default function CoreFeatures() {
             </div>
 
             {/* Lazorkit Section */}
-            <motion.div 
-                className="relative z-50 mt-32 mb-20"
+            <motion.div
+                className="relative z-50 mt-12 mb-20"
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
@@ -291,18 +297,26 @@ export default function CoreFeatures() {
                 style={{ transform: 'translateZ(0)' }}
             >
                 <div className="max-w-4xl mx-auto">
-                    <motion.div 
+                    <motion.div
                         className="text-center mb-12"
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     >
-                        <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4">
+                        <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4 flex items-center justify-center gap-3">
+                            <div className="relative w-10 h-10 md:w-16 md:h-16">
+                                <Image
+                                    src="/lazorkit-logo.png"
+                                    alt="Lazorkit"
+                                    fill
+                                    className="object-contain"
+                                />
+                            </div>
                             Powered by Lazorkit
                         </h3>
                     </motion.div>
-                    <motion.div 
+                    <motion.div
                         className="bg-zinc-900/50 border border-white/10 rounded-3xl p-8 md:p-12 backdrop-blur-sm"
                         initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
@@ -310,7 +324,7 @@ export default function CoreFeatures() {
                         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
                         style={{ transform: 'translateZ(0)' }}
                     >
-                        <motion.p 
+                        <motion.p
                             className="text-zinc-300 text-lg md:text-xl leading-relaxed text-center"
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -319,7 +333,7 @@ export default function CoreFeatures() {
                         >
                             Lazorkit is the advanced Account Abstraction (AA) SDK for the Solana blockchain. It serves as the hidden engine inside CadPay, replacing complex crypto standards with familiar Web2 experiences.
                         </motion.p>
-                        <motion.p 
+                        <motion.p
                             className="text-zinc-400 text-base md:text-lg leading-relaxed text-center mt-6"
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -333,13 +347,13 @@ export default function CoreFeatures() {
             </motion.div>
 
             {/* Birds Animation */}
-            <div className="fixed inset-0 pointer-events-none z-[100001] overflow-hidden">
+            <div className="fixed inset-0 pointer-events-none z-100001 overflow-hidden">
                 <AnimatePresence>
                     {birds.map(bird => (
-                        <BirdAnimation 
-                            key={bird.id} 
-                            bird={bird} 
-                            onComplete={() => removeBird(bird.id)} 
+                        <BirdAnimation
+                            key={bird.id}
+                            bird={bird}
+                            onComplete={() => removeBird(bird.id)}
                         />
                     ))}
                 </AnimatePresence>
@@ -354,7 +368,7 @@ export default function CoreFeatures() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                            className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-8"
+                            className="fixed inset-0 z-100000 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-8"
                             onClick={handleClose}
                             style={{ willChange: 'opacity', transform: 'translateZ(0)' }}
                         >
@@ -365,11 +379,11 @@ export default function CoreFeatures() {
                                 initial={{ scale: 0.8, opacity: 0, y: 20 }}
                                 animate={{ scale: 1, opacity: 1, y: 0 }}
                                 exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                                transition={{ 
-                                    layout: { 
-                                        type: "spring", 
-                                        bounce: 0.2, 
-                                        duration: 0.5 
+                                transition={{
+                                    layout: {
+                                        type: "spring",
+                                        bounce: 0.2,
+                                        duration: 0.5
                                     },
                                     scale: {
                                         type: "spring",
@@ -383,7 +397,7 @@ export default function CoreFeatures() {
                                         duration: 0.4
                                     }
                                 }}
-                                style={{ 
+                                style={{
                                     willChange: 'transform, opacity',
                                     transform: 'translateZ(0)',
                                     backfaceVisibility: 'hidden'
@@ -397,8 +411,8 @@ export default function CoreFeatures() {
                                     <X size={20} />
                                 </button>
 
-                                <motion.div 
-                                    className="relative h-48 md:h-64 w-full flex-shrink-0 overflow-hidden"
+                                <motion.div
+                                    className="relative h-48 md:h-64 w-full shrink-0 overflow-hidden"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ duration: 0.3, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
@@ -412,11 +426,11 @@ export default function CoreFeatures() {
                                         sizes="(max-width: 768px) 100vw, 672px"
                                         priority
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-[#1c1209] via-[#1c1209]/80 to-transparent" />
+                                    <div className="absolute inset-0 bg-linear-to-t from-[#1c1209] via-[#1c1209]/80 to-transparent" />
                                 </motion.div>
 
                                 <div className="p-5 md:p-10 overflow-y-auto custom-scrollbar flex-1">
-                                    <motion.h3 
+                                    <motion.h3
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.3, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
@@ -425,7 +439,7 @@ export default function CoreFeatures() {
                                     >
                                         {cadpayFeatures.find(f => f.id === selectedId)?.headline}
                                     </motion.h3>
-                                    <motion.p 
+                                    <motion.p
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.3, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
@@ -444,9 +458,9 @@ export default function CoreFeatures() {
     );
 }
 
-function Card({ 
-    feature, 
-    onClick, 
+function Card({
+    feature,
+    onClick,
     isSelected,
     isMobile = false,
     cardHeight = 450
@@ -465,7 +479,7 @@ function Card({
             initial={false}
             animate={{ opacity: 1 }}
             className="relative cursor-pointer group w-full"
-            style={{ 
+            style={{
                 height: isMobile ? '320px' : `${cardHeight}px`,
                 willChange: isSelected ? 'transform' : 'auto',
                 transform: 'translateZ(0)',
@@ -494,7 +508,7 @@ function Card({
                         sizes="(max-width: 768px) 100vw, 280px"
                         priority
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
+                    <div className="absolute inset-0 bg-linear-to-b from-black/40 via-black/60 to-black/90" />
                 </div>
 
                 {/* Content Overlay */}
@@ -503,9 +517,9 @@ function Card({
                     <div className="mb-2 md:mb-3">
                         <span className="inline-block px-2 md:px-3 py-1 bg-zinc-800/80 backdrop-blur-sm rounded-full text-[10px] md:text-xs font-semibold text-orange-500 uppercase tracking-wide">
                             {feature.id === 'biometric' ? 'Biometric Account Abstraction' :
-                             feature.id === 'autosettlement' ? 'Auto-Settlement Engine' :
-                             feature.id === 'infrastructure' ? 'Hyper-Scale Infrastructure' :
-                             'Programmable Commerce SDK'}
+                                feature.id === 'autosettlement' ? 'Auto-Settlement Engine' :
+                                    feature.id === 'infrastructure' ? 'Hyper-Scale Infrastructure' :
+                                        'Programmable Commerce SDK'}
                         </span>
                     </div>
 

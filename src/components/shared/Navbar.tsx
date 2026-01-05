@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronRight, Fingerprint, Menu, X } from 'lucide-react';
+import { CaretRight, Fingerprint, List, X } from '@phosphor-icons/react';
+import { SiSolana } from "react-icons/si";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,6 +24,8 @@ export default function NavBar() {
                         <Link href="/" className="font-black italic tracking-tighter text-xl text-orange-100 z-10 flex items-center gap-2">
                             <div className="w-6 h-6 bg-orange-500 text-black flex items-center justify-center rounded-sm not-italic">C</div>
                             CADPAY
+                            <div className="h-4 w-px bg-white/20 mx-1" />
+                            <SiSolana className="text-[#9945FF] opacity-80" size={16} />
                         </Link>
 
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
@@ -49,7 +52,7 @@ export default function NavBar() {
                         onClick={() => setIsOpen(!isOpen)}
                         className="md:hidden text-white z-50 relative"
                     >
-                        {isOpen ? <X size={24} /> : <Menu size={24} />}
+                        {isOpen ? <X size={24} /> : <List size={24} />}
                     </button>
                 </div>
             </nav>
@@ -72,10 +75,10 @@ export default function NavBar() {
                             <Link
                                 href="/create"
                                 onClick={() => setIsOpen(false)}
-                                className="flex items-center justify-center gap-2 bg-white text-black px-4 py-3 rounded-full font-bold"
+                                className="flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-3 rounded-full font-bold"
                             >
-                                <Fingerprint size={18} />
-                                Create Smart Wallet
+                                <Fingerprint size={18} className="bg-orange-500 text-white" />
+                                Create Account
                             </Link>
                         </div>
                     </motion.div>

@@ -2,6 +2,7 @@
 
 import { LazorkitProvider, DEFAULTS } from '@lazorkit/wallet'
 import { ReactNode, useState, useEffect, useMemo } from 'react'
+import { LoaderProvider } from '@/context/LoaderContext'
 
 export function Providers({ children }: { children: ReactNode }) {
     const [mounted, setMounted] = useState(false)
@@ -15,16 +16,18 @@ export function Providers({ children }: { children: ReactNode }) {
         paymasterUrl: "https://lazorkit-paymaster.onrender.com"
     }), [])
 
-    if (!mounted) {
-        return <>{children}</>
-    }
-
     return (
-        <LazorkitProvider
-            paymasterConfig={paymasterConfig}
-            rpcUrl="https://api.devnet.solana.com"
-        >
-            {children}
-        </LazorkitProvider>
+        <LoaderProvider>
+            {mounted ? (
+                <LazorkitProvider
+                    paymasterConfig={paymasterConfig}
+                    rpcUrl="https://api.devnet.solana.com"
+                >
+                    {children}
+                </LazorkitProvider>
+            ) : (
+                <>{children}</>
+            )}
+        </LoaderProvider>
     )
 }
