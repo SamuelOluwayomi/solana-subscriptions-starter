@@ -94,7 +94,6 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             animate={startAnimation ? "visible" : "hidden"}
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 w-fit backdrop-blur-md mx-auto lg:mx-0"
           >
-            <SiSolana className="text-[#9945FF] text-xs" /> <span className="text-xs font-bold text-zinc-300">Solana Subscription Protocol</span>
           </motion.div>
 
           <motion.h1

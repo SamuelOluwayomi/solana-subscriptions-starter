@@ -1,12 +1,17 @@
 'use client';
 
-import { SiDiscord, SiGithub, SiX, SiLinkedin, SiYoutube } from 'react-icons/si';
+import { SiDiscord, SiGithub, SiX, SiLinkedin, SiYoutube, SiSolana } from 'react-icons/si';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import LogoField from './LogoField';
+// Removed unused imports
 
 export default function Footer() {
+
     return (
         <footer className="relative bg-[#1c1209] pt-24 pb-12 overflow-hidden">
+            {/* Background Logos */}
+            <LogoField count={12} className="absolute inset-0 z-0" />
             <div className="max-w-7xl mx-auto px-6 relative z-10">
 
                 {/* THE "GIVE US A FOLLOW" CARD */}
@@ -28,7 +33,7 @@ export default function Footer() {
                         </div>
 
                         {/* SOCIAL ICONS */}
-                        <motion.div 
+                        <motion.div
                             className="flex flex-wrap justify-center gap-4 md:gap-6"
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -80,7 +85,7 @@ export default function Footer() {
                 </motion.div>
 
                 {/* FOOTER LINKS */}
-                <motion.div 
+                <motion.div
                     className="grid grid-cols-2 md:grid-cols-5 gap-10 md:gap-8 border-t border-white/10 pt-16"
                     initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -89,7 +94,7 @@ export default function Footer() {
                     style={{ transform: 'translateZ(0)' }}
                 >
                     {/* BRAND COL */}
-                    <motion.div 
+                    <motion.div
                         className="col-span-2 md:col-span-1 space-y-4"
                         initial={{ opacity: 0, x: -20 }}
                         whileInView={{ opacity: 1, x: 0 }}
@@ -159,7 +164,7 @@ export default function Footer() {
                     </motion.div>
                 </motion.div>
 
-                <motion.div 
+                <motion.div
                     className="mt-16 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-zinc-500"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
