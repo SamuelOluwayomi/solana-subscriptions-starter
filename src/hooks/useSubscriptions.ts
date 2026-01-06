@@ -80,19 +80,28 @@ export function useSubscriptions() {
         });
     };
 
-    // Generate simulated historical data for the chart
+    // Generate simulated historical data for the chart (6 months from July 2025 to Dec 2025)
     const getHistoricalData = useCallback(() => {
         const months = [];
-        const currentDate = new Date();
+        const baseDate = new Date(2025, 6, 1); // July 2025
+        const currentMonthTotal = getMonthlyTotal();
 
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date(currentDate);
-            date.setMonth(date.getMonth() - i);
+        // Generate data for July - December 2025
+        for (let i = 0; i < 6; i++) {
+            const date = new Date(baseDate);
+            date.setMonth(baseDate.getMonth() + i);
             const monthKey = date.toISOString().slice(0, 7);
             const monthName = date.toLocaleDateString('en-US', { month: 'short' });
 
-            // Use stored data or simulate based on current subscriptions
-            const value = monthlyData[monthKey] || (i === 0 ? getMonthlyTotal() : getMonthlyTotal() * (0.7 + Math.random() * 0.3));
+            // Use stored data if available, otherwise simulate gradual growth
+            let value;
+            if (monthlyData[monthKey]) {
+                value = monthlyData[monthKey];
+            } else {
+                // Simulate growth from 40% to 100% of current total  
+                const growthFactor = 0.4 + (i / 5) * 0.6;
+                value = currentMonthTotal * growthFactor;
+            }
 
             months.push({
                 month: monthName,
@@ -103,11 +112,16 @@ export function useSubscriptions() {
         return months;
     }, [monthlyData, getMonthlyTotal]);
 
+    const checkDuplicateEmail = useCallback((serviceId: string, email: string) => {
+        return subscriptions.some(sub => sub.serviceId === serviceId && sub.email.toLowerCase() === email.toLowerCase());
+    }, [subscriptions]);
+
     return {
         subscriptions,
         addSubscription,
         removeSubscription,
         getMonthlyTotal,
-        getHistoricalData
+        getHistoricalData,
+        checkDuplicateEmail
     };
 }

@@ -19,7 +19,10 @@ import ServiceCard from '@/components/subscriptions/ServiceCard';
 import SubscribeModal from '@/components/subscriptions/SubscribeModal';
 import ActiveSubscriptionCard from '@/components/subscriptions/ActiveSubscriptionCard';
 
-type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'payment-link' | 'invoices' | 'dev-keys';
+import SecuritySettings from '@/components/security/SecuritySettings';
+import TransactionDetailsModal from '@/components/shared/TransactionDetailsModal';
+
+type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
 export default function Dashboard() {
     const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
@@ -152,6 +155,12 @@ export default function Dashboard() {
                                         active={activeSection === 'wallet'}
                                         onClick={() => setActiveSection('wallet')}
                                     />
+                                    <NavItem
+                                        icon={<Key size={20} />}
+                                        label="Security"
+                                        active={activeSection === 'security'}
+                                        onClick={() => setActiveSection('security')}
+                                    />
                                 </div>
                             </div>
 
@@ -201,6 +210,7 @@ export default function Dashboard() {
                     {activeSection === 'overview' && <OverviewSection userName={userName} balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'subscriptions' && <SubscriptionsSection />}
                     {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
+                    {activeSection === 'security' && <SecuritySettings />}
                     {activeSection === 'payment-link' && <PaymentLinkSection />}
                     {activeSection === 'invoices' && <InvoicesSection />}
                     {activeSection === 'dev-keys' && <DevKeysSection />}
@@ -567,7 +577,7 @@ function SubscriptionsSection() {
                         </div>
                     ) : (
                         <div>
-                            <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-xl p-6 mb-6">
+                            <div className="bg-linear-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-xl p-6 mb-6">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-orange-200/60 mb-1">Monthly Spending</p>
@@ -617,7 +627,7 @@ function SubscriptionsSection() {
                                         </div>
                                         <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
+                                                className="h-full bg-linear-to-r from-orange-500 to-orange-600 rounded-full"
                                                 style={{ width: `${(item.amount / Math.max(...getHistoricalData().map(d => d.amount))) * 100}%` }}
                                             />
                                         </div>

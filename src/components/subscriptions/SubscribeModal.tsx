@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, EnvelopeSimple, Warning } from '@phosphor-icons/react';
+import { X, Check, EnvelopeSimple, Warning, LockKey } from '@phosphor-icons/react';
 import { Service, SubscriptionPlan } from '@/data/subscriptions';
+import Loader from '@/components/shared/Loader';
 
 interface SubscribeModalProps {
     isOpen: boolean;
@@ -12,12 +13,14 @@ interface SubscribeModalProps {
     onSubscribe: (serviceId: string, plan: SubscriptionPlan, email: string, price: number) => Promise<void>;
     balance: number;
     solPrice: number | null;
+    existingSubscriptions?: Array<{ serviceId: string; email: string }>;
 }
 
-export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, balance, solPrice }: SubscribeModalProps) {
-    const [step, setStep] = useState<'plans' | 'email' | 'confirm' | 'processing'>('plans');
+export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, balance, solPrice, existingSubscriptions = [] }: SubscribeModalProps) {
+    const [step, setStep] = useState<'plans' | 'email' | 'pin' | 'confirm' | 'processing'>('plans');
     const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
     const [email, setEmail] = useState('');
+    const [pin, setPin] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -173,7 +176,10 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                             <input
                                                 type="email"
                                                 value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
+                                                onChange={(e) => {
+                                                    setEmail(e.target.value);
+                                                    setError('');
+                                                }}
                                                 placeholder="you@gmail.com"
                                                 className="w-full px-4 py-3 pl-12 bg-zinc-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30"
                                                 autoFocus
@@ -190,8 +196,22 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                             Back
                                         </button>
                                         <button
-                                            onClick={() => email && setStep('confirm')}
-                                            disabled={!email || !/\S+@\S+\.\S+/.test(email)}
+                                            onClick={() => {
+                                                if (!/\S+@\S+\.\S+/.test(email)) {
+                                                    setError('Please enter a valid email address');
+                                                    return;
+                                                }
+                                                // Check for duplicate
+                                                const isDuplicate = existingSubscriptions.some(
+                                                    sub => sub.serviceId === service.id && sub.email.toLowerCase() === email.toLowerCase()
+                                                );
+                                                if (isDuplicate) {
+                                                    setError(`This email already has an active ${service.name} subscription!`);
+                                                    return;
+                                                }
+                                                setStep('pin');
+                                            }}
+                                            disabled={!email}
                                             className="flex-1 py-3 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                             style={{ backgroundColor: service.color, color: 'white' }}
                                         >
