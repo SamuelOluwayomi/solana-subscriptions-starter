@@ -11,6 +11,7 @@ import {
 import { SiSolana } from 'react-icons/si';
 import LogoField from '@/components/shared/LogoField';
 import AddFundsModal from '@/components/shared/AddFundsModal';
+import ProfileEditModal from '@/components/shared/ProfileEditModal';
 import { Connection, PublicKey } from '@solana/web3.js';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'payment-link' | 'invoices' | 'dev-keys';
@@ -18,7 +19,21 @@ type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'payment-link' | 'in
 export default function Dashboard() {
     const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
+    const [userName, setUserName] = useState('User');
+    const [showProfileEdit, setShowProfileEdit] = useState(false);
+
+    // Load username from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('userName');
+        if (saved) setUserName(saved);
+    }, []);
+
+    // Save username to localStorage
+    const saveUserName = (name: string) => {
+        setUserName(name);
+        localStorage.setItem('userName', name);
+    };
 
     const walletAddress = address || "Loading...";
     const displayBalance = balance !== null ? balance.toFixed(4) : "0.00";
@@ -31,42 +46,69 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-[#1c1209] text-white font-sans relative overflow-hidden">
-            {/* Background Logo Field */}
-            <LogoField count={15} className="fixed inset-0 z-0 opacity-30" />
+            {/* Orange Glow Background */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.15),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(234,88,12,0.1),transparent_50%)] z-0" />
 
-            {/* Mobile Menu Toggle */}
-            <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="md:hidden fixed top-6 left-6 z-50 w-10 h-10 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center"
-            >
-                {sidebarOpen ? <X size={20} /> : <List size={20} />}
-            </button>
+            {/* Background Logo Field */}
+            <LogoField count={6} className="fixed inset-0 z-0 opacity-30" />
+
+            {/* Sidebar Toggle Button - Only shows when sidebar is closed */}
+            {!sidebarOpen && (
+                <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="fixed top-6 left-6 z-50 w-10 h-10 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center hover:bg-zinc-800/80 transition-colors"
+                >
+                    <List size={20} />
+                </button>
+            )}
+
+            {/* Mobile Backdrop Overlay */}
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSidebarOpen(false)}
+                        className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-30"
+                    />
+                )}
+            </AnimatePresence>
 
             {/* Glassmorphism Sidebar */}
             <AnimatePresence>
-                {(sidebarOpen || window.innerWidth >= 768) && (
+                {sidebarOpen && (
                     <motion.aside
                         initial={{ x: -300 }}
                         animate={{ x: 0 }}
                         exit={{ x: -300 }}
                         className="fixed left-0 top-0 h-screen w-72 bg-zinc-900/40 backdrop-blur-xl border-r border-white/10 z-40 p-6 flex flex-col"
                     >
-                        {/* Logo */}
-                        <div className="flex items-center gap-3 mb-8 mt-2">
-                            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-black font-black text-xl">
-                                C
+                        {/* Header with Logo and Close Button */}
+                        <div className="flex items-center justify-between mb-8 mt-2">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-black font-black text-xl">
+                                    C
+                                </div>
+                                <span className="text-xl font-bold tracking-tight">CadPay</span>
                             </div>
-                            <span className="text-xl font-bold tracking-tight">CadPay</span>
+                            {/* Close button on the right - visible on all screens */}
+                            <button
+                                onClick={() => setSidebarOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-zinc-400 hover:text-white"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
                         {/* Profile Section */}
-                        <div className="mb-8 p-4 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
+                        <div className="mb-8 p-4 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setShowProfileEdit(true)}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-12 h-12 bg-linear-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
                                     <UserCircle size={28} weight="fill" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">User</p>
+                                    <p className="text-sm font-bold text-white">{userName}</p>
                                     <p className="text-xs text-zinc-400 truncate">{walletAddress.slice(0, 12)}...</p>
                                 </div>
                             </div>
@@ -149,9 +191,9 @@ export default function Dashboard() {
             </AnimatePresence>
 
             {/* Main Content */}
-            <div className="md:ml-72 relative z-10">
-                <div className="p-6 md:p-12">
-                    {activeSection === 'overview' && <OverviewSection balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
+            <div className={`${sidebarOpen ? 'ml-0 md:ml-72' : 'ml-0'} relative z-10 transition-all duration-300`}>
+                <div className="p-6 md:p-12 pt-20">
+                    {activeSection === 'overview' && <OverviewSection userName={userName} balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'subscriptions' && <SubscriptionsSection />}
                     {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'payment-link' && <PaymentLinkSection />}
@@ -159,6 +201,14 @@ export default function Dashboard() {
                     {activeSection === 'dev-keys' && <DevKeysSection />}
                 </div>
             </div>
+
+            {/* Profile Edit Modal */}
+            <ProfileEditModal
+                isOpen={showProfileEdit}
+                onClose={() => setShowProfileEdit(false)}
+                currentName={userName}
+                onSave={saveUserName}
+            />
         </div>
     );
 }
@@ -181,7 +231,7 @@ function NavItem({ icon, label, active, onClick }: any) {
 }
 
 // Overview Section
-function OverviewSection({ balance, address, requestAirdrop, loading, copyToClipboard }: any) {
+function OverviewSection({ userName, balance, address, requestAirdrop, loading, copyToClipboard }: any) {
     const [showUSD, setShowUSD] = useState(false);
     const [solPrice, setSolPrice] = useState<number | null>(null);
     const [showAddFunds, setShowAddFunds] = useState(false);
@@ -233,7 +283,10 @@ function OverviewSection({ balance, address, requestAirdrop, loading, copyToClip
 
     return (
         <div className="space-y-8">
-            <h1 className="text-4xl font-bold tracking-tight">Welcome back! 👋</h1>
+            <div>
+                <h1 className="text-4xl font-bold tracking-tight">Welcome back, {userName}! 👋</h1>
+                <p className="text-zinc-400 mt-2">Here's what's happening with your account today.</p>
+            </div>
 
             {/* Stats Grid */}
             <div className="grid md:grid-cols-3 gap-6">

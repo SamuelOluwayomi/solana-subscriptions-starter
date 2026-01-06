@@ -129,7 +129,7 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                                     animate={{ opacity: 1, x: 0 }}
                                     className="space-y-6"
                                 >
-                                    <div className="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/30 rounded-2xl p-6">
+                                    <div className="bg-linear-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/30 rounded-2xl p-6">
                                         <div className="flex items-center justify-between mb-4">
                                             <CreditCard size={32} className="text-orange-400" />
                                             <Bank size={24} className="text-orange-400/60" />
@@ -209,7 +209,7 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                                             initial={{ width: 0 }}
                                             animate={{ width: '100%' }}
                                             transition={{ duration: 2 }}
-                                            className="h-full bg-gradient-to-r from-orange-500 to-orange-600"
+                                            className="h-full bg-linear-to-r from-orange-500 to-orange-600"
                                         />
                                     </div>
                                 </motion.div>
