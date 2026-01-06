@@ -4,9 +4,24 @@ import { motion } from 'framer-motion';
 import { Fingerprint, ShieldCheck, Lightning, ArrowLeft } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useLazorkit } from '@/hooks/useLazorkit';
+import { useState } from 'react';
 
 export default function CreateAccount() {
     const { createPasskeyWallet, loading } = useLazorkit();
+
+    const [simulationMode, setSimulationMode] = useState(false);
+    const [accountName, setAccountName] = useState('');
+    const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+
+    const handleCreateClick = async () => {
+        if (simulationMode) {
+            // Show simulated passkey prompt
+            setShowPasskeyPrompt(true);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            setShowPasskeyPrompt(false);
+        }
+        await createPasskeyWallet(simulationMode);
+    };
 
     return (
         <div className="min-h-screen bg-[#1c1209] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -21,6 +36,30 @@ export default function CreateAccount() {
                     <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Home
                 </Link>
             </div>
+
+            {/* Simulated Passkey Prompt Overlay */}
+            {showPasskeyPrompt && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        className="bg-zinc-900 border border-orange-500/30 rounded-2xl p-8 max-w-sm mx-4 shadow-2xl shadow-orange-500/20"
+                    >
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                <Fingerprint className="text-orange-500" size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Create Passkey</h3>
+                            <p className="text-sm text-zinc-400 mb-4">Use your device biometrics to create a secure passkey</p>
+                            <p className="text-xs text-orange-500 font-medium">Touch ID / Face ID / PIN</p>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -72,22 +111,50 @@ export default function CreateAccount() {
                         </p>
                     </div>
 
+                    {simulationMode && (
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">Account Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={accountName}
+                                onChange={(e) => setAccountName(e.target.value)}
+                                placeholder="Enter your name"
+                                className="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                            />
+                        </div>
+                    )}
+
                     <button
-                        onClick={createPasskeyWallet}
+                        onClick={handleCreateClick}
                         disabled={loading}
-                        className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-orange-900/20 disabled:opacity-50 disabled:grayscale"
+                        className={`w-full py-4 text-white rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:grayscale ${simulationMode
+                            ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/20'
+                            : 'bg-orange-600 hover:bg-orange-500 shadow-orange-900/20'
+                            }`}
                     >
-                        {loading ? 'Deploying Wallet...' : 'Create Account'}
+                        {loading
+                            ? (simulationMode ? 'Simulating Deployment...' : 'Deploying Wallet...')
+                            : (simulationMode ? 'Simulate Account Creation' : 'Create Account')}
                     </button>
 
-                    <div className="mt-6 text-center">
-                        <p className="text-xs text-zinc-600 mb-2">Powered by</p>
-                        <div className="inline-block px-3 py-1 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 font-mono tracking-widest uppercase">
-                            Lazorkit SDK
+                    <div className="mt-6 flex items-center justify-center gap-3">
+                        <span className={`text-xs font-medium ${!simulationMode ? 'text-orange-500' : 'text-zinc-600'}`}>Real</span>
+                        <div
+                            className="w-10 h-5 bg-zinc-800 rounded-full p-1 cursor-pointer flex items-center border border-white/10"
+                            onClick={() => setSimulationMode(!simulationMode)}
+                        >
+                            <div className={`w-3 h-3 rounded-full shadow-sm transition-all duration-300 ${simulationMode ? 'bg-blue-500 translate-x-5' : 'bg-orange-500'}`} />
                         </div>
+                        <span className={`text-xs font-medium ${simulationMode ? 'text-blue-500' : 'text-zinc-600'}`}>Simulate</span>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-white/5 text-center">
+                        <div className="mb-4">
+                            <p className="text-xs text-zinc-600 mb-2">Powered by</p>
+                            <div className="inline-block px-3 py-1 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 font-mono tracking-widest uppercase">
+                                Lazorkit SDK
+                            </div>
+                        </div>
                         <p className="text-xs text-zinc-400 mb-2">Already have a wallet?{' '}
                             <Link href="/signin" className="text-sm text-zinc-500 hover:text-white transition-colors">
                                 Sign in

@@ -13,7 +13,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
     // Stable config object to prevent infinite re-renders in LazorkitProvider
     const paymasterConfig = useMemo(() => ({
-        paymasterUrl: "https://lazorkit-paymaster.onrender.com"
+        paymasterUrl: "/api/paymaster"
     }), [])
 
     return (
