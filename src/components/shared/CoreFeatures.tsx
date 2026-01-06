@@ -95,8 +95,7 @@ function BirdAnimation({ bird, onComplete }: { bird: Bird; onComplete: () => voi
                 rotate: bird.rotation + (xDist > 0 ? 45 : -45)
             }}
             transition={{
-                duration: direction === 'open' ? 2.5 : 3, // Significantly longer duration
-                ease: [0.2, 0.8, 0.2, 1], // Smoother ease
+                duration: direction === 'open' ? 2.5 : 3,
                 times: [0, 0.1, 0.5, 0.8, 1]
             }}
             onAnimationComplete={onComplete}
@@ -205,7 +204,7 @@ export default function CoreFeatures() {
         visible: {
             opacity: 1,
             y: 0,
-            transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+            transition: { duration: 0.8 }
         }
     };
 
@@ -225,7 +224,7 @@ export default function CoreFeatures() {
             opacity: 1,
             x: 0,
             scale: 1,
-            transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+            transition: { duration: 0.8 }
         }
     };
 
@@ -329,7 +328,7 @@ export default function CoreFeatures() {
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
                 style={{ transform: 'translateZ(0)' }}
             >
                 <div className="max-w-4xl mx-auto">
@@ -338,7 +337,7 @@ export default function CoreFeatures() {
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.6 }}
                     >
                         <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4 flex items-center justify-center gap-3">
                             <div className="relative w-10 h-10 md:w-16 md:h-16">
@@ -357,7 +356,7 @@ export default function CoreFeatures() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
-                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
                         style={{ transform: 'translateZ(0)' }}
                     >
                         <motion.p
@@ -403,7 +402,7 @@ export default function CoreFeatures() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{ duration: 0.25 }}
                             className="fixed inset-0 z-100000 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-8"
                             onClick={handleClose}
                             style={{ willChange: 'opacity', transform: 'translateZ(0)' }}
@@ -451,7 +450,7 @@ export default function CoreFeatures() {
                                     className="relative h-48 md:h-64 w-full shrink-0 overflow-hidden"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.3, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                                    transition={{ duration: 0.3, delay: 0.15 }}
                                     style={{ transform: 'translateZ(0)' }}
                                 >
                                     <Image
@@ -469,7 +468,7 @@ export default function CoreFeatures() {
                                     <motion.h3
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                        transition={{ duration: 0.3, delay: 0.2 }}
                                         className="text-xl md:text-3xl font-bold text-white mb-4"
                                         style={{ transform: 'translateZ(0)' }}
                                     >
@@ -478,7 +477,7 @@ export default function CoreFeatures() {
                                     <motion.p
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                                        transition={{ duration: 0.3, delay: 0.25 }}
                                         className="text-zinc-300 text-sm md:text-lg leading-relaxed"
                                         style={{ transform: 'translateZ(0)' }}
                                     >
@@ -522,7 +521,7 @@ function Card({
                 backfaceVisibility: 'hidden'
             }}
             transition={{
-                layout: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+                layout: { duration: 0.5 },
                 scale: { type: "spring", stiffness: 400, damping: 25 },
                 y: { type: "spring", stiffness: 400, damping: 25 }
             }}

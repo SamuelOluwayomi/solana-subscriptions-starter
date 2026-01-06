@@ -154,11 +154,11 @@ function DriftingLogo({ item, mouseX, mouseY }: { item: LogoItem; mouseX: any; m
                 rotate: [item.rotation, item.rotation + 45, item.rotation],
             }}
             transition={{
-                opacity: { duration: 5, repeat: Infinity, ease: "easeInOut" },
+                opacity: { duration: 5, repeat: Infinity },
                 scale: { duration: 0.8 },
-                translateX: { duration: item.driftDuration, repeat: Infinity, ease: "easeInOut" },
-                translateY: { duration: item.driftDuration * 1.5, repeat: Infinity, ease: "easeInOut" },
-                rotate: { duration: item.driftDuration * 2, repeat: Infinity, ease: "linear" }
+                translateX: { duration: item.driftDuration, repeat: Infinity },
+                translateY: { duration: item.driftDuration * 1.5, repeat: Infinity },
+                rotate: { duration: item.driftDuration * 2, repeat: Infinity }
             }}
             whileHover={{
                 scale: 1.5,

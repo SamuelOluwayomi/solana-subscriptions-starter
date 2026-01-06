@@ -24,7 +24,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
         initial: { y: 0 },
         exit: {
             y: "-100%",
-            transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] }
+            transition: { duration: 0.8 }
         }
     };
 
@@ -32,7 +32,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
         initial: { y: 0 },
         exit: {
             y: "100%",
-            transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] }
+            transition: { duration: 0.8 }
         }
     };
 
@@ -41,7 +41,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
         exit: {
             opacity: 0,
             scale: 0.9,
-            transition: { duration: 0.3, ease: "easeIn" }
+            transition: { duration: 0.3 }
         }
     };
 
@@ -74,7 +74,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
                 <motion.div
                     initial={{ x: -60, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    transition={{ duration: 0.8 }}
                     className="w-16 h-16 sm:w-20 sm:h-20 bg-orange-500 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.4)]"
                 >
                     <span className="text-black font-black text-4xl sm:text-5xl not-italic select-none pt-1">
@@ -86,7 +86,7 @@ export default function TrailerLoader({ onComplete }: { onComplete: () => void }
                 <motion.div
                     initial={{ x: 60, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    transition={{ duration: 0.8 }}
                 >
                     <span className="text-4xl sm:text-5xl font-bold text-white tracking-tighter italic">
                         CADPAY

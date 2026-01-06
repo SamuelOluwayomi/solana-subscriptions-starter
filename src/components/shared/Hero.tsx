@@ -41,12 +41,12 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
 
   const fadeInUp: Variants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8 } }
   };
 
   const laptopEntrance: Variants = {
     hidden: { opacity: 0, y: 60, rotateX: 10 },
-    visible: { opacity: 1, y: 0, rotateX: 0, transition: { duration: 1, ease: "easeOut", delay: 0.2 } }
+    visible: { opacity: 1, y: 0, rotateX: 0, transition: { duration: 1, delay: 0.2 } }
   };
 
   return (
