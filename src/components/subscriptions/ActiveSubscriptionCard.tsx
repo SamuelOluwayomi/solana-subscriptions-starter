@@ -1,0 +1,73 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import { Trash, Calendar } from '@phosphor-icons/react';
+import { ActiveSubscription } from '@/hooks/useSubscriptions';
+
+interface ActiveSubscriptionCardProps {
+    subscription: ActiveSubscription;
+    onUnsubscribe: (id: string) => void;
+}
+
+export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: ActiveSubscriptionCardProps) {
+    const nextBillingDate = new Date(subscription.nextBilling).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-zinc-900/50 border border-white/10 rounded-xl p-5 relative group"
+        >
+            <div className="flex items-start gap-4">
+                {/* Service Icon */}
+                <div
+                    className="text-3xl p-3 rounded-lg shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: `${subscription.color}20`, color: subscription.color }}
+                >
+                    <subscription.icon size={32} />
+                </div>
+
+                {/* Subscription Details */}
+                <div className="flex-1 min-w-0">
+                    <h4 className="text-lg font-bold text-white mb-1">{subscription.serviceName}</h4>
+                    <p className="text-sm text-zinc-400 mb-2">{subscription.plan} Plan</p>
+
+                    <div className="flex items-center gap-4 text-xs text-zinc-500">
+                        <div className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            <span>Next billing: {nextBillingDate}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="font-medium" style={{ color: subscription.color }}>
+                                ${subscription.price}/mo
+                            </span>
+                        </div>
+                    </div>
+
+                    <p className="text-xs text-zinc-600 mt-2 truncate">{subscription.email}</p>
+                </div>
+
+                {/* Unsubscribe Button */}
+                <button
+                    onClick={() => onUnsubscribe(subscription.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-500/10 rounded-lg text-red-400 hover:text-red-300"
+                    title="Unsubscribe"
+                >
+                    <Trash size={18} weight="bold" />
+                </button>
+            </div>
+
+            {/* Color Accent Line */}
+            <div
+                className="absolute bottom-0 left-0 right-0 h-0.5 opacity-50"
+                style={{ backgroundColor: subscription.color }}
+            />
+        </motion.div>
+    );
+}

@@ -18,10 +18,32 @@ export function useLazorkit() {
     // @ts-ignore
     const isAuthenticated = isConnected;
 
+    // Clear any auto-login session on mount to force biometric re-auth
+    useEffect(() => {
+        const clearAutoLogin = async () => {
+            // Only auto-disconnect if we're on signin page and already connected
+            if (window.location.pathname === '/signin' && isConnected) {
+                console.log('Clearing cached session - requiring fresh biometric auth');
+                await disconnect();
+            }
+        };
+        clearAutoLogin();
+    }, []);
+
     const handleAuth = useCallback(async () => {
         try {
             setLocalLoading(true);
+
+            // Always disconnect first to ensure fresh biometric prompt
+            if (isConnected) {
+                await disconnect();
+                // Small delay to ensure disconnect completes
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            // This will trigger the biometric prompt
             await connect();
+            showToast('Successfully authenticated!', 'success');
             router.push('/dashboard');
         } catch (error: any) {
             console.error("Authentication failed:", error);
@@ -33,7 +55,7 @@ export function useLazorkit() {
         } finally {
             setLocalLoading(false);
         }
-    }, [connect, router, showToast]);
+    }, [connect, disconnect, isConnected, router, showToast]);
 
     const handleCreate = useCallback(async () => {
         try {
@@ -115,10 +137,16 @@ export function useLazorkit() {
             await refreshBalance();
         } catch (error: any) {
             console.error("Airdrop failed:", error);
-            if (error.message?.includes('rate limit')) {
-                showToast("Airdrop failed. You may be rate limited. Try again in a minute.", 'error');
+
+            // More specific error messages
+            if (error.message?.includes('rate limit') || error.message?.includes('429')) {
+                showToast("Airdrop rate limited. Please wait a minute and try again.", 'warning');
+            } else if (error.message?.includes('Internal error')) {
+                showToast("Solana devnet airdrop is temporarily unavailable. This is a known issue with the devnet faucet. Try again in a few minutes.", 'error');
+            } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+                showToast("Request timed out. Network might be congested. Try again.", 'error');
             } else {
-                showToast("Airdrop failed. Please try again.", 'error');
+                showToast(`Airdrop failed: ${error.message || 'Unknown error'}. Try again later.`, 'error');
             }
         } finally {
             setLocalLoading(false);

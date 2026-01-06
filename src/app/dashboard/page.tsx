@@ -13,6 +13,11 @@ import LogoField from '@/components/shared/LogoField';
 import AddFundsModal from '@/components/shared/AddFundsModal';
 import ProfileEditModal from '@/components/shared/ProfileEditModal';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { SERVICES, CATEGORIES, Service, SubscriptionPlan } from '@/data/subscriptions';
+import { useSubscriptions } from '@/hooks/useSubscriptions';
+import ServiceCard from '@/components/subscriptions/ServiceCard';
+import SubscribeModal from '@/components/subscriptions/SubscribeModal';
+import ActiveSubscriptionCard from '@/components/subscriptions/ActiveSubscriptionCard';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -232,10 +237,11 @@ function NavItem({ icon, label, active, onClick }: any) {
 
 // Overview Section
 function OverviewSection({ userName, balance, address, requestAirdrop, loading, copyToClipboard }: any) {
-    const [showUSD, setShowUSD] = useState(false);
+    const [showUSD, setShowUSD] = useState(true); // USD by default
     const [solPrice, setSolPrice] = useState<number | null>(null);
     const [showAddFunds, setShowAddFunds] = useState(false);
     const [transactions, setTransactions] = useState<any[]>([]);
+    const { subscriptions } = useSubscriptions();
 
     // Fetch SOL price from CoinGecko
     useEffect(() => {
@@ -352,7 +358,7 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
 
                 {/* Quick Stats */}
                 <div className="space-y-4">
-                    <StatCard title="Active Subscriptions" value="0" color="blue" />
+                    <StatCard title="Active Subscriptions" value={subscriptions.length.toString()} color="blue" />
                     <StatCard title="Pending Invoices" value="0" color="purple" />
                 </div>
             </div>
@@ -425,16 +431,264 @@ function StatCard({ title, value, color }: { title: string; value: string; color
 
 // Subscriptions Section
 function SubscriptionsSection() {
+    const [activeTab, setActiveTab] = useState<'browse' | 'active' | 'analytics'>('browse');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [selectedService, setSelectedService] = useState<Service | null>(null);
+    const [showSubscribeModal, setShowSubscribeModal] = useState(false);
+    const [solPrice, setSolPrice] = useState<number | null>(null);
+    const { balance } = useLazorkit();
+    const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
+
+    // Fetch SOL price
+    useEffect(() => {
+        const fetchPrice = async () => {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                const data = await response.json();
+                setSolPrice(data.solana.usd);
+            } catch (error) {
+                console.error('Failed to fetch SOL price:', error);
+            }
+        };
+        fetchPrice();
+        const interval = setInterval(fetchPrice, 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const filteredServices = categoryFilter === 'all'
+        ? SERVICES
+        : SERVICES.filter(s => s.category === categoryFilter);
+
+    const handleServiceClick = (service: Service) => {
+        setSelectedService(service);
+        setShowSubscribeModal(true);
+    };
+
+    const handleSubscribe = async (serviceId: string, plan: SubscriptionPlan, email: string, price: number) => {
+        const service = SERVICES.find(s => s.id === serviceId);
+        if (!service) return;
+
+        addSubscription({
+            serviceId,
+            serviceName: service.name,
+            plan: plan.name,
+            price,
+            email,
+            color: service.color,
+            icon: service.icon
+        });
+
+        setShowSubscribeModal(false);
+    };
+
+    const categoryCount = (cat: string) => {
+        if (cat === 'all') return SERVICES.length;
+        return SERVICES.filter(s => s.category === cat).length;
+    };
+
     return (
-        <div className="space-y-6">
-            <h1 className="text-4xl font-bold">My Subscriptions</h1>
-            <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-12 text-center">
-                <Receipt size={64} className="mx-auto mb-4 text-zinc-600" />
-                <p className="text-zinc-400 mb-4">No active subscriptions</p>
-                <button className="px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all">
-                    Browse Services
-                </button>
+        <div className="space-y-8">
+            {/* Header with Tabs */}
+            <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-bold">Subscriptions</h2>
+                <div className="flex gap-2 bg-zinc-900/50 p-1 rounded-xl">
+                    <button
+                        onClick={() => setActiveTab('browse')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Browse
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('active')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'active' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Active ({subscriptions.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('analytics')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Analytics
+                    </button>
+                </div>
             </div>
+
+            {/* Browse Tab */}
+            {activeTab === 'browse' && (
+                <div>
+                    {/* Category Filters */}
+                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                        {CATEGORIES.map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setCategoryFilter(cat.id)}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${categoryFilter === cat.id
+                                    ? 'bg-orange-500 text-white'
+                                    : 'bg-zinc-900/50 text-zinc-400 hover:text-white border border-white/10'
+                                    }`}
+                            >
+                                {cat.name} ({categoryCount(cat.id)})
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Services Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredServices.map((service) => (
+                            <ServiceCard
+                                key={service.id}
+                                service={service}
+                                onClick={() => handleServiceClick(service)}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Active Subscriptions Tab */}
+            {activeTab === 'active' && (
+                <div>
+                    {subscriptions.length === 0 ? (
+                        <div className="text-center py-20">
+                            <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Receipt size={40} className="text-zinc-600" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">No Active Subscriptions</h3>
+                            <p className="text-zinc-400 mb-6">Browse services and subscribe to get started</p>
+                            <button
+                                onClick={() => setActiveTab('browse')}
+                                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all"
+                            >
+                                Browse Services
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-xl p-6 mb-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-orange-200/60 mb-1">Monthly Spending</p>
+                                        <p className="text-4xl font-bold text-white">${getMonthlyTotal().toFixed(2)}</p>
+                                        {solPrice && (
+                                            <p className="text-sm text-orange-200/40 mt-1">
+                                                ≈ {(getMonthlyTotal() / solPrice).toFixed(4)} SOL
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-orange-200/60 mb-1">Active Services</p>
+                                        <p className="text-4xl font-bold text-white">{subscriptions.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <AnimatePresence>
+                                    {subscriptions.map((sub) => (
+                                        <ActiveSubscriptionCard
+                                            key={sub.id}
+                                            subscription={sub}
+                                            onUnsubscribe={removeSubscription}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Analytics Tab */}
+            {activeTab === 'analytics' && (
+                <div className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {/* Monthly Spending Chart */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-4">Monthly Spending Trend</h3>
+                            <div className="space-y-3">
+                                {getHistoricalData().map((item, idx) => (
+                                    <div key={idx}>
+                                        <div className="flex items-center justify-between text-sm mb-1">
+                                            <span className="text-zinc-400">{item.month}</span>
+                                            <span className="text-white font-medium">${item.amount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
+                                                style={{ width: `${(item.amount / Math.max(...getHistoricalData().map(d => d.amount))) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Breakdown by Service */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-4">Spending Breakdown</h3>
+                            {subscriptions.length === 0 ? (
+                                <p className="text-zinc-500 text-sm text-center py-8">No active subscriptions to analyze</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {subscriptions.map((sub) => (
+                                        <div key={sub.id} className="flex items-center gap-3">
+                                            <div className="text-2xl" style={{ color: sub.color }}>
+                                                <sub.icon size={24} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
+                                                <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-white">${sub.price}</p>
+                                                <p className="text-xs text-zinc-500">
+                                                    {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid sm:grid-cols-3 gap-4">
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Average per Service</p>
+                            <p className="text-2xl font-bold text-white">
+                                ${subscriptions.length > 0 ? (getMonthlyTotal() / subscriptions.length).toFixed(2) : '0.00'}
+                            </p>
+                        </div>
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Yearly Projection</p>
+                            <p className="text-2xl font-bold text-orange-400">${(getMonthlyTotal() * 12).toFixed(2)}</p>
+                        </div>
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Most Expensive</p>
+                            <p className="text-2xl font-bold text-white">
+                                {subscriptions.length > 0
+                                    ? `$${Math.max(...subscriptions.map(s => s.price)).toFixed(2)}`
+                                    : '$0.00'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Subscribe Modal */}
+            <SubscribeModal
+                isOpen={showSubscribeModal}
+                onClose={() => setShowSubscribeModal(false)}
+                service={selectedService}
+                onSubscribe={handleSubscribe}
+                balance={balance || 0}
+                solPrice={solPrice}
+            />
         </div>
     );
 }

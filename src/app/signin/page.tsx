@@ -34,8 +34,15 @@ export default function SignIn() {
 
 
                     <div className="text-center mb-10">
+                        <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)]">
+                            <Lock size={32} className="text-orange-500" />
+                        </div>
                         <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
-                        <p className="text-zinc-400 text-sm">Authenticate with your device biometric.</p>
+                        <p className="text-zinc-400 text-sm mb-4">Authenticate with your device biometric</p>
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-xs text-green-400 font-medium">Secured by WebAuthn</span>
+                        </div>
                     </div>
 
                     {/* ACTION BUTTON */}
@@ -50,13 +57,20 @@ export default function SignIn() {
                             ) : (
                                 <>
                                     <ScanFace size={20} className="text-orange-600" />
-                                    <span>Face ID/ Fingerprint Login</span>
+                                    <span>Authenticate with Biometrics</span>
                                 </>
                             )}
                         </div>
                         {/* Hover Gradient Effect */}
                         <div className="absolute inset-0 bg-linear-to-r from-orange-200 to-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
+
+                    {/* Security Info */}
+                    <div className="mt-6 p-4 bg-zinc-900/50 rounded-xl border border-white/5">
+                        <p className="text-xs text-zinc-400 leading-relaxed">
+                            🔐 Your wallet is secured by your device's biometric hardware. Touch ID, Face ID, or PIN required.
+                        </p>
+                    </div>
 
                     <div className="mt-8 pt-6 border-t border-white/5 text-center">
                         <p className="text-xs text-zinc-500">

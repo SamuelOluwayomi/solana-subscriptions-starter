@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pencil } from '@phosphor-icons/react';
 
@@ -13,6 +13,11 @@ interface ProfileEditModalProps {
 
 export default function ProfileEditModal({ isOpen, onClose, currentName, onSave }: ProfileEditModalProps) {
     const [name, setName] = useState(currentName);
+
+    // Sync internal state with prop changes
+    useEffect(() => {
+        setName(currentName);
+    }, [currentName, isOpen]);
 
     const handleSave = () => {
         if (name.trim()) {
