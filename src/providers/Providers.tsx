@@ -3,6 +3,7 @@
 import { LazorkitProvider, DEFAULTS } from '@lazorkit/wallet'
 import { ReactNode, useState, useEffect, useMemo } from 'react'
 import { LoaderProvider } from '@/context/LoaderContext'
+import { ToastProvider } from '@/context/ToastContext'
 
 export function Providers({ children }: { children: ReactNode }) {
     const [mounted, setMounted] = useState(false)
@@ -13,21 +14,24 @@ export function Providers({ children }: { children: ReactNode }) {
 
     // Stable config object to prevent infinite re-renders in LazorkitProvider
     const paymasterConfig = useMemo(() => ({
-        paymasterUrl: "/api/paymaster"
+        paymasterUrl: "https://kora.devnet.lazorkit.com"
     }), [])
 
     return (
-        <LoaderProvider>
-            {mounted ? (
-                <LazorkitProvider
-                    paymasterConfig={paymasterConfig}
-                    rpcUrl="https://api.devnet.solana.com"
-                >
-                    {children}
-                </LazorkitProvider>
-            ) : (
-                <>{children}</>
-            )}
-        </LoaderProvider>
+        <ToastProvider>
+            <LoaderProvider>
+                {mounted ? (
+                    <LazorkitProvider
+                        rpcUrl="https://api.devnet.solana.com"
+                        portalUrl="https://portal.lazor.sh"
+                        paymasterConfig={paymasterConfig}
+                    >
+                        {children}
+                    </LazorkitProvider>
+                ) : (
+                    <>{children}</>
+                )}
+            </LoaderProvider>
+        </ToastProvider>
     )
 }

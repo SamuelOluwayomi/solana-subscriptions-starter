@@ -3,9 +3,11 @@ import { useRouter } from 'next/navigation';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 // @ts-ignore - Assuming export exists, will fix if error
 import { useWallet } from '@lazorkit/wallet';
+import { useToast } from '@/context/ToastContext';
 
 export function useLazorkit() {
     const router = useRouter();
+    const { showToast } = useToast();
     // @ts-ignore
     const { connect, disconnect, wallet, isConnected, isLoading: sdkLoading } = useWallet();
     const [localLoading, setLocalLoading] = useState(false);
@@ -16,38 +18,6 @@ export function useLazorkit() {
     // @ts-ignore
     const isAuthenticated = isConnected;
 
-    const [mockAddress, setMockAddress] = useState<string | null>(null);
-
-    useEffect(() => {
-        // Load mock address if it exists (persisting simulation across navigations)
-        const stored = localStorage.getItem('mockWalletAddress');
-        if (stored) setMockAddress(stored);
-    }, []);
-
-    const simulateCreateWallet = useCallback(async () => {
-        setLocalLoading(true);
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Generate a valid base58-looking address (Solana addresses are 44 chars, base58)
-        const base58chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        let fakeAddress = '';
-        for (let i = 0; i < 44; i++) {
-            fakeAddress += base58chars.charAt(Math.floor(Math.random() * base58chars.length));
-        }
-
-        localStorage.setItem('mockWalletAddress', fakeAddress);
-        setMockAddress(fakeAddress);
-
-        setLocalLoading(false);
-        router.push('/dashboard');
-    }, [router]);
-
-    const clearMock = useCallback(() => {
-        localStorage.removeItem('mockWalletAddress');
-        setMockAddress(null);
-    }, []);
-
     const handleAuth = useCallback(async () => {
         try {
             setLocalLoading(true);
@@ -56,90 +26,115 @@ export function useLazorkit() {
         } catch (error: any) {
             console.error("Authentication failed:", error);
             if (error.name === 'NotAllowedError' || error.message?.includes('timed out') || error.message?.includes('not allowed')) {
-                alert("Authentication canceled or not allowed. \n\n1. Ensure you are on 'localhost' or HTTPS.\n2. Ensure your device has biometrics or PIN (Windows Hello) set up.\n3. Make sure you didn't cancel the prompt.");
+                showToast("Authentication canceled or not allowed. Ensure you are on 'localhost' or HTTPS and have biometrics set up.", 'error');
             } else {
-                alert(`Authentication failed: ${error.message || error}`);
+                showToast(`Authentication failed: ${error.message || error}`, 'error');
             }
         } finally {
             setLocalLoading(false);
         }
-    }, [connect, router]);
+    }, [connect, router, showToast]);
 
-    const handleCreate = useCallback(async (isSimulation: boolean = false) => {
-        if (isSimulation) {
-            await simulateCreateWallet();
-            return;
-        }
-
+    const handleCreate = useCallback(async () => {
         try {
             setLocalLoading(true);
+
+            // Disconnect any existing wallet first to prevent conflicts
+            if (isConnected) {
+                console.log('Disconnecting existing wallet before creating new one...');
+                await disconnect();
+                // Wait a moment for disconnect to complete
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            // Clear any stale wallet data from localStorage
+            try {
+                localStorage.removeItem('lazorkit-wallet');
+                localStorage.removeItem('wallet-adapter');
+            } catch (e) {
+                console.warn('Could not clear localStorage:', e);
+            }
+
+            // Now create new wallet
             await connect();
             router.push('/dashboard');
         } catch (error: any) {
-            console.error("Authentication failed:", error);
+            console.error("Wallet creation failed:", error);
+
+            // More specific error messages
             if (error.name === 'NotAllowedError' || error.message?.includes('timed out') || error.message?.includes('not allowed')) {
-                alert("Authentication canceled or not allowed. \n\n1. Ensure you are on 'localhost' or HTTPS.\n2. Ensure your device has biometrics or PIN (Windows Hello) set up.\n3. Make sure you didn't cancel the prompt.");
+                showToast("Authentication canceled. Ensure you are on 'localhost' or HTTPS and have biometrics set up.", 'error');
+            } else if (error.message?.includes('already exists') || error.message?.includes('duplicate')) {
+                showToast("A wallet already exists. Please sign in instead or clear your browser data.", 'warning');
             } else {
-                alert(`Authentication failed: ${error.message || error}`);
+                showToast(`Wallet creation failed: ${error.message || error}`, 'error');
             }
         } finally {
             setLocalLoading(false);
         }
-    }, [connect, router, simulateCreateWallet]);
+    }, [connect, disconnect, isConnected, router, showToast]);
 
     const [balance, setBalance] = useState<number | null>(null);
 
     const refreshBalance = useCallback(async () => {
-        const currentAddress = address || mockAddress;
-        if (!currentAddress) return;
+        if (!address) return;
         try {
             const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-            const lamports = await connection.getBalance(new PublicKey(currentAddress));
+            const lamports = await connection.getBalance(new PublicKey(address));
             setBalance(lamports / LAMPORTS_PER_SOL);
         } catch (e) {
             console.error("Failed to fetch balance", e);
         }
-    }, [address, mockAddress]);
+    }, [address]);
 
     // Fetch balance on mount/auth
     useEffect(() => {
-        const currentAddress = address || mockAddress;
-        if (currentAddress) {
+        if (address) {
             refreshBalance();
             // Set up polling interval for real-time updates
             const interval = setInterval(refreshBalance, 5000);
             return () => clearInterval(interval);
         }
-    }, [address, mockAddress, refreshBalance]);
+    }, [address, refreshBalance]);
 
     const requestAirdrop = useCallback(async () => {
-        const currentAddress = address || mockAddress;
-        if (!currentAddress) return;
+        if (!address) return;
         try {
             setLocalLoading(true);
             const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
-            const signature = await connection.requestAirdrop(new PublicKey(currentAddress), 1 * LAMPORTS_PER_SOL);
-            await connection.confirmTransaction(signature);
+            const signature = await connection.requestAirdrop(new PublicKey(address), 1 * LAMPORTS_PER_SOL);
+
+            // Wait for confirmation
+            const latestBlockhash = await connection.getLatestBlockhash();
+            await connection.confirmTransaction({
+                signature,
+                ...latestBlockhash
+            });
+
+            showToast('Successfully added 1 SOL to your wallet!', 'success');
             await refreshBalance();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Airdrop failed:", error);
-            alert("Airdrop failed. You may be rate limited.");
+            if (error.message?.includes('rate limit')) {
+                showToast("Airdrop failed. You may be rate limited. Try again in a minute.", 'error');
+            } else {
+                showToast("Airdrop failed. Please try again.", 'error');
+            }
         } finally {
             setLocalLoading(false);
         }
-    }, [address, mockAddress, refreshBalance]);
+    }, [address, refreshBalance, showToast]);
 
     return {
         loading: localLoading || sdkLoading,
         loginWithPasskey: handleAuth,
         createPasskeyWallet: handleCreate,
-        address: address || mockAddress,
-        isAuthenticated: isAuthenticated || !!mockAddress,
+        address,
+        isAuthenticated,
         balance,
         requestAirdrop,
         logout: () => {
             disconnect();
-            clearMock();
             router.push('/');
         }
     };
