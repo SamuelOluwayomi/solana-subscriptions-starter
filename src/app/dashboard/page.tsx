@@ -11,7 +11,6 @@ import {
 import { SiSolana } from 'react-icons/si';
 import LogoField from '@/components/shared/LogoField';
 import AddFundsModal from '@/components/shared/AddFundsModal';
-import ProfileEditModal from '@/components/shared/ProfileEditModal';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { SERVICES, CATEGORIES, Service, SubscriptionPlan } from '@/data/subscriptions';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
@@ -21,6 +20,8 @@ import ActiveSubscriptionCard from '@/components/subscriptions/ActiveSubscriptio
 
 import SecuritySettings from '@/components/security/SecuritySettings';
 import TransactionDetailsModal from '@/components/shared/TransactionDetailsModal';
+import FullProfileEditModal from '@/components/shared/FullProfileEditModal';
+import OnboardingModal from '@/components/shared/OnboardingModal';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -28,19 +29,59 @@ export default function Dashboard() {
     const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
-    const [userName, setUserName] = useState('User');
+    const [userProfile, setUserProfile] = useState({
+        username: 'User',
+        gender: 'other',
+        avatar: '👤'
+    });
     const [showProfileEdit, setShowProfileEdit] = useState(false);
+    const [showOnboarding, setShowOnboarding] = useState(false);
 
-    // Load username from localStorage
+    // Load profile from localStorage and check if onboarding needed
     useEffect(() => {
-        const saved = localStorage.getItem('userName');
-        if (saved) setUserName(saved);
-    }, []);
+        const savedUsername = localStorage.getItem('userName');
+        const savedGender = localStorage.getItem('userGender');
+        const savedAvatar = localStorage.getItem('userAvatar');
+        const savedPIN = localStorage.getItem('userPIN');
+        const hasCompletedOnboarding = localStorage.getItem('onboardingComplete');
 
-    // Save username to localStorage
-    const saveUserName = (name: string) => {
-        setUserName(name);
-        localStorage.setItem('userName', name);
+        setUserProfile({
+            username: savedUsername || 'User',
+            gender: savedGender || 'other',
+            avatar: savedAvatar || '👤'
+        });
+
+        // Show onboarding if not completed and user has wallet
+        if (!hasCompletedOnboarding && address) {
+            setShowOnboarding(true);
+        }
+    }, [address]);
+
+    // Handle onboarding completion
+    const handleOnboardingComplete = (data: { username: string; pin: string; gender: string; avatar: string }) => {
+        setUserProfile({
+            username: data.username,
+            gender: data.gender,
+            avatar: data.avatar
+        });
+        localStorage.setItem('userName', data.username);
+        localStorage.setItem('userGender', data.gender);
+        localStorage.setItem('userAvatar', data.avatar);
+        localStorage.setItem('userPIN', data.pin);
+        localStorage.setItem('onboardingComplete', 'true');
+        setShowOnboarding(false);
+    };
+
+    // Save profile to localStorage
+    const saveUserProfile = (profile: { username: string; gender: string; avatar: string; pin?: string }) => {
+        setUserProfile({
+            username: profile.username,
+            gender: profile.gender,
+            avatar: profile.avatar
+        });
+        localStorage.setItem('userName', profile.username);
+        localStorage.setItem('userGender', profile.gender);
+        localStorage.setItem('userAvatar', profile.avatar);
     };
 
     const walletAddress = address || "Loading...";
@@ -112,11 +153,11 @@ export default function Dashboard() {
                         {/* Profile Section */}
                         <div className="mb-8 p-4 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setShowProfileEdit(true)}>
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="w-12 h-12 bg-linear-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
-                                    <UserCircle size={28} weight="fill" />
+                                <div className="w-12 h-12 bg-linear-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-2xl">
+                                    {userProfile.avatar}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">{userName}</p>
+                                    <p className="text-sm font-bold text-white">{userProfile.username}</p>
                                     <p className="text-xs text-zinc-400 truncate">{walletAddress.slice(0, 12)}...</p>
                                 </div>
                             </div>
@@ -207,7 +248,7 @@ export default function Dashboard() {
             {/* Main Content */}
             <div className={`${sidebarOpen ? 'ml-0 md:ml-72' : 'ml-0'} relative z-10 transition-all duration-300`}>
                 <div className="p-6 md:p-12 pt-20">
-                    {activeSection === 'overview' && <OverviewSection userName={userName} balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
+                    {activeSection === 'overview' && <OverviewSection userName={userProfile.username} balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'subscriptions' && <SubscriptionsSection />}
                     {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'security' && <SecuritySettings />}
@@ -217,12 +258,22 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Profile Edit Modal */}
-            <ProfileEditModal
+            {/* Full Profile Edit Modal */}
+            <FullProfileEditModal
                 isOpen={showProfileEdit}
                 onClose={() => setShowProfileEdit(false)}
-                currentName={userName}
-                onSave={saveUserName}
+                currentProfile={{
+                    username: userProfile.username,
+                    gender: userProfile.gender,
+                    avatar: userProfile.avatar
+                }}
+                onSave={saveUserProfile}
+            />
+
+            {/* Onboarding Modal - First Time Setup */}
+            <OnboardingModal
+                isOpen={showOnboarding}
+                onComplete={handleOnboardingComplete}
             />
         </div>
     );

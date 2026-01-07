@@ -51,6 +51,12 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
                     </div>
 
                     <p className="text-xs text-zinc-600 mt-2 truncate">{subscription.email}</p>
+
+                    {/* Gasless indicator */}
+                    <div className="flex items-center gap-1 mt-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                        <span className="text-xs text-green-400">$0 transaction fees</span>
+                    </div>
                 </div>
 
                 {/* Unsubscribe Button */}

@@ -222,6 +222,48 @@ export default function SecuritySettings() {
                     </div>
                 </div>
             </div>
+
+            {/* Delete Account */}
+            <div className="bg-zinc-900/60 backdrop-blur-md border border-red-500/20 rounded-3xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                        <Trash size={20} className="text-red-400" weight="bold" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white">Delete Account & Data</h3>
+                        <p className="text-sm text-zinc-400">Permanently remove all data and reset wallet</p>
+                    </div>
+                </div>
+
+                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl mb-4">
+                    <p className="text-sm text-red-200/80 mb-2">
+                        ⚠️ <strong>This action cannot be undone!</strong> This will:
+                    </p>
+                    <ul className="text-xs text-red-200/60 space-y-1 ml-4">
+                        <li>• Clear all subscriptions and profile data</li>
+                        <li>• Disconnect your wallet session</li>
+                        <li>• Remove all app data from this browser</li>
+                    </ul>
+                    <p className="text-xs text-red-200/60 mt-2">
+                        Note: To fully reset, you'll also need to delete the passkey from your browser settings.
+                    </p>
+                </div>
+
+                <button
+                    onClick={() => {
+                        if (window.confirm('Are you ABSOLUTELY sure? This will delete ALL your data and cannot be undone!')) {
+                            // Clear all localStorage
+                            localStorage.clear();
+                            // Redirect to home
+                            window.location.href = '/';
+                        }
+                    }}
+                    className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                    <Trash size={18} weight="bold" />
+                    Delete Account & All Data
+                </button>
+            </div>
         </div>
     );
 }

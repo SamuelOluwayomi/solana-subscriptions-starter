@@ -96,6 +96,15 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                 </button>
                             </div>
 
+                            {/* Gasless Badge */}
+                            <div className="mb-6 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-green-400">Gasless Transaction</p>
+                                    <p className="text-xs text-green-200/60">All fees sponsored by CadPay • You pay $0</p>
+                                </div>
+                            </div>
+
                             {error && (
                                 <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
                                     <Warning size={20} className="text-red-400 shrink-0 mt-0.5" />
