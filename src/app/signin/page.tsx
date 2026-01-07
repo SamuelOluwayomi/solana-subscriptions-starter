@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ScanFace } from 'lucide-react';
-import { ArrowLeft, Lock } from '@phosphor-icons/react';
+import { ShoppingBag, Fingerprint, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowLeft } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useLazorkit } from '@/hooks/useLazorkit';
 
@@ -30,57 +30,53 @@ export default function SignIn() {
                 </Link>
 
                 {/* LOGIN CARD */}
-                <div className="bg-[#120c07] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+                <div className="bg-zinc-900/80 backdrop-blur-lg border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl">
+                    {/* Icon */}
+                    <motion.div
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-6 bg-orange-500/20 rounded-2xl flex items-center justify-center"
+                    >
+                        <ShoppingBag size={40} className="text-orange-500" weight="bold" />
+                    </motion.div>
 
+                    {/* Title */}
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 text-center">Welcome Back</h1>
+                    <p className="text-sm md:text-base text-zinc-400 mb-8 text-center px-4">
+                        Authenticate with your device biometric
+                    </p>
 
-                    <div className="text-center mb-10">
-                        <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)]">
-                            <Lock size={32} className="text-orange-500" />
-                        </div>
-                        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
-                        <p className="text-zinc-400 text-sm mb-4">Authenticate with your device biometric</p>
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-xs text-green-400 font-medium">Secured by WebAuthn</span>
-                        </div>
+                    {/* WebAuthn Badge */}
+                    <div className="flex items-center justify-center gap-2 mb-8">
+                        <ShieldCheck size={16} className="text-green-400" weight="bold" />
+                        <span className="text-xs md:text-sm text-green-400 font-medium">Secured by WebAuthn</span>
                     </div>
 
-                    {/* ACTION BUTTON */}
+                    {/* Auth Button */}
                     <button
                         onClick={loginWithPasskey}
                         disabled={loading}
-                        className="w-full relative group overflow-hidden bg-white text-black font-bold py-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-3 md:py-4 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
                     >
-                        <div className="relative z-10 flex items-center justify-center gap-3">
-                            {loading ? (
-                                <span className="flex items-center gap-2"><Lock size={16} className="animate-spin" /> Verifying...</span>
-                            ) : (
-                                <>
-                                    <ScanFace size={20} className="text-orange-600" />
-                                    <span>Authenticate with Biometrics</span>
-                                </>
-                            )}
-                        </div>
-                        {/* Hover Gradient Effect */}
-                        <div className="absolute inset-0 bg-linear-to-r from-orange-200 to-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Fingerprint size={24} weight="bold" />
+                        Authenticate with Biometrics
                     </button>
 
                     {/* Security Info */}
-                    <div className="mt-6 p-4 bg-zinc-900/50 rounded-xl border border-white/5">
-                        <p className="text-xs text-zinc-400 leading-relaxed">
-                            🔐 Your wallet is secured by your device's biometric hardware. Touch ID, Face ID, or PIN required.
+                    <div className="mt-8 p-4 bg-zinc-800/50 rounded-xl border border-white/5">
+                        <p className="text-xs md:text-sm text-zinc-400 text-center px-2">
+                            🔒 Your wallet is secured by your device's biometric hardware. Touch ID, Face ID or PIN required.
                         </p>
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                        <p className="text-xs text-zinc-500">
-                            No account?{' '}
-                            <Link href="/create" className="text-orange-500 hover:text-orange-400 font-medium transition-colors">
-                                Create Smart Wallet
-                            </Link>
-                        </p>
-                    </div>
-
+                    {/* Create Wallet Link */}
+                    <p className="text-xs md:text-sm text-center text-zinc-500 mt-6">
+                        No account?{' '}
+                        <a href="/create" className="text-orange-500 hover:text-orange-400 font-medium">
+                            Create Smart Wallet
+                        </a>
+                    </p>
                 </div>
             </motion.div>
         </div>
