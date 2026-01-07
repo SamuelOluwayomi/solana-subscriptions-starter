@@ -22,6 +22,9 @@ import SecuritySettings from '@/components/security/SecuritySettings';
 import TransactionDetailsModal from '@/components/shared/TransactionDetailsModal';
 import FullProfileEditModal from '@/components/shared/FullProfileEditModal';
 import OnboardingModal from '@/components/shared/OnboardingModal';
+import USDCFaucet from '@/components/shared/USDCFaucet';
+import { useUSDCBalance } from '@/hooks/useUSDCBalance';
+import { constructMintTransaction } from '@/utils/cadpayToken';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -36,14 +39,19 @@ export default function Dashboard() {
     });
     const [showProfileEdit, setShowProfileEdit] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [demoUSDCBalance, setDemoUSDCBalance] = useState(0);
 
-    // Load profile from localStorage and check if onboarding needed
+    // Load profile and demo USDC from localStorage
     useEffect(() => {
+        // Must wait for loading to finish to know if we have a wallet or not
+        if (loading) return;
+
         const savedUsername = localStorage.getItem('userName');
         const savedGender = localStorage.getItem('userGender');
         const savedAvatar = localStorage.getItem('userAvatar');
         const savedPIN = localStorage.getItem('userPIN');
         const hasCompletedOnboarding = localStorage.getItem('onboardingComplete');
+        const savedDemoUSDC = localStorage.getItem('demoUSDCBalance');
 
         setUserProfile({
             username: savedUsername || 'User',
@@ -51,11 +59,18 @@ export default function Dashboard() {
             avatar: savedAvatar || '👤'
         });
 
-        // Show onboarding if not completed and user has wallet
-        if (!hasCompletedOnboarding && address) {
+        // Load demo USDC balance
+        if (savedDemoUSDC) {
+            setDemoUSDCBalance(parseFloat(savedDemoUSDC));
+        }
+
+        // Show onboarding if:
+        // 1. We have a wallet connected (address exists)
+        // 2. We haven't completed onboarding yet
+        if (address && !hasCompletedOnboarding) {
             setShowOnboarding(true);
         }
-    }, [address]);
+    }, [address, loading]);
 
     // Handle onboarding completion
     const handleOnboardingComplete = (data: { username: string; pin: string; gender: string; avatar: string }) => {
@@ -131,7 +146,7 @@ export default function Dashboard() {
                         initial={{ x: -300 }}
                         animate={{ x: 0 }}
                         exit={{ x: -300 }}
-                        className="fixed left-0 top-0 h-screen w-72 bg-zinc-900/40 backdrop-blur-xl border-r border-white/10 z-40 p-6 flex flex-col"
+                        className="fixed left-0 top-0 h-screen w-72 bg-zinc-900/40 backdrop-blur-xl border-r border-white/10 z-40 p-6 flex flex-col overflow-y-auto"
                     >
                         {/* Header with Logo and Close Button */}
                         <div className="flex items-center justify-between mb-8 mt-2">
@@ -163,15 +178,15 @@ export default function Dashboard() {
                             </div>
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-zinc-500">Devnet</span>
-                                <div className="flex items-center gap-1 text-green-500">
-                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <div className="flex items-center gap-1 text-orange-500">
+                                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                                     Active
                                 </div>
                             </div>
                         </div>
 
                         {/* Navigation */}
-                        <nav className="flex-1 space-y-6">
+                        <nav className="flex-1 space-y-6 overflow-y-auto">
                             {/* MAIN Section */}
                             <div>
                                 <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 px-3">
@@ -182,25 +197,25 @@ export default function Dashboard() {
                                         icon={<House size={20} />}
                                         label="Overview"
                                         active={activeSection === 'overview'}
-                                        onClick={() => setActiveSection('overview')}
+                                        onClick={() => { setActiveSection('overview'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
                                         icon={<Receipt size={20} />}
                                         label="My Subscriptions"
                                         active={activeSection === 'subscriptions'}
-                                        onClick={() => setActiveSection('subscriptions')}
+                                        onClick={() => { setActiveSection('subscriptions'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
                                         icon={<Wallet size={20} />}
                                         label="Wallet & Cards"
                                         active={activeSection === 'wallet'}
-                                        onClick={() => setActiveSection('wallet')}
+                                        onClick={() => { setActiveSection('wallet'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
                                         icon={<Key size={20} />}
                                         label="Security"
                                         active={activeSection === 'security'}
-                                        onClick={() => setActiveSection('security')}
+                                        onClick={() => { setActiveSection('security'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                 </div>
                             </div>
@@ -215,19 +230,19 @@ export default function Dashboard() {
                                         icon={<LinkIcon size={20} />}
                                         label="Create Payment Link"
                                         active={activeSection === 'payment-link'}
-                                        onClick={() => setActiveSection('payment-link')}
+                                        onClick={() => { setActiveSection('payment-link'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
                                         icon={<CreditCard size={20} />}
                                         label="Invoices"
                                         active={activeSection === 'invoices'}
-                                        onClick={() => setActiveSection('invoices')}
+                                        onClick={() => { setActiveSection('invoices'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
                                         icon={<Key size={20} />}
                                         label="Developer Keys"
                                         active={activeSection === 'dev-keys'}
-                                        onClick={() => setActiveSection('dev-keys')}
+                                        onClick={() => { setActiveSection('dev-keys'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                 </div>
                             </div>
@@ -248,7 +263,7 @@ export default function Dashboard() {
             {/* Main Content */}
             <div className={`${sidebarOpen ? 'ml-0 md:ml-72' : 'ml-0'} relative z-10 transition-all duration-300`}>
                 <div className="p-6 md:p-12 pt-20">
-                    {activeSection === 'overview' && <OverviewSection userName={userProfile.username} balance={displayBalance} address={walletAddress} requestAirdrop={requestAirdrop} loading={loading} copyToClipboard={copyToClipboard} />}
+                    {activeSection === 'overview' && <OverviewSection userName={userProfile.username} balance={displayBalance} address={walletAddress} usdcBalance={demoUSDCBalance} setUsdcBalance={setDemoUSDCBalance} loading={loading} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'subscriptions' && <SubscriptionsSection />}
                     {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'security' && <SecuritySettings />}
@@ -297,12 +312,51 @@ function NavItem({ icon, label, active, onClick }: any) {
 }
 
 // Overview Section
-function OverviewSection({ userName, balance, address, requestAirdrop, loading, copyToClipboard }: any) {
-    const [showUSD, setShowUSD] = useState(true); // USD by default
+function OverviewSection({ userName, balance, address, usdcBalance, setUsdcBalance, loading, copyToClipboard }: any) {
+    const [showUSD, setShowUSD] = useState(true);
     const [solPrice, setSolPrice] = useState<number | null>(null);
-    const [showAddFunds, setShowAddFunds] = useState(false);
     const [transactions, setTransactions] = useState<any[]>([]);
     const { subscriptions } = useSubscriptions();
+    const [isFunding, setIsFunding] = useState(false);
+
+    // @ts-ignore
+    const { wallet, signAndSendTransaction } = useLazorkit();
+
+    const handleFundDemo = async () => {
+        setIsFunding(true);
+        try {
+            if (!address) return;
+
+            // 1. Construct REAL Mint Transaction
+            const { transaction, mintKeypair } = await constructMintTransaction(address);
+
+            // 2. We must use the wallet to sign/send
+            // Since we need to partially sign with the Mint Authority, we do this:
+            transaction.partialSign(mintKeypair);
+
+            // 3. User signs (Fee Payer) & Sends
+            // The Paymaster should pick this up if configured
+            const signature = await signAndSendTransaction(transaction);
+
+            console.log("Mint Success! Signature:", signature);
+
+            // 4. Update UI
+            setUsdcBalance((prev: number) => prev + 50);
+
+            // Add REAL transaction to history
+            const newTx = {
+                signature: signature || "tx_" + Date.now(),
+                err: null,
+                blockTime: Math.floor(Date.now() / 1000),
+                memo: "CadPay USDC Access Grant"
+            };
+            setTransactions(prev => [newTx, ...prev]);
+        } catch (error) {
+            console.error("Funding failed", error);
+        } finally {
+            setIsFunding(false);
+        }
+    };
 
     // Fetch SOL price from CoinGecko
     useEffect(() => {
@@ -329,7 +383,13 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
                 const connection = new Connection('https://api.devnet.solana.com');
                 const pubkey = new PublicKey(address);
                 const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 10 });
-                setTransactions(signatures);
+                setTransactions(prev => {
+                    // Merge real signatures with simulated ones, keeping simulated ones at top if recent
+                    const realTxs = signatures;
+                    const existingSigs = new Set(realTxs.map(tx => tx.signature));
+                    const keptSimulated = prev.filter(tx => tx.signature.startsWith('funding_') && !existingSigs.has(tx.signature));
+                    return [...keptSimulated, ...realTxs];
+                });
             } catch (error) {
                 console.error('Failed to fetch transactions:', error);
             }
@@ -342,11 +402,6 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
 
     const balanceValue = parseFloat(balance);
     const usdValue = solPrice ? (balanceValue * solPrice).toFixed(2) : '0.00';
-
-    const handleAddFunds = async (amount: number) => {
-        await requestAirdrop();
-        setShowAddFunds(false);
-    };
 
     return (
         <div className="space-y-8">
@@ -364,54 +419,43 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
                     className="md:col-span-2 bg-linear-to-br from-orange-500/20 to-orange-600/10 backdrop-blur-md border border-orange-500/30 rounded-3xl p-8 relative overflow-hidden group"
                 >
                     <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <SiSolana size={150} />
+                        <CurrencyDollar size={150} />
                     </div>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-2">
-                            <p className="text-orange-200 text-sm">Total Balance</p>
+                            <p className="text-orange-200 text-sm">USDC Balance</p>
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                                <span className="text-[10px] font-bold text-orange-400">GASLESS ENABLED</span>
+                            </div>
+                        </div>
+                        <h2 className="text-5xl font-bold mb-2 text-white">
+                            ${usdcBalance.toFixed(2)} <span className="text-orange-300/60 text-2xl font-normal">USDC</span>
+                        </h2>
+                        <div className="flex items-center gap-2 mb-4 text-xs text-orange-200/60">
+                            <div className="flex items-center gap-1.5">
+                                <span>SOL: {balance}</span>
+                                <span className="px-2 py-0.5 bg-zinc-900/50 border border-orange-500/20 rounded text-[10px] font-bold text-orange-400">NOT NEEDED</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-orange-200/60 mb-6">
+                            Paymaster covers all network fees • You only need USDC to transact
+                        </p>
+                        <div className="flex items-center gap-4">
                             <button
-                                onClick={() => setShowUSD(!showUSD)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium text-orange-100 transition-all border border-white/20"
+                                onClick={handleFundDemo}
+                                disabled={loading || isFunding}
+                                className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-bold hover:bg-orange-100 transition-all hover:scale-105 disabled:opacity-50"
                             >
-                                {showUSD ? (
+                                {isFunding ? (
                                     <>
-                                        <SiSolana size={14} />
-                                        SOL
+                                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                        Minting...
                                     </>
                                 ) : (
                                     <>
-                                        <CurrencyDollar size={14} weight="bold" />
-                                        USD
+                                        <Plus weight="bold" /> Add USDC
                                     </>
                                 )}
-                            </button>
-                        </div>
-                        <h2 className="text-5xl font-bold mb-6 text-white">
-                            {showUSD ? (
-                                <>
-                                    ${usdValue} <span className="text-orange-300/60 text-2xl font-normal">USD</span>
-                                </>
-                            ) : (
-                                <>
-                                    {balance} <span className="text-orange-300/60 text-2xl font-normal">SOL</span>
-                                </>
-                            )}
-                        </h2>
-                        {solPrice && (
-                            <p className="text-xs text-orange-200/60 mb-4">
-                                1 SOL = ${solPrice.toFixed(2)} USD
-                            </p>
-                        )}
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setShowAddFunds(true)}
-                                disabled={loading}
-                                className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-xl font-bold hover:bg-orange-100 transition-all hover:scale-105 disabled:opacity-50"
-                            >
-                                <Plus weight="bold" /> {loading ? 'Processing...' : 'Add Funds'}
-                            </button>
-                            <button className="flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl font-bold hover:bg-white/20 transition-all border border-white/20">
-                                <ArrowRight weight="bold" /> Send
                             </button>
                         </div>
                     </div>
@@ -433,7 +477,7 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
                     ) : (
                         transactions.map((tx, i) => (
                             <div key={tx.signature} className="flex items-center gap-3 p-3 bg-black/30 rounded-xl border border-white/5">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${tx.err ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${tx.err ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
                                     }`}>
                                     {tx.err ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
                                 </div>
@@ -445,7 +489,7 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
                                         {new Date((tx.blockTime || 0) * 1000).toLocaleString()}
                                     </p>
                                 </div>
-                                <div className={`text-xs font-medium ${tx.err ? 'text-red-400' : 'text-green-400'
+                                <div className={`text-xs font-medium ${tx.err ? 'text-red-400' : 'text-orange-400'
                                     }`}>
                                     {tx.err ? 'Failed' : 'Success'}
                                 </div>
@@ -466,13 +510,6 @@ function OverviewSection({ userName, balance, address, requestAirdrop, loading, 
                 </div>
             </div>
 
-            {/* Add Funds Modal */}
-            <AddFundsModal
-                isOpen={showAddFunds}
-                onClose={() => setShowAddFunds(false)}
-                onConfirm={handleAddFunds}
-                loading={loading}
-            />
         </div>
     );
 }

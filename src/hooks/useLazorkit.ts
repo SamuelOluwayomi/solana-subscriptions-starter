@@ -9,7 +9,7 @@ export function useLazorkit() {
     const router = useRouter();
     const { showToast } = useToast();
     // @ts-ignore
-    const { connect, disconnect, wallet, isConnected, isLoading: sdkLoading } = useWallet();
+    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading } = useWallet();
     const [localLoading, setLocalLoading] = useState(false);
 
     // Derived address from wallet object or hook state
@@ -153,17 +153,28 @@ export function useLazorkit() {
         }
     }, [address, refreshBalance, showToast]);
 
+    const handleLogout = useCallback(() => {
+        disconnect();
+        router.push('/');
+    }, [disconnect, router]);
+
     return {
-        loading: localLoading || sdkLoading,
+        // Core Logic
+        loading: sdkLoading || localLoading,
         loginWithPasskey: handleAuth,
         createPasskeyWallet: handleCreate,
+
+        // Auth State
         address,
         isAuthenticated,
         balance,
+
+        // Actions
         requestAirdrop,
-        logout: () => {
-            disconnect();
-            router.push('/');
-        }
+        logout: handleLogout,
+
+        // Wallet Methods
+        wallet,
+        signAndSendTransaction
     };
 }

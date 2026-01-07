@@ -97,11 +97,11 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                             </div>
 
                             {/* Gasless Badge */}
-                            <div className="mb-6 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <div className="mb-6 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
                                 <div className="flex-1">
-                                    <p className="text-sm font-bold text-green-400">Gasless Transaction</p>
-                                    <p className="text-xs text-green-200/60">All fees sponsored by CadPay • You pay $0</p>
+                                    <p className="text-sm font-bold text-orange-400">Gasless Transaction</p>
+                                    <p className="text-xs text-orange-200/60">All fees sponsored by CadPay • You pay $0</p>
                                 </div>
                             </div>
 

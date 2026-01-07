@@ -215,7 +215,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                             </button>
                             <button
                                 onClick={handleComplete}
-                                className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                             >
                                 <Check size={20} weight="bold" />
                                 Complete Setup

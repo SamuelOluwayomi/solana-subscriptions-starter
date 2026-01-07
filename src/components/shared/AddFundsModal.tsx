@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CreditCard, Bank, Check, ArrowsLeftRight } from '@phosphor-icons/react';
+import { X, CreditCard, Bank, Check, Sparkle } from '@phosphor-icons/react';
 
 interface AddFundsModalProps {
     isOpen: boolean;
@@ -11,61 +11,31 @@ interface AddFundsModalProps {
     loading: boolean;
 }
 
-const MAX_SOL = 5; // Maximum 5 SOL
-
 export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: AddFundsModalProps) {
     const [step, setStep] = useState<'amount' | 'card' | 'processing'>('amount');
-    const [showUSD, setShowUSD] = useState(true); // USD by default
-    const [amount, setAmount] = useState('');
-    const [solPrice, setSolPrice] = useState<number | null>(null);
+    const [amount, setAmount] = useState('50');
     const [cardNumber, setCardNumber] = useState('');
     const [expiry, setExpiry] = useState('');
     const [cvv, setCvv] = useState('');
-
-    // Fetch SOL price
-    useEffect(() => {
-        const fetchPrice = async () => {
-            try {
-                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-                const data = await response.json();
-                setSolPrice(data.solana.usd);
-                // Set default amount in USD
-                if (!amount && data.solana.usd) {
-                    setAmount((data.solana.usd * 1).toFixed(2)); // 1 SOL in USD
-                }
-            } catch (error) {
-                console.error('Failed to fetch SOL price:', error);
-            }
-        };
-        if (isOpen) fetchPrice();
-    }, [isOpen]);
 
     const handleConfirm = async () => {
         setStep('processing');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Convert to SOL if showing USD
-        const solAmount = showUSD && solPrice ? parseFloat(amount) / solPrice : parseFloat(amount);
-        onConfirm(solAmount);
+        const usdcAmount = parseFloat(amount);
+        onConfirm(usdcAmount);
 
         setTimeout(() => {
             setStep('amount');
-            setAmount('');
             setCardNumber('');
             setExpiry('');
             setCvv('');
         }, 500);
     };
 
-    // Calculate conversions
-    const numAmount = parseFloat(amount) || 0;
-    const solAmount = showUSD && solPrice ? numAmount / solPrice : numAmount;
-    const usdAmount = !showUSD && solPrice ? numAmount * solPrice : numAmount;
-    const maxAmount = showUSD && solPrice ? (MAX_SOL * solPrice).toFixed(2) : MAX_SOL.toString();
-
     // Validation
-    const isOverLimit = solAmount > MAX_SOL;
-    const isValid = numAmount > 0 && !isOverLimit;
+    const numAmount = parseFloat(amount) || 0;
+    const isValid = numAmount > 0;
 
     const formatCardNumber = (value: string) => {
         const cleaned = value.replace(/\s/g, '');
@@ -81,22 +51,7 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
         return cleaned;
     };
 
-    const toggleCurrency = () => {
-        if (solPrice) {
-            if (showUSD) {
-                // Convert USD to SOL
-                setAmount(solAmount.toFixed(4));
-            } else {
-                // Convert SOL to USD
-                setAmount(usdAmount.toFixed(2));
-            }
-            setShowUSD(!showUSD);
-        }
-    };
-
-    const quickAmounts = showUSD && solPrice
-        ? [(solPrice * 0.5).toFixed(0), (solPrice * 1).toFixed(0), (solPrice * 2).toFixed(0)]
-        : ['0.5', '1', '2'];
+    const quickAmounts = ['25', '50', '100'];
 
     return (
         <AnimatePresence>
@@ -118,48 +73,41 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                     >
                         <div className="bg-zinc-900 border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-white">Add Funds</h2>
+                                <h2 className="text-2xl font-bold text-white">Fund Wallet</h2>
                                 <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
                                     <X size={24} />
                                 </button>
                             </div>
 
+                            {/* Gasless Badge */}
+                            <div className="mb-6 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center gap-2">
+                                <Sparkle size={20} className="text-orange-400" weight="fill" />
+                                <div>
+                                    <p className="text-sm font-bold text-orange-400">Gasless Transactions Enabled</p>
+                                    <p className="text-xs text-orange-200/60">You only need USDC - no SOL for fees!</p>
+                                </div>
+                            </div>
+
                             {step === 'amount' && (
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                     <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="block text-sm text-zinc-400">Amount</label>
-                                            <button
-                                                onClick={toggleCurrency}
-                                                className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                                            >
-                                                <ArrowsLeftRight size={14} />
-                                                {showUSD ? 'SOL' : 'USD'}
-                                            </button>
-                                        </div>
+                                        <label className="block text-sm text-zinc-400 mb-2">USDC Amount</label>
                                         <div className="relative">
                                             <input
                                                 type="number"
-                                                step={showUSD ? "0.01" : "0.0001"}
+                                                step="0.01"
                                                 value={amount}
                                                 onChange={(e) => setAmount(e.target.value)}
-                                                placeholder={showUSD ? "0.00" : "0.0000"}
-                                                className={`w-full px-4 py-4 bg-zinc-800 border ${isOverLimit ? 'border-red-500' : 'border-white/10'} rounded-xl text-2xl font-bold text-white focus:outline-none focus:border-orange-500/50`}
+                                                placeholder="0.00"
+                                                className="w-full px-4 py-4 bg-zinc-800 border border-white/10 rounded-xl text-2xl font-bold text-white focus:outline-none focus:border-orange-500/50"
                                             />
                                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">
-                                                {showUSD ? 'USD' : 'SOL'}
+                                                USDC
                                             </span>
                                         </div>
-                                        {solPrice && (
-                                            <p className="text-xs text-zinc-500 mt-2">
-                                                ≈ {showUSD ? `${solAmount.toFixed(4)} SOL` : `$${usdAmount.toFixed(2)} USD`}
-                                            </p>
-                                        )}
-                                        {isOverLimit && (
-                                            <p className="text-xs text-red-400 mt-2">
-                                                ⚠️ Maximum limit is {MAX_SOL} SOL (${solPrice ? (MAX_SOL * solPrice).toFixed(2) : '...'})
-                                            </p>
-                                        )}
+                                        <p className="text-xs text-zinc-500 mt-2">
+                                            Fund your wallet with USDC to start making gasless payments
+                                        </p>
                                     </div>
 
                                     <div className="grid grid-cols-3 gap-2">
@@ -169,7 +117,7 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                                                 onClick={() => setAmount(val)}
                                                 className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-white/10 rounded-lg text-sm font-medium transition-colors"
                                             >
-                                                {showUSD ? `$${val}` : `${val} SOL`}
+                                                ${val}
                                             </button>
                                         ))}
                                     </div>
@@ -193,10 +141,10 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                                         </div>
                                         <p className="text-sm text-orange-200/60 mb-2">Total Amount</p>
                                         <p className="text-3xl font-bold text-white">
-                                            {showUSD ? `$${amount}` : `${amount} SOL`}
+                                            ${amount} USDC
                                         </p>
-                                        <p className="text-xs text-orange-200/40 mt-1">
-                                            ≈ {showUSD ? `${solAmount.toFixed(4)} SOL` : `$${usdAmount.toFixed(2)}`}
+                                        <p className="text-xs text-orange-200/40 mt-2">
+                                            Zero network fees - Paymaster covers SOL costs
                                         </p>
                                     </div>
 
@@ -256,12 +204,12 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
 
                             {step === 'processing' && (
                                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
-                                    <div className="w-20 h-20 mx-auto mb-6 bg-green-500/20 rounded-full flex items-center justify-center">
-                                        <Check size={40} weight="bold" className="text-green-400" />
+                                    <div className="w-20 h-20 mx-auto mb-6 bg-orange-500/20 rounded-full flex items-center justify-center">
+                                        <Check size={40} weight="bold" className="text-orange-400" />
                                     </div>
                                     <h3 className="text-xl font-bold text-white mb-2">Processing Payment</h3>
                                     <p className="text-zinc-400 mb-6">
-                                        Adding {showUSD ? `$${amount}` : `${amount} SOL`} to your wallet...
+                                        Adding ${amount} USDC to your wallet...
                                     </p>
                                     <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
                                         <motion.div

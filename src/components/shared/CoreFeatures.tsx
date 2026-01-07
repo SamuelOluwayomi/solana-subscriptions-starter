@@ -24,6 +24,13 @@ const cadpayFeatures: Feature[] = [
         image: '/features/identity.png'
     },
     {
+        id: 'gasless',
+        headline: 'Zero Transaction Fees for Users.',
+        description: 'Lazorkit Paymaster sponsors all transaction fees, removing the friction of holding SOL for gas.',
+        fullDescription: 'Lazorkit\'s built-in Paymaster service sponsors all network fees automatically. Unlike traditional wallets where users must hold native tokens for gas, CadPay eliminates this barrier entirely. All subscription charges, payments, and on-chain operations are executed gaslessly—you never need to think about transaction costs.',
+        image: '/features/security.png'
+    },
+    {
         id: 'autosettlement',
         headline: 'True Recurring Crypto Payments.',
         description: 'Smart contracts typically require manual approval for every transaction.',
@@ -246,7 +253,7 @@ export default function CoreFeatures() {
                     The CadPay Ecosystem
                 </motion.h2>
                 <motion.p variants={itemVariants} className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
-                    The 4 Core Pillars
+                    The 5 Core Pillars
                 </motion.p>
             </motion.div>
 
@@ -263,11 +270,10 @@ export default function CoreFeatures() {
                         variants={cardContainerVariants}
                     >
                         {cadpayFeatures.map((feature, index) => {
-                            // Staggered positions: first (0) and last (3) are highest, middle two (1,2) are lower and same height
-                            // Heights: [450px, 400px, 400px, 450px]
-                            // Offsets: [0px, 50px, 50px, 0px]
-                            const cardHeights = [450, 400, 400, 450];
-                            const staggerOffsets = [0, 50, 50, 0];
+                            // Staggered positions for 5 cards: [450px, 400px, 350px, 400px, 450px]
+                            // Offsets: [0px, 40px, 80px, 40px, 0px]
+                            const cardHeights = [450, 400, 350, 400, 450];
+                            const staggerOffsets = [0, 40, 80, 40, 0];
                             return (
                                 <motion.div
                                     key={feature.id}
@@ -375,7 +381,7 @@ export default function CoreFeatures() {
                             viewport={{ once: true }}
                             transition={{ duration: 0.5, delay: 0.5 }}
                         >
-                            It powers our Passkey integration (allowing users to log in with biometrics instead of passwords) and manages our Session Keys (allowing decentralized apps to perform automated tasks like recurring payments securely). Lazorkit bridges the gap between the raw power of Solana and the smooth user experience of modern fintech.
+                            It powers our <span className="text-orange-400 font-semibold">Paymaster service for gasless transactions</span> (users never need SOL for fees), our Passkey integration (allowing users to log in with biometrics instead of passwords), and manages our Session Keys (allowing decentralized apps to perform automated tasks like recurring payments securely). Lazorkit bridges the gap between the raw power of Solana and the smooth user experience of modern fintech.
                         </motion.p>
                     </motion.div>
                 </div>
@@ -552,9 +558,10 @@ function Card({
                     <div className="mb-2 md:mb-3">
                         <span className="inline-block px-2 md:px-3 py-1 bg-zinc-800/80 backdrop-blur-sm rounded-full text-[10px] md:text-xs font-semibold text-orange-500 uppercase tracking-wide">
                             {feature.id === 'biometric' ? 'Biometric Account Abstraction' :
-                                feature.id === 'autosettlement' ? 'Auto-Settlement Engine' :
-                                    feature.id === 'infrastructure' ? 'Hyper-Scale Infrastructure' :
-                                        'Programmable Commerce SDK'}
+                                feature.id === 'gasless' ? 'Zero-Fee Transactions' :
+                                    feature.id === 'autosettlement' ? 'Auto-Settlement Engine' :
+                                        feature.id === 'infrastructure' ? 'Hyper-Scale Infrastructure' :
+                                            'Programmable Commerce SDK'}
                         </span>
                     </div>
 

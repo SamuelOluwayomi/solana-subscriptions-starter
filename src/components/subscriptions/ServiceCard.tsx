@@ -40,9 +40,9 @@ export default function ServiceCard({ service, onClick }: ServiceCardProps) {
             <p className="text-sm text-zinc-400 mb-4">{service.description}</p>
 
             {/* Gasless Badge */}
-            <div className="flex items-center gap-1.5 mb-3 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-lg w-fit">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs text-green-400 font-medium">Gasless • No fees</span>
+            <div className="flex items-center gap-1.5 mb-3 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg w-fit">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                <span className="text-xs text-orange-400 font-medium">Gasless • No fees</span>
             </div>
 
             {/* Price badge */}

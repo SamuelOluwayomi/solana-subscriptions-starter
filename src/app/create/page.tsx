@@ -64,6 +64,12 @@ export default function CreateAccount() {
                         />
                         <FeatureRow
                             icon={<Lightning size={20} />}
+                            title="Gasless Transactions"
+                            desc="All fees sponsored by Paymaster. You don't need SOL!"
+                            highlight={true}
+                        />
+                        <FeatureRow
+                            icon={<Lightning size={20} />}
                             title="Instant Onboarding"
                             desc="Deploy a Solana smart wallet in seconds."
                         />
@@ -89,6 +95,13 @@ export default function CreateAccount() {
                         <p className="text-sm text-zinc-400 mt-2 max-w-xs mx-auto">
                             We will create a passkey on this device. No passwords or seed phrases required.
                         </p>
+
+                        {/* Gasless Badge */}
+                        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                            <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                            <span className="text-xs font-bold text-orange-400">100% Gasless</span>
+                            <span className="text-xs text-orange-200/60">• No SOL needed for fees</span>
+                        </div>
                     </div>
 
                     <button
@@ -126,15 +139,22 @@ export default function CreateAccount() {
     );
 }
 
-function FeatureRow({ icon, title, desc }: any) {
+function FeatureRow({ icon, title, desc, highlight = false }: any) {
     return (
         <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center shrink-0 border border-orange-500/20">
-                <div className="text-orange-500">{icon}</div>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${highlight
+                ? 'bg-green-500/10 border-green-500/20'
+                : 'bg-orange-500/10 border-orange-500/20'
+                }`}>
+                <div className={highlight ? 'text-green-400' : 'text-orange-500'}>{icon}</div>
             </div>
             <div>
-                <h3 className="font-semibold text-white mb-0.5">{title}</h3>
-                <p className="text-sm text-zinc-500">{desc}</p>
+                <h3 className={`font-semibold mb-0.5 ${highlight ? 'text-green-400' : 'text-white'}`}>
+                    {title}
+                </h3>
+                <p className={`text-sm ${highlight ? 'text-green-200/80' : 'text-zinc-500'}`}>
+                    {desc}
+                </p>
             </div>
         </div>
     );
