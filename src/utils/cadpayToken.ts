@@ -11,24 +11,14 @@ import {
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
-// 🔐 HARDCODED DEMO MINT AUTHORITY (For Hackathon Only!)
-// This allows the frontend to sign mint transactions directly.
-// DO NOT use this in production.
+// 🔐 HARDCODED DEMO MINT AUTHORITY (Payer & Signer)
 const DEMO_SECRET = Uint8Array.from([121, 245, 208, 33, 94, 159, 22, 240, 87, 151, 101, 67, 181, 127, 48, 233, 186, 185, 186, 3, 61, 171, 139, 51, 104, 114, 29, 56, 133, 86, 143, 242, 117, 11, 164, 144, 110, 221, 28, 93, 146, 199, 6, 164, 47, 114, 51, 84, 158, 164, 141, 188, 79, 124, 17, 31, 251, 178, 145, 126, 174, 242, 186, 97]);
 export const MINT_AUTHORITY = Keypair.fromSecretKey(DEMO_SECRET);
 
-// The Mint Address corresponding to the secret key above
-// Since we are reusing the authority as the mint account for simplicity in this demo logic 
-// (or usually separate, but let's assume valid pre-initialized mint for now)
-// Actually, let's use a specific PRE-EXISTING Devnet Mint or create a new one.
-// For reliability, we will pretend the 'MINT_AUTHORITY' is just the authority and we target a known mint.
-// But to make it work 'from scratch', we might need to initialize the mint on first run?
-// To avoid complexity: We will use the 'Fake USDC' mint if we can mint to it? No we can't.
-// We must use OUR mint.
-
-// Let's use the public key of the authority as the Mint Address for simplicity 
-// (requires InitializeMint on this account).
-export const CADPAY_MINT = MINT_AUTHORITY.publicKey;
+// 🏦 HARDCODED MINT ACCOUNT KEYPAIR (The Token Itself)
+const DEMO_MINT_SECRET = Uint8Array.from([123, 193, 13, 207, 96, 242, 30, 107, 150, 74, 0, 79, 34, 192, 8, 200, 226, 9, 25, 31, 5, 226, 254, 242, 67, 146, 26, 111, 192, 44, 200, 104, 61, 70, 49, 248, 129, 212, 154, 58, 25, 167, 92, 220, 81, 47, 21, 140, 65, 182, 52, 176, 134, 155, 239, 23, 247, 80, 127, 242, 82, 143, 23, 166]);
+export const MINT_KEYPAIR = Keypair.fromSecretKey(DEMO_MINT_SECRET);
+export const CADPAY_MINT = MINT_KEYPAIR.publicKey;
 
 const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 
@@ -108,16 +98,32 @@ export async function constructMintTransaction(
     const transaction = new Transaction();
 
     // 0. Check if Mint exists and Initialize if needed
+    // 0. Check if Mint exists and Initialize if needed
     const mintInfo = await connection.getAccountInfo(CADPAY_MINT);
     if (!mintInfo) {
         console.log(" Mint Account not found. Initializing...");
+
+        // A. Check Mint Authority Balance - It needs SOL to pay for the Mint Account
+        const authBalance = await connection.getBalance(MINT_AUTHORITY.publicKey);
+        if (authBalance < 0.05 * 1000000000) { // If less than 0.05 SOL
+            console.log("Mint Authority needs SOL. Requesting Airdrop...");
+            try {
+                const sig = await connection.requestAirdrop(MINT_AUTHORITY.publicKey, 1 * 1000000000); // 1 SOL
+                const latest = await connection.getLatestBlockhash();
+                await connection.confirmTransaction({ signature: sig, ...latest });
+                console.log("Mint Authority funded.");
+            } catch (e) {
+                console.error("Failed to fund Mint Authority:", e);
+                // Proceed anyway, maybe it has just enough
+            }
+        }
 
         // Calculate rent for Mint account
         const lamports = await connection.getMinimumBalanceForRentExemption(82); // MINT_SIZE = 82
 
         transaction.add(
             SystemProgram.createAccount({
-                fromPubkey: userPubkey, // Payer
+                fromPubkey: MINT_AUTHORITY.publicKey, // PAYER: Mint Authority (We just funded it)
                 newAccountPubkey: CADPAY_MINT,
                 space: 82, // MINT_SIZE
                 lamports,
@@ -126,7 +132,6 @@ export async function constructMintTransaction(
         );
 
         // Manual InitializeMint Instruction (Opcode 0)
-        // Data: [0, decimals, mintAuthority(32), freezeAuthorityOption(1), freezeAuthority(32/0)]
         const initData = Buffer.alloc(67);
         initData.writeUInt8(0, 0); // Instruction 0: InitializeMint
         initData.writeUInt8(6, 1); // Decimals (6 for USDC)
@@ -153,10 +158,11 @@ export async function constructMintTransaction(
 
     if (!accountInfo) {
         // Create ATA
-        // console.log("Creating ATA for user...");
+        // Payer = MINT_AUTHORITY (Signer)
+        // Owner = User (NOT Signer)
         transaction.add(
             createAssociatedTokenAccountInstruction(
-                userPubkey, // Payer (User paymaster/wallet)
+                MINT_AUTHORITY.publicKey, // Payer
                 userATA,
                 userPubkey, // Owner
                 CADPAY_MINT
@@ -166,16 +172,8 @@ export async function constructMintTransaction(
 
     // 3. Mint Logic
     // NOTE: This mint (CADPAY_MINT) must be initialized on-chain. 
-    // If it doesn't exist, this will fail.
-    // For this hackathon demo to work INSTANTLY without manual setup,
-    // we should use a generic "Transfer" from a big whale account we control?
-    // OR: We try to initialize the mint if it doesn't exist? (Too complex for one tx).
+    // Since we added auto-init in step 0, we can proceed.
 
-    // FALLBACK STRATEGY FOR ROBUSTNESS: 
-    // Just a 0 SOL transfer with memo to "Simulate" on chain if Mint fails?
-    // User wants "VIEWABLE ON EXPLORER".
-
-    // Let's assume we Mint. 
     transaction.add(
         createMintToInstruction(
             CADPAY_MINT,
@@ -185,19 +183,23 @@ export async function constructMintTransaction(
         )
     );
 
-    // Add Memo for Explorer visibility
-    transaction.add(
-        new TransactionInstruction({
-            keys: [{ pubkey: userPubkey, isSigner: true, isWritable: true }],
-            data: Buffer.from(`CadPay USDC Audit: Funded $${amount / 1_000_000}`, 'utf-8'),
-            programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcQb")
-        })
-    );
+    // Add a simple SOL transfer (0 SOL) just to timestamp it? No need.
+    // We removed Memo instruction to prevent "Program does not exist" error.
+
 
     // FETCH BLOCKHASH & SET FEE PAYER
     const { blockhash } = await connection.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
-    transaction.feePayer = userPubkey; // User pays fee (or Paymaster via backend)
+    transaction.feePayer = MINT_AUTHORITY.publicKey; // Mint Authority Pays!
 
-    return { transaction, mintKeypair: MINT_AUTHORITY };
+    // Sign with Mint Authority (Payer/Auth) AND Mint Keypair (If initializing)
+    // Safe to sign with both always
+    transaction.sign(MINT_AUTHORITY, MINT_KEYPAIR);
+
+    return {
+        transaction,
+        sendTransaction: async () => {
+            return await connection.sendRawTransaction(transaction.serialize());
+        }
+    };
 }

@@ -351,6 +351,7 @@ export default function CoreFeatures() {
                                     src="/lazorkit-logo.png"
                                     alt="Lazorkit"
                                     fill
+                                    sizes="(max-width: 768px) 40px, 64px"
                                     className="object-contain"
                                 />
                             </div>

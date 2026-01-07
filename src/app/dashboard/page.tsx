@@ -37,9 +37,13 @@ export default function Dashboard() {
         gender: 'other',
         avatar: '👤'
     });
+
     const [showProfileEdit, setShowProfileEdit] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
-    const [demoUSDCBalance, setDemoUSDCBalance] = useState(0);
+
+    // Use Real On-Chain Balance
+    const { balance: usdcBalance, refetch: refetchUsdc } = useUSDCBalance(address);
+    // const [demoUSDCBalance, setDemoUSDCBalance] = useState(0); // Removed mock state
 
     // Load profile and demo USDC from localStorage
     useEffect(() => {
@@ -59,10 +63,10 @@ export default function Dashboard() {
             avatar: savedAvatar || '👤'
         });
 
-        // Load demo USDC balance
-        if (savedDemoUSDC) {
-            setDemoUSDCBalance(parseFloat(savedDemoUSDC));
-        }
+        // Load demo USDC balance - REMOVED (Using Real On-Chain)
+        // if (savedDemoUSDC) {
+        //     setDemoUSDCBalance(parseFloat(savedDemoUSDC));
+        // }
 
         // Show onboarding if:
         // 1. We have a wallet connected (address exists)
@@ -263,7 +267,17 @@ export default function Dashboard() {
             {/* Main Content */}
             <div className={`${sidebarOpen ? 'ml-0 md:ml-72' : 'ml-0'} relative z-10 transition-all duration-300`}>
                 <div className="p-6 md:p-12 pt-20">
-                    {activeSection === 'overview' && <OverviewSection userName={userProfile.username} balance={displayBalance} address={walletAddress} usdcBalance={demoUSDCBalance} setUsdcBalance={setDemoUSDCBalance} loading={loading} copyToClipboard={copyToClipboard} />}
+                    {activeSection === 'overview' && (
+                        <OverviewSection
+                            userName={userProfile.username}
+                            balance={displayBalance}
+                            address={walletAddress}
+                            usdcBalance={usdcBalance}   // <-- Real Balance
+                            refetchUsdc={refetchUsdc}   // <-- Refetch Function
+                            loading={loading}
+                            copyToClipboard={copyToClipboard}
+                        />
+                    )}
                     {activeSection === 'subscriptions' && <SubscriptionsSection />}
                     {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'security' && <SecuritySettings />}
@@ -312,7 +326,7 @@ function NavItem({ icon, label, active, onClick }: any) {
 }
 
 // Overview Section
-function OverviewSection({ userName, balance, address, usdcBalance, setUsdcBalance, loading, copyToClipboard }: any) {
+function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc, loading, copyToClipboard }: any) {
     const [showUSD, setShowUSD] = useState(true);
     const [solPrice, setSolPrice] = useState<number | null>(null);
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -320,28 +334,26 @@ function OverviewSection({ userName, balance, address, usdcBalance, setUsdcBalan
     const [isFunding, setIsFunding] = useState(false);
 
     // @ts-ignore
-    const { wallet, signAndSendTransaction } = useLazorkit();
+    const { wallet } = useLazorkit();
 
     const handleFundDemo = async () => {
         setIsFunding(true);
         try {
             if (!address) return;
 
-            // 1. Construct REAL Mint Transaction
-            const { transaction, mintKeypair } = await constructMintTransaction(address);
+            // 1. Construct REAL Mint Transaction (Signed by Authority)
+            const { sendTransaction } = await constructMintTransaction(address);
 
-            // 2. We must use the wallet to sign/send
-            // Since we need to partially sign with the Mint Authority, we do this:
-            transaction.partialSign(mintKeypair);
-
-            // 3. User signs (Fee Payer) & Sends
-            // The Paymaster should pick this up if configured
-            const signature = await signAndSendTransaction(transaction);
+            // 2. Send directly (User does not need to sign!)
+            const signature = await sendTransaction();
 
             console.log("Mint Success! Signature:", signature);
 
-            // 4. Update UI
-            setUsdcBalance((prev: number) => prev + 50);
+            // 3. Update UI
+            // Wait a few seconds for confirmation then refetch
+            setTimeout(() => {
+                refetchUsdc();
+            }, 2000);
 
             // Add REAL transaction to history
             const newTx = {
@@ -429,7 +441,10 @@ function OverviewSection({ userName, balance, address, usdcBalance, setUsdcBalan
                             </div>
                         </div>
                         <h2 className="text-5xl font-bold mb-2 text-white">
-                            ${usdcBalance.toFixed(2)} <span className="text-orange-300/60 text-2xl font-normal">USDC</span>
+                            <span className={usdcBalance > 0 ? "text-[#FF8C33]" : "text-white"}>
+                                ${usdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-orange-300/60 text-2xl font-normal ml-2">USDC</span>
                         </h2>
                         <div className="flex items-center gap-2 mb-4 text-xs text-orange-200/60">
                             <div className="flex items-center gap-1.5">

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { CADPAY_MINT } from '../utils/cadpayToken';
 
-// Devnet USDC Mint Address
-const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+// Use our Custom CadPay Mint
+// const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
@@ -39,7 +40,7 @@ export function useUSDCBalance(walletAddress: string | null) {
             const walletPubkey = new PublicKey(walletAddress);
 
             // Get the associated token account address
-            const ata = await findAssociatedTokenAddress(walletPubkey, USDC_MINT);
+            const ata = await findAssociatedTokenAddress(walletPubkey, CADPAY_MINT);
             setTokenAccount(ata);
 
             try {
