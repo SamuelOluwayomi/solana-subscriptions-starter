@@ -258,6 +258,14 @@ export async function constructTransferTransaction(
         console.error("Failed to check balance:", e);
         // If we can't check balance, we proceed (might fail simulate)
     }
+    // 1b. Verify Merchant ATA Exists (Should have been created by ensureMerchantHasATA)
+    const merchantAccountInfo = await connection.getAccountInfo(merchantATA);
+    if (!merchantAccountInfo) {
+        console.error(`CRITICAL: Merchant ATA ${merchantATA.toBase58()} does not exist on-chain!`);
+        throw new Error("ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. Please try again.");
+    } else {
+        console.log(`Merchant ATA confirmed: ${merchantATA.toBase58()}`);
+    }
 
     // 2. Create Transfer Instruction (SPL Token)
     const data = Buffer.alloc(9);
