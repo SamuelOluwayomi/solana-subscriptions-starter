@@ -227,6 +227,12 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
     }
 }
 
+// Import generic types from spl-token (using modern version)
+import {
+    createTransferInstruction,
+    AccountLayout
+} from '@solana/spl-token';
+
 export async function constructTransferTransaction(
     userAddress: string,
     amount: number,
@@ -246,10 +252,27 @@ export async function constructTransferTransaction(
     }
 
     // CRITICAL CHECK: Ensure User ATA is owned by Token Program
-    console.log(`User ATA Owner: ${userAccountInfo.owner.toBase58()}`);
+    console.log(`User ATA Owner (Program): ${userAccountInfo.owner.toBase58()}`);
     if (!userAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
         console.error(`FATAL: User ATA is owned by ${userAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
         throw new Error("ERROR_INVALID_USER_ACCOUNT: Your USDC account is corrupted. Please contact support.");
+    }
+
+    // 1b. Verify True Owner of the Funds (Fixing 0x2 Error)
+    let finalAuthority = userPubkey;
+    try {
+        const decodedAccount = AccountLayout.decode(userAccountInfo.data);
+        const actualOwner = decodedAccount.owner; // This is a PublicKey
+        console.log(`User ATA Actual Owner (Wallet): ${actualOwner.toBase58()}`);
+        console.log(`Provided Authority: ${userPubkey.toBase58()}`);
+
+        if (!actualOwner.equals(userPubkey)) {
+            console.warn(`WARNING: Authority mismatch detected. Switching authority to actual owner: ${actualOwner.toBase58()}`);
+            finalAuthority = actualOwner;
+        }
+    } catch (e) {
+        console.error("Failed to decode account data for owner verification:", e);
+        // Fallback to provided userPubkey if decoding fails
     }
 
     try {
@@ -262,41 +285,25 @@ export async function constructTransferTransaction(
         }
     } catch (e) {
         console.error("Failed to check balance:", e);
-        // If we can't check balance, we proceed (might fail simulate)
     }
-    // 1b. Verify Merchant ATA Exists (Should have been created by ensureMerchantHasATA)
+
+    // 1c. Verify Merchant ATA Exists
     const merchantAccountInfo = await connection.getAccountInfo(merchantATA);
     if (!merchantAccountInfo) {
         console.error(`CRITICAL: Merchant ATA ${merchantATA.toBase58()} does not exist on-chain!`);
         throw new Error("ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. Please try again.");
-    } else {
-        console.log(`Merchant ATA confirmed: ${merchantATA.toBase58()}`);
-        console.log(`Merchant ATA Owner: ${merchantAccountInfo.owner.toBase58()}`);
-
-        // CRITICAL CHECK: Ensure it is owned by Token Program
-        if (!merchantAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-            console.error(`FATAL: Merchant ATA is owned by ${merchantAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
-            throw new Error("ERROR_INVALID_MERCHANT: Merchant wallet is corrupted (Wrong Owner).");
-        }
     }
 
-    // 2. Create Transfer Instruction (SPL Token)
-    const data = Buffer.alloc(9);
-    data.writeUInt8(3, 0); // Instruction 3: Transfer
-    const bigAmount = BigInt(amount);
-    for (let i = 0; i < 8; i++) {
-        data[1 + i] = Number((bigAmount >> BigInt(8 * i)) & BigInt(0xff));
-    }
+    // 2. Create Transfer Instruction using SPL Token Library
+    // This handles encoding and isSigner logic standardly
+    const transferIx = createTransferInstruction(
+        userATA,              // Source (User ATA)
+        merchantATA,          // Destination (Merchant ATA)
+        finalAuthority,       // Owner (Likely Smart Wallet PDA)
+        BigInt(amount),       // Amount
+        [],                   // MultiSigners (Empty)
+        TOKEN_PROGRAM_ID      // Program ID
+    );
 
-    const transferIx = new TransactionInstruction({
-        keys: [
-            { pubkey: userATA, isSigner: false, isWritable: true },
-            { pubkey: merchantATA, isSigner: false, isWritable: true },
-            { pubkey: userPubkey, isSigner: true, isWritable: false },
-        ],
-        programId: TOKEN_PROGRAM_ID,
-        data
-    });
-
-    return transferIx; // Return just the instruction
+    return transferIx;
 }
