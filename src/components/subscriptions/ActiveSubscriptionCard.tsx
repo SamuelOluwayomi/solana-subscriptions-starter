@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { TrashIcon, CalendarIcon } from '@phosphor-icons/react';
+import { TrashIcon, CalendarIcon, StorefrontIcon } from '@phosphor-icons/react';
 import { ActiveSubscription } from '@/hooks/useSubscriptions';
 
 interface ActiveSubscriptionCardProps {
@@ -25,12 +25,15 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
             className="bg-zinc-900/50 border border-white/10 rounded-xl p-5 relative group"
         >
             <div className="flex items-start gap-4">
-                {/* Service Icon */}
                 <div
                     className="text-3xl p-3 rounded-lg shrink-0 flex items-center justify-center"
                     style={{ backgroundColor: `${subscription.color}20`, color: subscription.color }}
                 >
-                    <subscription.icon size={32} />
+                    {typeof subscription.icon === 'function' ? (
+                        <subscription.icon size={32} />
+                    ) : (
+                        <StorefrontIcon size={32} />
+                    )}
                 </div>
 
                 {/* Subscription Details */}
@@ -60,13 +63,18 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
                                 {subscription.transactionSignature.slice(0, 8)}...{subscription.transactionSignature.slice(-8)}
                             </code>
                             <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Prevent card interactions
                                     navigator.clipboard.writeText(subscription.transactionSignature!);
+                                    // Show visual feedback
+                                    const btn = e.currentTarget;
+                                    btn.classList.add('text-green-400');
+                                    setTimeout(() => btn.classList.remove('text-green-400'), 1000);
                                 }}
-                                className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-orange-400 transition-colors"
+                                className="p-1.5 hover:bg-white/5 rounded text-zinc-500 hover:text-orange-400 transition-colors"
                                 title="Copy Transaction ID"
                             >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
                             </button>

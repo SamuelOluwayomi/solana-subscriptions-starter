@@ -649,7 +649,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             const signature = await signAndSendTransaction({
                 instructions: [transferInstruction],
                 transactionOptions: {
-                    computeUnitLimit: 200_000,
+                    computeUnitLimit: 400_000, // Increased from 200k to handle larger transactions
                     addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
