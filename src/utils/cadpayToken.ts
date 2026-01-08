@@ -230,15 +230,18 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
 }
 
 export async function constructTransferTransaction(
-    userAddress: string,
+    smartWalletAddress: string,
     amount: number,
     merchantAddress: string // Dynamic Merchant Wallet
 ): Promise<TransactionInstruction> {
-    const userPubkey = new PublicKey(userAddress);
+    // ⚠️ IMPORTANT:
+    // smartWalletAddress MUST be the Smart Wallet / PDA that actually OWNS the USDC ATA,
+    // NOT the passkey / credential public key.
+    const smartWalletPubkey = new PublicKey(smartWalletAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
-    // 1. Get ATAs for User and Merchant
-    const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
+    // 1. Get ATAs for User (Smart Wallet) and Merchant
+    const userATA = await findAssociatedTokenAddress(smartWalletPubkey, CADPAY_MINT);
     const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
 
     // 1a. Verify User Checks (Account Exists & Sufficient Funds)
@@ -259,11 +262,11 @@ export async function constructTransferTransaction(
         const decodedData = AccountLayout.decode(userAccountInfo.data);
         const actualOwner = new PublicKey(decodedData.owner);
         console.log(`🔍 ATA Data Owner: ${actualOwner.toBase58()}`);
-        console.log(`🔍 Expected Signer: ${userPubkey.toBase58()}`);
+        console.log(`🔍 Expected Smart Wallet Owner: ${smartWalletPubkey.toBase58()}`);
 
-        if (!actualOwner.equals(userPubkey)) {
-            console.error(`❌ OWNER MISMATCH! ATA belongs to ${actualOwner.toBase58()}, but we are signing with ${userPubkey.toBase58()}`);
-            // This is the likely cause of 0x2 error
+        if (!actualOwner.equals(smartWalletPubkey)) {
+            console.error(`❌ OWNER MISMATCH! ATA belongs to ${actualOwner.toBase58()}, but Smart Wallet is ${smartWalletPubkey.toBase58()}`);
+            // This mismatch will cause custom program error 0x2 (InvalidDelegate / Owner mismatch)
         } else {
             console.log("✅ Owner match confirmed.");
         }
@@ -299,6 +302,7 @@ export async function constructTransferTransaction(
     }
 
     // 2. Create Transfer Instruction (SPL Token Transfer)
+    // Authority MUST be the Smart Wallet PDA that owns `userATA`, NOT the passkey.
     const data = Buffer.alloc(9);
     data.writeUInt8(3, 0); // Transfer instruction
 
@@ -310,9 +314,9 @@ export async function constructTransferTransaction(
 
     const transferIx = new TransactionInstruction({
         keys: [
-            { pubkey: userATA, isSigner: false, isWritable: true },
-            { pubkey: merchantATA, isSigner: false, isWritable: true },
-            { pubkey: userPubkey, isSigner: true, isWritable: false },
+            { pubkey: userATA, isSigner: false, isWritable: true },          // Source ATA (Smart Wallet's USDC)
+            { pubkey: merchantATA, isSigner: false, isWritable: true },      // Destination ATA (Merchant)
+            { pubkey: smartWalletPubkey, isSigner: false, isWritable: false } // Authority = Smart Wallet PDA (NOT passkey)
         ],
         programId: TOKEN_PROGRAM_ID,
         data
