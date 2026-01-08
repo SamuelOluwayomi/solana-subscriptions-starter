@@ -242,6 +242,28 @@ export async function constructTransferTransaction(
     const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
+    // 🔍 CRITICAL CHECK: Verify if userAddress is a Passkey or Smart Wallet PDA
+    const userAccountOwner = await connection.getAccountInfo(userPubkey);
+    const SYSTEM_PROGRAM = new PublicKey('11111111111111111111111111111111');
+
+    console.log("===========================================");
+    console.log("🔍 ACCOUNT OWNERSHIP CHECK:");
+    console.log("User Address:", userPubkey.toBase58());
+    console.log("Account Owner Program:", userAccountOwner?.owner.toBase58() || "Account doesn't exist");
+
+    if (userAccountOwner && userAccountOwner.owner.equals(SYSTEM_PROGRAM)) {
+        console.error("❌ CRITICAL: This address is owned by System Program (Standard Wallet/Passkey)!");
+        console.error("You need to use the Smart Wallet PDA address, not the Passkey address.");
+        console.error("Check your wallet object for the correct property (e.g., wallet.smartAccountAddress)");
+        throw new Error(
+            "ERROR_PASSKEY_ADDRESS: You are using a Passkey address (7qZ...) instead of the Smart Wallet PDA. " +
+            "The Smart Wallet PDA should be owned by the Lazorkit Program, not the System Program. " +
+            "Please check your wallet setup and use the correct Smart Wallet address."
+        );
+    }
+    console.log("===========================================");
+
+
     // 1. FORCE CLEAN ADDRESSES & RE-DERIVE (Fix for Off-Curve PDAs/Smart Wallets)
     // We re-calculate everything to ensure mathematical correctness
     const usdcMintKey = CADPAY_MINT; // Using the constant defined in this file

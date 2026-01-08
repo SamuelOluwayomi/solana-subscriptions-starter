@@ -18,6 +18,22 @@ export function useLazorkit() {
     // @ts-ignore
     const isAuthenticated = isConnected;
 
+    // 🔍 DIAGNOSTIC: Log wallet structure to identify Passkey vs PDA
+    useEffect(() => {
+        if (wallet) {
+            console.log("===========================================");
+            console.log("🔍 WALLET IDENTITY DIAGNOSTIC:");
+            // @ts-ignore
+            console.log("wallet.publicKey:", wallet.publicKey?.toBase58?.() || wallet.publicKey);
+            // @ts-ignore
+            console.log("wallet.smartWallet:", wallet.smartWallet?.toBase58?.() || wallet.smartWallet);
+            // @ts-ignore
+            console.log("wallet.address:", wallet.address?.toBase58?.() || wallet.address);
+            console.log("Full wallet object keys:", Object.keys(wallet));
+            console.log("===========================================");
+        }
+    }, [wallet]);
+
     // Clear any auto-login session on mount to force biometric re-auth
     useEffect(() => {
         const clearAutoLogin = async () => {
