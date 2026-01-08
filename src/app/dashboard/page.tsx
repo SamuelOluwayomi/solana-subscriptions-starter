@@ -30,6 +30,7 @@ import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
 import CopyButton from '@/components/shared/CopyButton';
 import { useMerchant } from '@/context/MerchantContext';
+import { useToast } from '@/context/ToastContext';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -555,6 +556,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     // @ts-ignore
     const { balance, signAndSendTransaction, address } = useLazorkit();
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
+    const { showToast } = useToast();
     const { services: dynamicServices, merchants } = useMerchant();
 
     // Merge Static + Dynamic Services (Filter out duplicates)
@@ -666,17 +668,25 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             console.log("✅ Transaction Signature:", signature);
 
             // 5. Update local state
+            const staticService = SERVICES.find(s => s.id === serviceId);
+            const serviceName = dynamicService?.name || staticService?.name || 'Unknown Service';
+            const serviceColor = dynamicService?.color || staticService?.color || '#FFFFFF';
+            const serviceIcon = staticService?.icon || StorefrontIcon;
+
             addSubscription({
                 serviceId,
-                serviceName: dynamicService ? dynamicService.name : 'Unknown Service',
+                serviceName,
                 plan: plan.name,
                 price,
                 email,
-                color: dynamicService ? dynamicService.color : '#FFFFFF',
-                icon: StorefrontIcon
+                color: serviceColor,
+                icon: serviceIcon
             });
 
-            // 5. Refetch Balances
+            // 6. Show success notification
+            showToast(`Successfully subscribed to ${dynamicService?.name || 'service'}!`, 'success');
+
+            // 7. Refetch Balances
             setTimeout(refetchUsdc, 2000);
 
             setShowSubscribeModal(false);

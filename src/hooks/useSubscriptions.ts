@@ -80,27 +80,33 @@ export function useSubscriptions() {
         });
     };
 
-    // Generate simulated historical data for the chart (6 months from July 2025 to Dec 2025)
+    // Generate historical data for the chart (6 months including current month)
     const getHistoricalData = useCallback(() => {
         const months = [];
-        const baseDate = new Date(2025, 6, 1); // July 2025
+        const now = new Date();
         const currentMonthTotal = getMonthlyTotal();
 
-        // Generate data for July - December 2025
-        for (let i = 0; i < 6; i++) {
-            const date = new Date(baseDate);
-            date.setMonth(baseDate.getMonth() + i);
+        // Generate data for last 6 months (including current)
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(now);
+            date.setMonth(now.getMonth() - i);
             const monthKey = date.toISOString().slice(0, 7);
             const monthName = date.toLocaleDateString('en-US', { month: 'short' });
 
-            // Use stored data if available, otherwise simulate gradual growth
+            // Use stored data if available, otherwise use dummy baseline
             let value;
             if (monthlyData[monthKey]) {
                 value = monthlyData[monthKey];
             } else {
-                // Simulate growth from 40% to 100% of current total  
-                const growthFactor = 0.4 + (i / 5) * 0.6;
-                value = currentMonthTotal * growthFactor;
+                // Dummy baseline values that grow towards current month
+                const dummyBaseline = [45, 52, 48, 70, 65, 85];
+                const index = 5 - i; // Map to dummy array
+                value = dummyBaseline[index] || 50;
+
+                // If we have current subscriptions, blend in some of that value
+                if (currentMonthTotal > 0 && i === 0) {
+                    value = currentMonthTotal;
+                }
             }
 
             months.push({
