@@ -6,11 +6,10 @@ import {
     Keypair,
     TransactionInstruction
 } from '@solana/web3.js';
-import { AccountLayout, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import bs58 from 'bs58';
 
 // Constants
-// export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 // 🔐 HARDCODED DEMO MINT AUTHORITY (Payer & Signer)
