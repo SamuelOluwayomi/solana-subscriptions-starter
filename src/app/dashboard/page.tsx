@@ -639,15 +639,11 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 targetMerchantAddress
             );
 
-            // Sanitize transaction (Verify serialization to avoid object mismatches)
-            const serializedTx = transaction.serialize({ requireAllSignatures: false });
-            const cleanTransaction = Transaction.from(serializedTx);
-
-            // 3. User signs the transaction
-            const signature = await signAndSendTransaction(cleanTransaction);
+            // 4. User signs the transaction (Lazorkit handles gas sponsorship)
+            const signature = await signAndSendTransaction(transaction);
             console.log("Transaction Signature:", signature);
 
-            // 4. Update local state
+            // 5. Update local state
             addSubscription({
                 serviceId,
                 serviceName: dynamicService ? dynamicService.name : 'Unknown Service',
