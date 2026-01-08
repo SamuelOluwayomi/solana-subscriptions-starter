@@ -29,14 +29,27 @@ export function useLazorkit() {
     }, [walletHook]);
 
     // @ts-ignore
-    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading } = walletHook || {};
+    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading, smartWalletPubkey } = walletHook || {};
     const [localLoading, setLocalLoading] = useState(false);
 
-    // Derived address from wallet object or hook state
+    // ✅ CORRECT: Use smartWalletPubkey (the actual Smart Wallet PDA)
+    // NOT wallet.smartWallet (which might be the Passkey)
     // @ts-ignore
-    const address = wallet?.smartWallet || null;
+    const address = smartWalletPubkey?.toBase58?.() || null;
     // @ts-ignore
     const isAuthenticated = isConnected;
+
+    // 🔍 VERIFICATION: Log to confirm we're using the right address
+    useEffect(() => {
+        if (smartWalletPubkey && wallet) {
+            console.log("===========================================");
+            console.log("✅ WALLET ADDRESS VERIFICATION:");
+            console.log("Smart Wallet PDA (CORRECT):", smartWalletPubkey.toBase58());
+            console.log("wallet.smartWallet (PASSKEY?):", wallet.smartWallet);
+            console.log("Are they different?", smartWalletPubkey.toBase58() !== wallet.smartWallet);
+            console.log("===========================================");
+        }
+    }, [smartWalletPubkey, wallet]);
 
     // 🔍 DIAGNOSTIC: Log wallet structure to identify Passkey vs PDA
     useEffect(() => {
