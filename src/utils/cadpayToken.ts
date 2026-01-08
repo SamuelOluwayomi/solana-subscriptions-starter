@@ -287,6 +287,10 @@ export async function constructTransferTransaction(
 
     transaction.add(transferIx);
 
-    // 3. Helper: We do NOT set blockhash/feePayer here to allow Lazorkit SDK to manage the transaction context optimally.
+    // 3. Set Fee Payer to User (Lazorkit SDK sponsors this)
+    const { blockhash } = await connection.getLatestBlockhash('finalized');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = userPubkey;
+
     return transaction;
 }
