@@ -23,13 +23,14 @@ export function useLazorkit() {
         if (wallet) {
             console.log("===========================================");
             console.log("🔍 WALLET IDENTITY DIAGNOSTIC:");
-            // @ts-ignore
-            console.log("wallet.publicKey:", wallet.publicKey?.toBase58?.() || wallet.publicKey);
-            // @ts-ignore
-            console.log("wallet.smartWallet:", wallet.smartWallet?.toBase58?.() || wallet.smartWallet);
-            // @ts-ignore
-            console.log("wallet.address:", wallet.address?.toBase58?.() || wallet.address);
-            console.log("Full wallet object keys:", Object.keys(wallet));
+            console.log("Full wallet object:", wallet);
+            console.log("---");
+            // Log each property individually
+            for (const key of Object.keys(wallet)) {
+                // @ts-ignore
+                const value = wallet[key];
+                console.log(`wallet.${key}:`, typeof value === 'object' && value?.toBase58 ? value.toBase58() : value);
+            }
             console.log("===========================================");
         }
     }, [wallet]);
