@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Copy, ArrowSquareOut, Clock, CurrencyDollar } from '@phosphor-icons/react';
+import { XIcon, CheckIcon, CopyIcon, ArrowSquareOutIcon, ClockIcon, CurrencyDollarIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 interface Transaction {
@@ -67,21 +67,21 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-2xl font-bold text-white">Transaction Details</h2>
                                 <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
-                                    <X size={24} />
+                                    <XIcon size={24} />
                                 </button>
                             </div>
 
                             {/* Status */}
                             <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${transaction.err
-                                    ? 'bg-red-500/10 border border-red-500/30'
-                                    : 'bg-green-500/10 border border-green-500/30'
+                                ? 'bg-red-500/10 border border-red-500/30'
+                                : 'bg-green-500/10 border border-green-500/30'
                                 }`}>
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${transaction.err ? 'bg-red-500/20' : 'bg-green-500/20'
                                     }`}>
                                     {transaction.err ? (
-                                        <X size={20} weight="bold" className="text-red-400" />
+                                        <XIcon size={20} weight="bold" className="text-red-400" />
                                     ) : (
-                                        <Check size={20} weight="bold" className="text-green-400" />
+                                        <CheckIcon size={20} weight="bold" className="text-green-400" />
                                     )}
                                 </div>
                                 <div>
@@ -97,7 +97,7 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                             {/* Gasless Badge */}
                             <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <CurrencyDollar size={16} className="text-orange-400" />
+                                    <CurrencyDollarIcon size={16} className="text-orange-400" />
                                     <p className="text-sm font-bold text-orange-400">Gasless Transaction</p>
                                 </div>
                                 <p className="text-xs text-orange-200/60">Transaction fees sponsored by CadPay Paymaster</p>
@@ -116,9 +116,9 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                                             className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
                                         >
                                             {copied ? (
-                                                <Check size={16} className="text-green-400" />
+                                                <CheckIcon size={16} className="text-green-400" />
                                             ) : (
-                                                <Copy size={16} className="text-zinc-400" />
+                                                <CopyIcon size={16} className="text-zinc-400" />
                                             )}
                                         </button>
                                     </div>
@@ -142,7 +142,7 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                                 className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                             >
                                 View on Solana Explorer
-                                <ArrowSquareOut size={18} weight="bold" />
+                                <ArrowSquareOutIcon size={18} weight="bold" />
                             </button>
                         </div>
                     </motion.div>

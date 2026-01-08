@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { SiSolana } from "react-icons/si";
-import { X, ArrowUpRight } from '@phosphor-icons/react';
+import { XIcon, ArrowUpRightIcon } from '@phosphor-icons/react';
 
 type Feature = {
     id: string;
@@ -450,7 +450,7 @@ export default function CoreFeatures() {
                                     className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-orange-500 hover:text-black transition-colors z-30"
                                     aria-label="Close"
                                 >
-                                    <X size={20} />
+                                    <XIcon size={20} />
                                 </button>
 
                                 <motion.div
@@ -535,7 +535,7 @@ function Card({
         >
             {/* Arrow Icon - Top Right Corner */}
             <div className="absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 transition-all duration-300">
-                <ArrowUpRight size={18} className="text-white group-hover:text-black" />
+                <ArrowUpRightIcon size={18} className="text-white group-hover:text-black" />
             </div>
 
             {/* Card Content */}
@@ -579,7 +579,7 @@ function Card({
                     {/* Read More Indicator */}
                     <div className="flex items-center gap-2 text-orange-500 text-xs md:text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <span>Read more</span>
-                        <ArrowUpRight size={14} className="md:w-4 md:h-4" />
+                        <ArrowUpRightIcon size={14} className="md:w-4 md:h-4" />
                     </div>
                 </div>
             </div>

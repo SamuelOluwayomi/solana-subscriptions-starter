@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pencil } from '@phosphor-icons/react';
+import { XIcon, PencilIcon } from '@phosphor-icons/react';
 
 interface ProfileEditModalProps {
     isOpen: boolean;
@@ -51,7 +51,7 @@ export default function ProfileEditModal({ isOpen, onClose, currentName, onSave 
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                                        <Pencil size={20} className="text-orange-400" />
+                                        <PencilIcon size={20} className="text-orange-400" />
                                     </div>
                                     <h2 className="text-2xl font-bold text-white">Edit Profile</h2>
                                 </div>
@@ -59,7 +59,7 @@ export default function ProfileEditModal({ isOpen, onClose, currentName, onSave 
                                     onClick={onClose}
                                     className="text-zinc-400 hover:text-white transition-colors"
                                 >
-                                    <X size={24} />
+                                    <XIcon size={24} />
                                 </button>
                             </div>
 

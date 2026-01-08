@@ -1,6 +1,6 @@
 'use client';
 
-import { Fingerprint, ShieldCheck, Lightning, ArrowLeft } from '@phosphor-icons/react';
+import { FingerprintIcon, ShieldCheckIcon, LightningIcon, ArrowLeftIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useLazorkit } from '@/hooks/useLazorkit';
 import { useState } from 'react';
@@ -32,10 +32,10 @@ export default function CreateAccount() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,var(--tw-gradient-stops))] from-orange-900/20 via-[#1c1209] to-[#1c1209]" />
             <div className="absolute bottom-0 w-[200%] h-[50vh] bg-[linear-gradient(to_bottom,transparent,rgba(255,255,255,0.03)_1px),linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[4rem_4rem] transform-[perspective(500px)_rotateX(60deg)] pointer-events-none origin-bottom opacity-20" />
 
-            {/* NAV BACK (Absolute top left */}
+            {/* NAV BACK (Absolute top left) */}
             <div className="absolute top-8 left-8 z-20">
-                <Link href="/" className="inline-flex items-center text-zinc-500 hover:text-orange-400 transition-colors text-sm font-medium group">
-                    <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Home
+                <Link href="/" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all group">
+                    <ArrowLeftIcon size={20} className="group-hover:-translate-x-0.5 transition-transform" />
                 </Link>
             </div>
 
@@ -53,23 +53,23 @@ export default function CreateAccount() {
 
                     <div className="space-y-4">
                         <FeatureRow
-                            icon={<ShieldCheck size={20} />}
+                            icon={<ShieldCheckIcon size={20} />}
                             title="Bank-Grade Security"
                             desc="Keys are stored in your device's Secure Enclave."
                         />
                         <FeatureRow
-                            icon={<Fingerprint size={20} />}
+                            icon={<FingerprintIcon size={20} />}
                             title="Biometric Signatures"
                             desc="Approve transactions with a touch or glance."
                         />
                         <FeatureRow
-                            icon={<Lightning size={20} />}
+                            icon={<LightningIcon size={20} />}
                             title="Gasless Transactions"
                             desc="All fees sponsored by Paymaster. You don't need SOL!"
-                            highlight={true}
+
                         />
                         <FeatureRow
-                            icon={<Lightning size={20} />}
+                            icon={<LightningIcon size={20} />}
                             title="Instant Onboarding"
                             desc="Deploy a Solana smart wallet in seconds."
                         />
@@ -89,7 +89,7 @@ export default function CreateAccount() {
 
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)]">
-                            <Fingerprint className="text-orange-500" size={32} />
+                            <FingerprintIcon className="text-orange-500" size={32} />
                         </div>
                         <h2 className="text-2xl font-bold text-white">Create Smart Wallet</h2>
                         <p className="text-sm text-zinc-400 mt-2 max-w-xs mx-auto">
@@ -117,7 +117,7 @@ export default function CreateAccount() {
                                 </>
                             ) : (
                                 <>
-                                    <Fingerprint size={20} className="text-orange-600" />
+                                    <FingerprintIcon size={20} className="text-orange-600" />
                                     <span>Create Wallet with Passkey</span>
                                 </>
                             )}
@@ -146,13 +146,14 @@ function FeatureRow({ icon, title, desc, highlight = false }: any) {
                 ? 'bg-green-500/10 border-green-500/20'
                 : 'bg-orange-500/10 border-orange-500/20'
                 }`}>
-                <div className={highlight ? 'text-green-400' : 'text-orange-500'}>{icon}</div>
+                <div className={'text-orange-500'}>{icon}</div>
             </div>
             <div>
-                <h3 className={`font-semibold mb-0.5 ${highlight ? 'text-green-400' : 'text-white'}`}>
+                <h3 className={`font-semibold mb-0.5 text-white`}>
+
                     {title}
                 </h3>
-                <p className={`text-sm ${highlight ? 'text-green-200/80' : 'text-zinc-500'}`}>
+                <p className={`text-sm text-zinc-500`}>
                     {desc}
                 </p>
             </div>

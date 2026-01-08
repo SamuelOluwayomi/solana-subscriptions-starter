@@ -4,7 +4,8 @@ import {
     Transaction,
     SystemProgram,
     Keypair,
-    TransactionInstruction
+    TransactionInstruction,
+    ComputeBudgetProgram
 } from '@solana/web3.js';
 
 // Constants
@@ -171,9 +172,6 @@ export async function constructMintTransaction(
     }
 
     // 3. Mint Logic
-    // NOTE: This mint (CADPAY_MINT) must be initialized on-chain. 
-    // Since we added auto-init in step 0, we can proceed.
-
     transaction.add(
         createMintToInstruction(
             CADPAY_MINT,
@@ -182,10 +180,6 @@ export async function constructMintTransaction(
             amount
         )
     );
-
-    // Add a simple SOL transfer (0 SOL) just to timestamp it? No need.
-    // We removed Memo instruction to prevent "Program does not exist" error.
-
 
     // FETCH BLOCKHASH & SET FEE PAYER
     const { blockhash } = await connection.getLatestBlockhash('confirmed');
@@ -202,4 +196,98 @@ export async function constructMintTransaction(
             return await connection.sendRawTransaction(transaction.serialize());
         }
     };
+}
+
+export const DEMO_MERCHANT_WALLET = new PublicKey("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263");
+
+// Helper to ensure Merchant has an ATA (Paid by Mint Auth)
+export async function ensureMerchantHasATA(merchantAddress: string) {
+    const merchantPubkey = new PublicKey(merchantAddress);
+    const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
+    const accountInfo = await connection.getAccountInfo(merchantATA);
+
+    if (!accountInfo) {
+        console.log("Merchant ATA missing. Initializing via System...");
+        const transaction = new Transaction().add(
+            createAssociatedTokenAccountInstruction(
+                MINT_AUTHORITY.publicKey, // System Payer
+                merchantATA,
+                merchantPubkey,
+                CADPAY_MINT
+            )
+        );
+
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = MINT_AUTHORITY.publicKey;
+        transaction.sign(MINT_AUTHORITY);
+
+        const signature = await connection.sendRawTransaction(transaction.serialize());
+        await connection.confirmTransaction({ signature, ...await connection.getLatestBlockhash() });
+        console.log("Merchant ATA Initialized:", signature);
+    }
+}
+
+export async function constructTransferTransaction(
+    userAddress: string,
+    amount: number,
+    merchantAddress: string // Dynamic Merchant Wallet
+) {
+    const userPubkey = new PublicKey(userAddress);
+    const merchantPubkey = new PublicKey(merchantAddress);
+    const transaction = new Transaction();
+
+    // 1. Get ATAs for User and Merchant
+    const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
+    const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
+
+    // 1a. Verify User Checks (Account Exists & Sufficient Funds)
+    const userAccountInfo = await connection.getAccountInfo(userATA);
+    if (!userAccountInfo) {
+        throw new Error("ERROR_NO_ACCOUNT: You don't have a USDC account. Please use the Faucet first.");
+    }
+
+    try {
+        const balanceResponse = await connection.getTokenAccountBalance(userATA);
+        const balance = balanceResponse.value.uiAmount || 0;
+        console.log(`User Balance: ${balance} USDC, Required: ${amount / 1_000_000} USDC`);
+
+        if (balance < (amount / 1_000_000)) {
+            throw new Error(`ERROR_INSUFFICIENT_FUNDS: You have ${balance} USDC but need ${amount / 1_000_000}.`);
+        }
+    } catch (e) {
+        console.error("Failed to check balance:", e);
+        // If we can't check balance, we proceed (might fail simulate)
+    }
+
+    // 2. Create Transfer Instruction (SPL Token)
+    const data = Buffer.alloc(9);
+    data.writeUInt8(3, 0); // Instruction 3: Transfer
+    const bigAmount = BigInt(amount);
+    for (let i = 0; i < 8; i++) {
+        data[1 + i] = Number((bigAmount >> BigInt(8 * i)) & BigInt(0xff));
+    }
+
+    const transferIx = new TransactionInstruction({
+        keys: [
+            { pubkey: userATA, isSigner: false, isWritable: true },
+            { pubkey: merchantATA, isSigner: false, isWritable: true },
+            { pubkey: userPubkey, isSigner: true, isWritable: false },
+        ],
+        programId: TOKEN_PROGRAM_ID,
+        data
+    });
+
+    transaction.add(transferIx);
+
+    // Add Compute Budget to ensure reliability (Standard for Devnet/Mainnet)
+    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }));
+    transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }));
+
+    // 3. Set Fee Payer to User (Lazorkit SDK sponsors this)
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = userPubkey;
+
+    return transaction;
 }

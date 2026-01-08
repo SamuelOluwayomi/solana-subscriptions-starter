@@ -4,6 +4,7 @@ import {
     SiApplemusic, SiHbo, SiDiscord, SiAdobe, SiGithub, SiOpenai
 } from 'react-icons/si';
 import { FaTv, FaFilm } from 'react-icons/fa';
+import { StorefrontIcon } from '@phosphor-icons/react';
 
 export interface SubscriptionPlan {
     name: string;
@@ -14,7 +15,7 @@ export interface SubscriptionPlan {
 export interface Service {
     id: string;
     name: string;
-    category: 'streaming' | 'music' | 'social' | 'creative' | 'developer' | 'ai';
+    category: 'streaming' | 'music' | 'social' | 'creative' | 'developer' | 'ai' | 'other';
     color: string;
     icon: IconType;
     description: string;
@@ -177,5 +178,6 @@ export const CATEGORIES = [
     { id: 'social', name: 'Social', count: SERVICES.filter(s => s.category === 'social').length },
     { id: 'creative', name: 'Creative', count: SERVICES.filter(s => s.category === 'creative').length },
     { id: 'developer', name: 'Developer', count: SERVICES.filter(s => s.category === 'developer').length },
-    { id: 'ai', name: 'AI', count: SERVICES.filter(s => s.category === 'ai').length }
+    { id: 'ai', name: 'AI', count: SERVICES.filter(s => s.category === 'ai').length },
+    { id: 'other', name: 'Other', count: 0 }
 ];

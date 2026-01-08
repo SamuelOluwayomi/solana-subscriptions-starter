@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightning, CheckCircle, Sparkle, ArrowRight, Warning } from '@phosphor-icons/react';
+import { LightningIcon, CheckCircleIcon, SparkleIcon, ArrowRightIcon, WarningIcon } from '@phosphor-icons/react';
 import { useWallet } from '@lazorkit/wallet';
 import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 
@@ -73,7 +73,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center border border-green-500/30">
-                            <Lightning size={24} className="text-green-400" weight="fill" />
+                            <LightningIcon size={24} className="text-green-400" weight="fill" />
                         </div>
                         <h3 className="text-2xl font-bold text-white">Test Gasless Payments</h3>
                     </div>
@@ -101,7 +101,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                         <span className="text-zinc-500 text-lg font-medium mb-1">USDC</span>
                     </div>
                     <p className="text-xs text-green-200/60 mt-2 flex items-center gap-1.5">
-                        <CheckCircle size={14} weight="fill" />
+                        <CheckCircleIcon size={14} weight="fill" />
                         This is all you need - no SOL required
                     </p>
                 </div>
@@ -121,7 +121,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                         <span className="text-zinc-500 text-lg font-medium mb-1">SOL</span>
                     </div>
                     <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
-                        <Sparkle size={14} weight="fill" className="text-orange-400" />
+                        <SparkleIcon size={14} weight="fill" className="text-orange-400" />
                         Paymaster covers this automatically
                     </p>
                 </div>
@@ -136,7 +136,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                         exit={{ opacity: 0, y: -10 }}
                         className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
                     >
-                        <Warning size={20} className="text-red-400 shrink-0 mt-0.5" />
+                        <WarningIcon size={20} className="text-red-400 shrink-0 mt-0.5" />
                         <p className="text-sm text-red-400">{error}</p>
                     </motion.div>
                 )}
@@ -153,7 +153,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                     >
                         <div className="flex items-start gap-4">
                             <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center shrink-0 border border-green-500/30">
-                                <CheckCircle size={28} weight="fill" className="text-green-400" />
+                                <CheckCircleIcon size={28} weight="fill" className="text-green-400" />
                             </div>
                             <div className="flex-1">
                                 <h4 className="text-lg font-bold text-green-400 mb-1">Transaction Successful! 🎉</h4>
@@ -169,7 +169,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                                         className="inline-flex items-center gap-2 text-xs text-green-400 hover:text-green-300 transition-colors font-medium"
                                     >
                                         View on Solana Explorer
-                                        <ArrowRight size={14} />
+                                        <ArrowRightIcon size={14} />
                                     </a>
                                 )}
                             </div>
@@ -192,7 +192,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
                         </>
                     ) : (
                         <>
-                            <Lightning size={20} weight="fill" />
+                            <LightningIcon size={20} weight="fill" />
                             <span>Execute Test Transaction</span>
                         </>
                     )}

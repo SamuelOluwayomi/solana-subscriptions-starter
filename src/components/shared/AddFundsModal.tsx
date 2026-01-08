@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CreditCard, Bank, Check, Sparkle } from '@phosphor-icons/react';
+import { XIcon, CreditCardIcon, BankIcon, CheckIcon, SparkleIcon } from '@phosphor-icons/react';
 
 interface AddFundsModalProps {
     isOpen: boolean;
@@ -75,13 +75,13 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                             <div className="flex items-center justify-between mb-6">
                                 <h2 className="text-2xl font-bold text-white">Fund Wallet</h2>
                                 <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
-                                    <X size={24} />
+                                    <XIcon size={24} />
                                 </button>
                             </div>
 
                             {/* Gasless Badge */}
                             <div className="mb-6 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center gap-2">
-                                <Sparkle size={20} className="text-orange-400" weight="fill" />
+                                <SparkleIcon size={20} className="text-orange-400" weight="fill" />
                                 <div>
                                     <p className="text-sm font-bold text-orange-400">Gasless Transactions Enabled</p>
                                     <p className="text-xs text-orange-200/60">You only need USDC - no SOL for fees!</p>
@@ -136,8 +136,8 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                                     <div className="bg-linear-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/30 rounded-2xl p-6">
                                         <div className="flex items-center justify-between mb-4">
-                                            <CreditCard size={32} className="text-orange-400" />
-                                            <Bank size={24} className="text-orange-400/60" />
+                                            <CreditCardIcon size={32} className="text-orange-400" />
+                                            <BankIcon size={24} className="text-orange-400/60" />
                                         </div>
                                         <p className="text-sm text-orange-200/60 mb-2">Total Amount</p>
                                         <p className="text-3xl font-bold text-white">
@@ -205,7 +205,7 @@ export default function AddFundsModal({ isOpen, onClose, onConfirm, loading }: A
                             {step === 'processing' && (
                                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                                     <div className="w-20 h-20 mx-auto mb-6 bg-orange-500/20 rounded-full flex items-center justify-center">
-                                        <Check size={40} weight="bold" className="text-orange-400" />
+                                        <CheckIcon size={40} weight="bold" className="text-orange-400" />
                                     </div>
                                     <h3 className="text-xl font-bold text-white mb-2">Processing Payment</h3>
                                     <p className="text-zinc-400 mb-6">

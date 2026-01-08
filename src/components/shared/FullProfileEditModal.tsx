@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, LockKey, GenderMale, GenderFemale, Camera, Check } from '@phosphor-icons/react';
+import { XIcon, UserIcon, LockKeyIcon, GenderMaleIcon, GenderFemaleIcon, CameraIcon, CheckIcon } from '@phosphor-icons/react';
 
 interface FullProfileEditModalProps {
     isOpen: boolean;
@@ -96,7 +96,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold text-white">Edit Profile</h2>
                         <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
-                            <X size={24} />
+                            <XIcon size={24} />
                         </button>
                     </div>
 
@@ -143,7 +143,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-2">Username</label>
                                 <div className="relative">
-                                    <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                    <UserIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                                     <input
                                         type="text"
                                         value={username}
@@ -166,7 +166,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                                             : 'border-white/10 hover:border-white/20'
                                             }`}
                                     >
-                                        <GenderMale size={32} className={`mx-auto ${gender === 'male' ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                        <GenderMaleIcon size={32} className={`mx-auto ${gender === 'male' ? 'text-orange-500' : 'text-zinc-500'}`} />
                                         <p className="text-xs text-white mt-2">Male</p>
                                     </button>
                                     <button
@@ -176,7 +176,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                                             : 'border-white/10 hover:border-white/20'
                                             }`}
                                     >
-                                        <GenderFemale size={32} className={`mx-auto ${gender === 'female' ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                        <GenderFemaleIcon size={32} className={`mx-auto ${gender === 'female' ? 'text-orange-500' : 'text-zinc-500'}`} />
                                         <p className="text-xs text-white mt-2">Female</p>
                                     </button>
                                     <button
@@ -186,7 +186,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                                             : 'border-white/10 hover:border-white/20'
                                             }`}
                                     >
-                                        <User size={32} className={`mx-auto ${gender === 'other' ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                        <UserIcon size={32} className={`mx-auto ${gender === 'other' ? 'text-orange-500' : 'text-zinc-500'}`} />
                                         <p className="text-xs text-white mt-2">Other</p>
                                     </button>
                                 </div>
@@ -285,7 +285,7 @@ export default function FullProfileEditModal({ isOpen, onClose, currentProfile, 
                             onClick={handleSave}
                             className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
-                            <Check size={20} weight="bold" />
+                            <CheckIcon size={20} weight="bold" />
                             Save Changes
                         </button>
                     </div>

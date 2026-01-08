@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ShoppingBag, Fingerprint, ShieldCheck } from '@phosphor-icons/react';
-import { ArrowLeft } from '@phosphor-icons/react';
+import { ShoppingBagIcon, FingerprintIcon, ShieldCheckIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useLazorkit } from '@/hooks/useLazorkit';
 
@@ -26,7 +26,7 @@ export default function SignIn() {
             >
                 {/* NAV BACK */}
                 <Link href="/" className="inline-flex items-center text-zinc-500 hover:text-orange-400 mb-8 transition-colors text-sm font-medium group">
-                    <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Home
+                    <ArrowLeftIcon size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Home
                 </Link>
 
                 {/* LOGIN CARD */}
@@ -38,7 +38,7 @@ export default function SignIn() {
                         transition={{ delay: 0.2 }}
                         className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-6 bg-orange-500/20 rounded-2xl flex items-center justify-center"
                     >
-                        <ShoppingBag size={40} className="text-orange-500" weight="bold" />
+                        <ShoppingBagIcon size={40} className="text-orange-500" weight="bold" />
                     </motion.div>
 
                     {/* Title */}
@@ -49,7 +49,7 @@ export default function SignIn() {
 
                     {/* WebAuthn Badge */}
                     <div className="flex items-center justify-center gap-2 mb-8">
-                        <ShieldCheck size={16} className="text-green-400" weight="bold" />
+                        <ShieldCheckIcon size={16} className="text-green-400" weight="bold" />
                         <span className="text-xs md:text-sm text-green-400 font-medium">Secured by WebAuthn</span>
                     </div>
 
@@ -59,7 +59,7 @@ export default function SignIn() {
                         disabled={loading}
                         className="w-full py-3 md:py-4 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
                     >
-                        <Fingerprint size={24} weight="bold" />
+                        <FingerprintIcon size={24} weight="bold" />
                         Authenticate with Biometrics
                     </button>
 

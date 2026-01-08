@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { DeviceMobile, Desktop, Trash, ShieldCheck, Plus, Key, Download } from '@phosphor-icons/react';
+import { DeviceMobileIcon, DesktopIcon, TrashIcon, ShieldCheckIcon, PlusIcon, KeyIcon, DownloadIcon } from '@phosphor-icons/react';
 
 // Detect current browser and device
 const getCurrentDevice = () => {
@@ -104,7 +104,7 @@ export default function SecuritySettings() {
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-                            <ShieldCheck size={20} className="text-green-400" weight="bold" />
+                            <ShieldCheckIcon size={20} className="text-green-400" weight="bold" />
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-white">Registered Passkeys</h3>
@@ -115,7 +115,7 @@ export default function SecuritySettings() {
                         onClick={handleAddDevice}
                         className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl transition-all flex items-center gap-2"
                     >
-                        <Plus size={16} weight="bold" />
+                        <PlusIcon size={16} weight="bold" />
                         Add Device
                     </button>
                 </div>
@@ -129,9 +129,9 @@ export default function SecuritySettings() {
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center">
                                     {device.type === 'mobile' ? (
-                                        <DeviceMobile size={20} className="text-zinc-400" />
+                                        <DeviceMobileIcon size={20} className="text-zinc-400" />
                                     ) : (
-                                        <Desktop size={20} className="text-zinc-400" />
+                                        <DesktopIcon size={20} className="text-zinc-400" />
                                     )}
                                 </div>
                                 <div>
@@ -151,7 +151,7 @@ export default function SecuritySettings() {
                                     onClick={() => handleRemoveDevice(device.id)}
                                     className="p-2 hover:bg-red-500/10 rounded-lg transition-colors group"
                                 >
-                                    <Trash size={18} className="text-zinc-600 group-hover:text-red-400" />
+                                    <TrashIcon size={18} className="text-zinc-600 group-hover:text-red-400" />
                                 </button>
                             )}
                         </div>
@@ -163,7 +163,7 @@ export default function SecuritySettings() {
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                        <Download size={20} className="text-orange-400" weight="bold" />
+                        <DownloadIcon size={20} className="text-orange-400" weight="bold" />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white">Wallet Backup</h3>
@@ -181,7 +181,7 @@ export default function SecuritySettings() {
                     onClick={handleExportWallet}
                     className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                 >
-                    <Download size={18} weight="bold" />
+                    <DownloadIcon size={18} weight="bold" />
                     Export Wallet Backup
                 </button>
             </div>
@@ -190,7 +190,7 @@ export default function SecuritySettings() {
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                        <Key size={20} className="text-blue-400" weight="bold" />
+                        <KeyIcon size={20} className="text-blue-400" weight="bold" />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white">Passkey Security</h3>
@@ -200,21 +200,21 @@ export default function SecuritySettings() {
 
                 <div className="space-y-3">
                     <div className="flex items-start gap-3">
-                        <ShieldCheck size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
+                        <ShieldCheckIcon size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
                         <div>
                             <p className="text-sm font-medium text-white">Biometric Authentication</p>
                             <p className="text-xs text-zinc-500">Fingerprint, Face ID, or PIN required</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
-                        <ShieldCheck size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
+                        <ShieldCheckIcon size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
                         <div>
                             <p className="text-sm font-medium text-white">Hardware-Level Security</p>
                             <p className="text-xs text-zinc-500">Keys stored in secure enclave</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
-                        <ShieldCheck size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
+                        <ShieldCheckIcon size={18} className="text-green-400 shrink-0 mt-1" weight="bold" />
                         <div>
                             <p className="text-sm font-medium text-white">No Seed Phrases</p>
                             <p className="text-xs text-zinc-500">Eliminates phishing and loss risks</p>
@@ -227,7 +227,7 @@ export default function SecuritySettings() {
             <div className="bg-zinc-900/60 backdrop-blur-md border border-red-500/20 rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
-                        <Trash size={20} className="text-red-400" weight="bold" />
+                        <TrashIcon size={20} className="text-red-400" weight="bold" />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white">Delete Account & Data</h3>
@@ -260,7 +260,7 @@ export default function SecuritySettings() {
                     }}
                     className="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                 >
-                    <Trash size={18} weight="bold" />
+                    <TrashIcon size={18} weight="bold" />
                     Delete Account & All Data
                 </button>
             </div>

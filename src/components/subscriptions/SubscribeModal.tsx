@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, EnvelopeSimple, Warning, LockKey } from '@phosphor-icons/react';
+import { XIcon, CheckIcon, EnvelopeSimpleIcon, WarningIcon, LockKeyIcon } from '@phosphor-icons/react';
 import { Service, SubscriptionPlan } from '@/data/subscriptions';
 import Loader from '@/components/shared/Loader';
 
@@ -12,15 +12,15 @@ interface SubscribeModalProps {
     service: Service | null;
     onSubscribe: (serviceId: string, plan: SubscriptionPlan, email: string, price: number) => Promise<void>;
     balance: number;
+    usdcBalance: number;
     solPrice: number | null;
     existingSubscriptions?: Array<{ serviceId: string; email: string }>;
 }
 
-export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, balance, solPrice, existingSubscriptions = [] }: SubscribeModalProps) {
-    const [step, setStep] = useState<'plans' | 'email' | 'pin' | 'confirm' | 'processing'>('plans');
+export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, balance, usdcBalance, solPrice, existingSubscriptions = [] }: SubscribeModalProps) {
+    const [step, setStep] = useState<'plans' | 'email' | 'pin' | 'confirm' | 'loading' | 'success'>('plans');
     const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
     const [email, setEmail] = useState('');
-    const [pin, setPin] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -34,27 +34,31 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
 
     if (!service) return null;
 
-    const solCost = selectedPlan && solPrice ? selectedPlan.price / solPrice : 0;
-    const insufficientBalance = solCost > balance;
+    // Use REAL USDC Balance for checks
+    const sufficientFunds = selectedPlan ? usdcBalance >= selectedPlan.price : true;
 
     const handleConfirm = async () => {
         if (!selectedPlan) return;
 
-        if (insufficientBalance) {
-            setError(`Insufficient balance! Need ${solCost.toFixed(4)} SOL but only have ${balance.toFixed(4)} SOL`);
+        if (!sufficientFunds) {
+            setError(`Insufficient USDC! Need $${selectedPlan.price} but only have $${usdcBalance.toFixed(2)}`);
             return;
         }
 
-        setStep('processing');
+        setStep('loading');
+        setError('');
 
         try {
             await onSubscribe(service.id, selectedPlan, email, selectedPlan.price);
+            setStep('success');
             setTimeout(() => {
                 onClose();
             }, 2000);
         } catch (err: any) {
-            setError(err.message || 'Subscription failed');
+            console.error(err);
+            setError(err.message || 'Subscription transfer failed');
             setStep('confirm');
+            // Bypass removed as per user request
         }
     };
 
@@ -92,7 +96,7 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                     </div>
                                 </div>
                                 <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
-                                    <X size={24} />
+                                    <XIcon size={24} />
                                 </button>
                             </div>
 
@@ -101,13 +105,13 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                 <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-orange-400">Gasless Transaction</p>
-                                    <p className="text-xs text-orange-200/60">All fees sponsored by CadPay • You pay $0</p>
+                                    <p className="text-xs text-orange-200/60">All fees sponsored by Lazorkit • You pay $0</p>
                                 </div>
                             </div>
 
                             {error && (
                                 <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
-                                    <Warning size={20} className="text-red-400 shrink-0 mt-0.5" />
+                                    <WarningIcon size={20} className="text-red-400 shrink-0 mt-0.5" />
                                     <p className="text-sm text-red-400">{error}</p>
                                 </div>
                             )}
@@ -150,7 +154,7 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                                 <ul className="space-y-2">
                                                     {plan.features.map((feature, i) => (
                                                         <li key={i} className="flex items-center gap-2 text-sm text-zinc-400">
-                                                            <Check size={16} weight="bold" className="text-green-400 shrink-0" />
+                                                            <CheckIcon size={16} weight="bold" className="text-green-400 shrink-0" />
                                                             {feature}
                                                         </li>
                                                     ))}
@@ -193,7 +197,7 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                                 className="w-full px-4 py-3 pl-12 bg-zinc-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30"
                                                 autoFocus
                                             />
-                                            <EnvelopeSimple size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                            <EnvelopeSimpleIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                                         </div>
                                     </div>
 
@@ -230,8 +234,13 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                 </motion.div>
                             )}
 
+                            {/* PIN Input */}
+                            {step === 'pin' && (
+                                <></>
+                            )}
+
                             {/* Confirmation */}
-                            {step === 'confirm' && selectedPlan && (
+                            {(step === 'confirm' || step === 'pin') && selectedPlan && (
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                                     <h3 className="text-lg font-bold text-white mb-4">Confirm Subscription</h3>
 
@@ -253,26 +262,24 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                                 <span className="text-zinc-400">Monthly Cost</span>
                                                 <div className="text-right">
                                                     <p className="text-2xl font-bold text-white">${selectedPlan.price}</p>
-                                                    {solPrice && (
-                                                        <p className="text-sm text-zinc-500">{solCost.toFixed(4)} SOL</p>
-                                                    )}
+                                                    <p className="text-xs text-orange-400">Paid in USDC</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="flex justify-between pt-3 border-t border-white/10">
-                                            <span className="text-zinc-400">Your Balance</span>
-                                            <span className={`font-medium ${insufficientBalance ? 'text-red-400' : 'text-green-400'}`}>
-                                                {balance.toFixed(4)} SOL
+                                            <span className="text-zinc-400">Your USDC Balance</span>
+                                            <span className={`font-medium ${!sufficientFunds ? 'text-red-400' : 'text-green-400'}`}>
+                                                ${usdcBalance.toFixed(2)}
                                             </span>
                                         </div>
                                     </div>
 
-                                    {insufficientBalance && (
+                                    {!sufficientFunds && (
                                         <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl flex items-start gap-3">
-                                            <Warning size={20} className="text-orange-400 shrink-0 mt-0.5" />
+                                            <WarningIcon size={20} className="text-orange-400 shrink-0 mt-0.5" />
                                             <div className="text-sm">
-                                                <p className="text-orange-400 font-medium mb-1">Insufficient Balance</p>
-                                                <p className="text-orange-200/60">Please add funds to your wallet before subscribing.</p>
+                                                <p className="text-orange-400 font-medium mb-1">Insufficient USDC</p>
+                                                <p className="text-orange-200/60">Please add funds to your wallet using the 'Add Funds' button above.</p>
                                             </div>
                                         </div>
                                     )}
@@ -286,7 +293,7 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                         </button>
                                         <button
                                             onClick={handleConfirm}
-                                            disabled={insufficientBalance}
+                                            disabled={!sufficientFunds}
                                             className="flex-1 py-3 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                             style={{ backgroundColor: service.color, color: 'white' }}
                                         >
@@ -296,14 +303,23 @@ export default function SubscribeModal({ isOpen, onClose, service, onSubscribe, 
                                 </motion.div>
                             )}
 
-                            {/* Processing */}
-                            {step === 'processing' && (
+                            {/* Loading */}
+                            {step === 'loading' && (
+                                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12">
+                                    <Loader size="lg" className="mx-auto mb-6" />
+                                    <h3 className="text-xl font-bold text-white mb-2">Processing Transaction...</h3>
+                                    <p className="text-zinc-400">Please sign the request in your wallet.</p>
+                                </motion.div>
+                            )}
+
+                            {/* Success */}
+                            {step === 'success' && (
                                 <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
                                     <div
                                         className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
                                         style={{ backgroundColor: `${service.color}20`, color: service.color }}
                                     >
-                                        <Check size={40} weight="bold" />
+                                        <CheckIcon size={40} weight="bold" />
                                     </div>
                                     <h3 className="text-xl font-bold text-white mb-2">Subscription Activated!</h3>
                                     <p className="text-zinc-400">Welcome to {service.name} {selectedPlan?.name}</p>

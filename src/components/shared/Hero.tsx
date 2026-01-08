@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { ScanFace } from 'lucide-react';
-import { Fingerprint, QrCode, Copy, Check, Plus, ArrowRight, CreditCard, Lock } from '@phosphor-icons/react';
+import { FingerprintIcon, QrCodeIcon, CopyIcon, CheckIcon, PlusIcon, ArrowRightIcon, CreditCardIcon, LockIcon } from '@phosphor-icons/react';
 import { SiNetflix, SiSpotify, SiSolana } from "react-icons/si";
 import { useState, useEffect } from 'react';
 
@@ -126,7 +126,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             className="flex items-center justify-center lg:justify-start gap-4 pt-2"
           >
             <button className="px-8 py-3.5 bg-orange-400 text-black rounded-full font-semibold text-sm hover:bg-orange-300 transition-all flex items-center gap-2">
-              <Fingerprint size={16} /> Start Demo
+              <FingerprintIcon size={16} /> Start Demo
             </button>
           </motion.div>
         </div>
@@ -150,7 +150,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                     <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
                   </div>
                   <div className="text-[10px] text-zinc-600 font-mono flex items-center gap-1">
-                    <Lock size={10} /> SECURE CONNECTION
+                    <LockIcon size={10} /> SECURE CONNECTION
                   </div>
                 </div>
 
@@ -181,7 +181,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                             <span className="text-xs font-medium">Face ID</span>
                           </div>
                           <div className="p-4 bg-zinc-900 border border-white/10 rounded-xl flex flex-col items-center gap-2">
-                            <Fingerprint size={32} className="text-emerald-400" />
+                            <FingerprintIcon size={32} className="text-emerald-400" />
                             <span className="text-xs font-medium">Touch ID</span>
                           </div>
                         </div>
@@ -209,11 +209,11 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                     {phase === 'dash-empty' && (
                       <DashboardFrame balance="0.00" status="Active">
                         <div className="mt-8 flex flex-col items-center justify-center h-32 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-600 gap-2">
-                          <CreditCard size={24} />
+                          <CreditCardIcon size={24} />
                           <span className="text-xs">No funds available</span>
                         </div>
                         <div className="mt-4 w-full py-3 bg-orange-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
-                          <Plus size={16} /> Add Funds
+                          <PlusIcon size={16} /> Add Funds
                         </div>
                       </DashboardFrame>
                     )}
@@ -225,12 +225,12 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                       >
                         <div className="text-sm font-bold mb-4">Add Funds</div>
                         <div className="w-32 h-32 bg-white rounded-lg mx-auto mb-4 p-2">
-                          <QrCode className="w-full h-full text-black" />
+                          <QrCodeIcon className="w-full h-full text-black" />
                         </div>
                         <div className="text-xs text-zinc-500 mb-2">Scan with your banking app or transfer to:</div>
                         <div className="flex items-center justify-between bg-black/50 p-2 rounded-lg border border-white/5">
                           <span className="text-[10px] font-mono text-zinc-400">cadpay.eth/user</span>
-                          <Copy size={12} className="text-zinc-500" />
+                          <CopyIcon size={12} className="text-zinc-500" />
                         </div>
                         <div className="mt-4 text-xs text-emerald-400 animate-pulse">Incoming Transfer Detected...</div>
                       </motion.div>
@@ -240,7 +240,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                       <DashboardFrame balance="500.00" status="Funded">
                         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                            <ArrowRight size={16} className="text-emerald-500 rotate-45" />
+                            <ArrowRightIcon size={16} className="text-emerald-500 rotate-45" />
                           </div>
                           <div>
                             <div className="text-xs font-bold text-white">Transfer Received</div>
@@ -264,7 +264,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                             <span className="text-sm font-bold">Netflix</span>
                           </div>
                           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 }}>
-                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><Check size={12} className="text-black" /></div>
+                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><CheckIcon size={12} className="text-black" /></div>
                           </motion.div>
                         </div>
                         <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl flex items-center justify-between">
@@ -273,7 +273,7 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
                             <span className="text-sm font-bold">Spotify</span>
                           </div>
                           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.8 }}>
-                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><Check size={12} className="text-black" /></div>
+                            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"><CheckIcon size={12} className="text-black" /></div>
                           </motion.div>
                         </div>
                       </motion.div>

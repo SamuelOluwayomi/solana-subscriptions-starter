@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Trash, Calendar } from '@phosphor-icons/react';
+import { TrashIcon, CalendarIcon } from '@phosphor-icons/react';
 import { ActiveSubscription } from '@/hooks/useSubscriptions';
 
 interface ActiveSubscriptionCardProps {
@@ -40,7 +40,7 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
 
                     <div className="flex items-center gap-4 text-xs text-zinc-500">
                         <div className="flex items-center gap-1">
-                            <Calendar size={14} />
+                            <CalendarIcon size={14} />
                             <span>Next billing: {nextBillingDate}</span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -65,7 +65,7 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-500/10 rounded-lg text-red-400 hover:text-red-300"
                     title="Unsubscribe"
                 >
-                    <Trash size={18} weight="bold" />
+                    <TrashIcon size={18} weight="bold" />
                 </button>
             </div>
 

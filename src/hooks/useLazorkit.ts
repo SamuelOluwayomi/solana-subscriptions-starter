@@ -98,16 +98,19 @@ export function useLazorkit() {
 
     const [balance, setBalance] = useState<number | null>(null);
 
+    // Create connection once
+    const [connection] = useState(() => new Connection('https://api.devnet.solana.com', 'confirmed'));
+
     const refreshBalance = useCallback(async () => {
         if (!address) return;
         try {
-            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
             const lamports = await connection.getBalance(new PublicKey(address));
             setBalance(lamports / LAMPORTS_PER_SOL);
         } catch (e) {
-            console.error("Failed to fetch balance", e);
+            // Silently fail on polling errors to avoid console spam
+            // console.error("Failed to fetch balance", e);
         }
-    }, [address]);
+    }, [address, connection]);
 
     // Fetch balance on mount/auth
     useEffect(() => {
@@ -123,7 +126,7 @@ export function useLazorkit() {
         if (!address) return;
         try {
             setLocalLoading(true);
-            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            // reused 'connection' from state
             const signature = await connection.requestAirdrop(new PublicKey(address), 1 * LAMPORTS_PER_SOL);
 
             // Wait for confirmation

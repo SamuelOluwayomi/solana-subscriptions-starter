@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, Warning, X, Info } from '@phosphor-icons/react';
+import { CheckCircleIcon, WarningIcon, XIcon, InfoIcon } from '@phosphor-icons/react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -58,25 +58,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
     const config = {
         success: {
-            icon: <CheckCircle size={20} weight="fill" />,
+            icon: <CheckCircleIcon size={20} weight="fill" />,
             bg: 'bg-green-500/20',
             border: 'border-green-500/50',
             text: 'text-green-400',
         },
         error: {
-            icon: <Warning size={20} weight="fill" />,
+            icon: <WarningIcon size={20} weight="fill" />,
             bg: 'bg-red-500/20',
             border: 'border-red-500/50',
             text: 'text-red-400',
         },
         warning: {
-            icon: <Warning size={20} weight="fill" />,
+            icon: <WarningIcon size={20} weight="fill" />,
             bg: 'bg-orange-500/20',
             border: 'border-orange-500/50',
             text: 'text-orange-400',
         },
         info: {
-            icon: <Info size={20} weight="fill" />,
+            icon: <InfoIcon size={20} weight="fill" />,
             bg: 'bg-blue-500/20',
             border: 'border-blue-500/50',
             text: 'text-blue-400',
@@ -99,7 +99,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
                     onClick={onRemove}
                     className="text-zinc-400 hover:text-white transition-colors"
                 >
-                    <X size={16} />
+                    <XIcon size={16} />
                 </button>
             </div>
         </motion.div>

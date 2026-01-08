@@ -5,9 +5,10 @@ import { motion } from 'framer-motion';
 interface LoaderProps {
     size?: 'sm' | 'md' | 'lg';
     color?: string;
+    className?: string;
 }
 
-export default function Loader({ size = 'md', color = '#F97316' }: LoaderProps) {
+export default function Loader({ size = 'md', color = '#F97316', className = '' }: LoaderProps) {
     const sizeMap = {
         sm: 20,
         md: 40,
@@ -17,7 +18,7 @@ export default function Loader({ size = 'md', color = '#F97316' }: LoaderProps) 
     const dotSize = sizeMap[size] / 5;
 
     return (
-        <div className="flex items-center justify-center gap-2">
+        <div className={`flex items-center justify-center gap-2 ${className}`}>
             {[0, 1, 2].map((index) => (
                 <motion.div
                     key={index}

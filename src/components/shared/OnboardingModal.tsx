@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, LockKey, GenderMale, GenderFemale, Camera, Check } from '@phosphor-icons/react';
+import { XIcon, UserIcon, LockKeyIcon, GenderMaleIcon, GenderFemaleIcon, CameraIcon, CheckIcon } from '@phosphor-icons/react';
 
 interface OnboardingModalProps {
     isOpen: boolean;
@@ -56,7 +56,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                         <div>
                             <label className="block text-sm text-zinc-400 mb-2">Choose a username</label>
                             <div className="relative">
-                                <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                <UserIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                                 <input
                                     type="text"
                                     value={username}
@@ -83,7 +83,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                         <div>
                             <label className="block text-sm text-zinc-400 mb-2">Create a 4-digit PIN</label>
                             <div className="relative">
-                                <LockKey size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                <LockKeyIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                                 <input
                                     type="password"
                                     value={pin}
@@ -99,7 +99,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                         <div>
                             <label className="block text-sm text-zinc-400 mb-2">Confirm PIN</label>
                             <div className="relative">
-                                <LockKey size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                                <LockKeyIcon size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                                 <input
                                     type="password"
                                     value={confirmPin}
@@ -144,7 +144,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                                         : 'border-white/10 hover:border-white/20'
                                         }`}
                                 >
-                                    <GenderMale size={48} className={`mx-auto mb-2 ${gender === 'male' ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                    <GenderMaleIcon size={48} className={`mx-auto mb-2 ${gender === 'male' ? 'text-orange-500' : 'text-zinc-500'}`} />
                                     <p className="text-white font-medium">Male</p>
                                 </button>
                                 <button
@@ -154,7 +154,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                                         : 'border-white/10 hover:border-white/20'
                                         }`}
                                 >
-                                    <GenderFemale size={48} className={`mx-auto mb-2 ${gender === 'female' ? 'text-orange-500' : 'text-zinc-500'}`} />
+                                    <GenderFemaleIcon size={48} className={`mx-auto mb-2 ${gender === 'female' ? 'text-orange-500' : 'text-zinc-500'}`} />
                                     <p className="text-white font-medium">Female</p>
                                 </button>
                                 <button
@@ -217,7 +217,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
                                 onClick={handleComplete}
                                 className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                             >
-                                <Check size={20} weight="bold" />
+                                <CheckIcon size={20} weight="bold" />
                                 Complete Setup
                             </button>
                         </div>

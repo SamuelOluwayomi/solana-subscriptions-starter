@@ -50,8 +50,10 @@ export function useUSDCBalance(walletAddress: string | null) {
                 if (accountInfo && accountInfo.data) {
                     // Parse token amount from account data
                     // Token amount is stored at bytes 64-72 as a little-endian u64
-                    const data = Buffer.from(accountInfo.data);
-                    const amount = data.readBigUInt64LE(64);
+                    const buffer = Buffer.from(accountInfo.data);
+                    // Use DataView for browser compatibility
+                    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+                    const amount = view.getBigUint64(64, true); // true for little-endian
                     const usdcBalance = Number(amount) / 1_000_000; // USDC has 6 decimals
                     setBalance(usdcBalance);
                 } else {

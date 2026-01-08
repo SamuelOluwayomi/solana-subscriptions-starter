@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Coins, CheckCircle, Spinner, Warning } from '@phosphor-icons/react';
+import { CoinsIcon, CheckCircleIcon, SpinnerIcon, WarningIcon } from '@phosphor-icons/react';
 import { useWallet } from '@lazorkit/wallet';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 
@@ -90,20 +90,20 @@ export default function USDCFaucet({ onSuccess, userAddress }: USDCFaucetProps) 
                     onClick={handleFund}
                     disabled={status !== 'idle' || !userAddress}
                     className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all whitespace-nowrap ${status === 'success'
-                            ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20'
-                            : status === 'error'
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : 'bg-orange-600 hover:bg-orange-500 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                        ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20'
+                        : status === 'error'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-orange-600 hover:bg-orange-500 text-white disabled:opacity-50 disabled:cursor-not-allowed'
                         }`}
                 >
                     {status === 'funding' ? (
-                        <><Spinner className="animate-spin" size={20} /> Minting...</>
+                        <><SpinnerIcon className="animate-spin" size={20} /> Minting...</>
                     ) : status === 'success' ? (
-                        <><CheckCircle weight="fill" size={20} /> Funded! +$50</>
+                        <><CheckCircleIcon weight="fill" size={20} /> Funded! +$50</>
                     ) : status === 'error' ? (
-                        <><Warning size={20} /> Error</>
+                        <><WarningIcon size={20} /> Error</>
                     ) : (
-                        <><Coins weight="duotone" size={20} /> Get $50 Demo USDC</>
+                        <><CoinsIcon weight="duotone" size={20} /> Get $50 Demo USDC</>
                     )}
                 </button>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CaretRight, Fingerprint, List, X } from '@phosphor-icons/react';
+import { CaretRightIcon, FingerprintIcon, ListIcon, XIcon } from '@phosphor-icons/react';
 import { SiSolana } from "react-icons/si";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,7 +42,7 @@ export default function NavBar() {
                             Log in
                         </Link>
                         <Link href="/create" className="group flex items-center gap-2 bg-orange-500 text-white px-4 py-1.5 rounded-full text-sm font-bold hover:bg-orange-600 transition-all">
-                            <Fingerprint size={14} className="text-white/90" />
+                            <FingerprintIcon size={14} className="text-white/90" />
                             Create Account
                         </Link>
                     </div>
@@ -52,7 +52,7 @@ export default function NavBar() {
                         onClick={() => setIsOpen(!isOpen)}
                         className="md:hidden text-white z-50 relative"
                     >
-                        {isOpen ? <X size={24} /> : <List size={24} />}
+                        {isOpen ? <XIcon size={24} /> : <ListIcon size={24} />}
                     </button>
                 </div>
             </nav>
@@ -77,7 +77,7 @@ export default function NavBar() {
                                 onClick={() => setIsOpen(false)}
                                 className="flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-3 rounded-full font-bold"
                             >
-                                <Fingerprint size={18} className="bg-orange-500 text-white" />
+                                <FingerprintIcon size={18} className="bg-orange-500 text-white" />
                                 Create Account
                             </Link>
                         </div>

@@ -4,14 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLazorkit } from '@/hooks/useLazorkit';
 import { useState, useEffect } from 'react';
 import {
-    House, UserCircle, CreditCard, Plus, Link as LinkIcon,
-    Receipt, Key, SignOut, Copy, ArrowRight, Wallet,
-    CaretRight, List, X, CurrencyDollar, ArrowUp, ArrowDown
+    HouseIcon, UserCircleIcon, CreditCardIcon, PlusIcon, LinkIcon,
+    ReceiptIcon, KeyIcon, SignOutIcon, CopyIcon, ArrowRightIcon, WalletIcon,
+    CaretRightIcon, ListIcon, XIcon, CurrencyDollarIcon, ArrowUpIcon, ArrowDownIcon,
+    StorefrontIcon
 } from '@phosphor-icons/react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import Link from 'next/link';
 import { SiSolana } from 'react-icons/si';
 import LogoField from '@/components/shared/LogoField';
 import AddFundsModal from '@/components/shared/AddFundsModal';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { SERVICES, CATEGORIES, Service, SubscriptionPlan } from '@/data/subscriptions';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import ServiceCard from '@/components/subscriptions/ServiceCard';
@@ -24,7 +27,9 @@ import FullProfileEditModal from '@/components/shared/FullProfileEditModal';
 import OnboardingModal from '@/components/shared/OnboardingModal';
 import USDCFaucet from '@/components/shared/USDCFaucet';
 import { useUSDCBalance } from '@/hooks/useUSDCBalance';
-import { constructMintTransaction } from '@/utils/cadpayToken';
+import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
+import CopyButton from '@/components/shared/CopyButton';
+import { useMerchant } from '@/context/MerchantContext';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -62,15 +67,6 @@ export default function Dashboard() {
             gender: savedGender || 'other',
             avatar: savedAvatar || '👤'
         });
-
-        // Load demo USDC balance - REMOVED (Using Real On-Chain)
-        // if (savedDemoUSDC) {
-        //     setDemoUSDCBalance(parseFloat(savedDemoUSDC));
-        // }
-
-        // Show onboarding if:
-        // 1. We have a wallet connected (address exists)
-        // 2. We haven't completed onboarding yet
         if (address && !hasCompletedOnboarding) {
             setShowOnboarding(true);
         }
@@ -126,7 +122,7 @@ export default function Dashboard() {
                     onClick={() => setSidebarOpen(true)}
                     className="fixed top-6 left-6 z-50 w-10 h-10 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center hover:bg-zinc-800/80 transition-colors"
                 >
-                    <List size={20} />
+                    <ListIcon size={20} />
                 </button>
             )}
 
@@ -165,7 +161,7 @@ export default function Dashboard() {
                                 onClick={() => setSidebarOpen(false)}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-zinc-400 hover:text-white"
                             >
-                                <X size={20} />
+                                <XIcon size={20} />
                             </button>
                         </div>
 
@@ -198,25 +194,25 @@ export default function Dashboard() {
                                 </p>
                                 <div className="space-y-1">
                                     <NavItem
-                                        icon={<House size={20} />}
+                                        icon={<HouseIcon size={20} />}
                                         label="Overview"
                                         active={activeSection === 'overview'}
                                         onClick={() => { setActiveSection('overview'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
-                                        icon={<Receipt size={20} />}
+                                        icon={<ReceiptIcon size={20} />}
                                         label="My Subscriptions"
                                         active={activeSection === 'subscriptions'}
                                         onClick={() => { setActiveSection('subscriptions'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
-                                        icon={<Wallet size={20} />}
+                                        icon={<WalletIcon size={20} />}
                                         label="Wallet & Cards"
                                         active={activeSection === 'wallet'}
                                         onClick={() => { setActiveSection('wallet'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
-                                        icon={<Key size={20} />}
+                                        icon={<KeyIcon size={20} />}
                                         label="Security"
                                         active={activeSection === 'security'}
                                         onClick={() => { setActiveSection('security'); if (window.innerWidth < 768) setSidebarOpen(false); }}
@@ -231,23 +227,24 @@ export default function Dashboard() {
                                 </p>
                                 <div className="space-y-1">
                                     <NavItem
-                                        icon={<LinkIcon size={20} />}
-                                        label="Create Payment Link"
-                                        active={activeSection === 'payment-link'}
-                                        onClick={() => { setActiveSection('payment-link'); if (window.innerWidth < 768) setSidebarOpen(false); }}
-                                    />
-                                    <NavItem
-                                        icon={<CreditCard size={20} />}
+                                        icon={<ReceiptIcon size={20} />}
                                         label="Invoices"
                                         active={activeSection === 'invoices'}
                                         onClick={() => { setActiveSection('invoices'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
-                                        icon={<Key size={20} />}
+                                        icon={<KeyIcon size={20} />}
                                         label="Developer Keys"
                                         active={activeSection === 'dev-keys'}
                                         onClick={() => { setActiveSection('dev-keys'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
+
+                                    <div className="pt-2">
+                                        <Link href="/merchant" className="flex items-center gap-3 px-4 py-3 text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all group">
+                                            <StorefrontIcon size={20} className="group-hover:text-orange-500" />
+                                            <span className="text-sm font-medium">Merchant Portal</span>
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         </nav>
@@ -257,7 +254,7 @@ export default function Dashboard() {
                             onClick={logout}
                             className="flex items-center gap-3 px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                         >
-                            <SignOut size={20} />
+                            <SignOutIcon size={20} />
                             Logout
                         </button>
                     </motion.aside>
@@ -278,8 +275,12 @@ export default function Dashboard() {
                             copyToClipboard={copyToClipboard}
                         />
                     )}
-                    {activeSection === 'subscriptions' && <SubscriptionsSection />}
-                    {activeSection === 'wallet' && <WalletSection balance={displayBalance} address={walletAddress} copyToClipboard={copyToClipboard} />}
+
+                    {activeSection === 'subscriptions' && <SubscriptionsSection usdcBalance={usdcBalance} refetchUsdc={refetchUsdc} />}
+
+                    {activeSection === 'wallet' && <WalletSection
+                        balance={displayBalance}
+                        address={walletAddress} copyToClipboard={copyToClipboard} />}
                     {activeSection === 'security' && <SecuritySettings />}
                     {activeSection === 'payment-link' && <PaymentLinkSection />}
                     {activeSection === 'invoices' && <InvoicesSection />}
@@ -320,7 +321,7 @@ function NavItem({ icon, label, active, onClick }: any) {
         >
             {icon}
             <span className="text-sm font-medium flex-1 text-left">{label}</span>
-            {active && <CaretRight size={16} weight="bold" />}
+            {active && <CaretRightIcon size={16} weight="bold" />}
         </button>
     );
 }
@@ -334,7 +335,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
     const [isFunding, setIsFunding] = useState(false);
 
     // @ts-ignore
-    const { wallet } = useLazorkit();
+    const { wallet, connection } = useLazorkit();
 
     const handleFundDemo = async () => {
         setIsFunding(true);
@@ -370,20 +371,23 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
         }
     };
 
+
+
     // Fetch SOL price from CoinGecko
     useEffect(() => {
         const fetchSolPrice = async () => {
             try {
                 const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                if (!response.ok) return; // Silent fail
                 const data = await response.json();
                 setSolPrice(data.solana.usd);
             } catch (error) {
-                console.error('Failed to fetch SOL price:', error);
+                // console.error('Failed to fetch SOL price:', error);
             }
         };
         fetchSolPrice();
-        // Refresh price every 30 seconds
-        const interval = setInterval(fetchSolPrice, 30000);
+        // Refresh price every 60 seconds (throttled)
+        const interval = setInterval(fetchSolPrice, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -392,25 +396,26 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
         const fetchTransactions = async () => {
             if (!address || address === 'Loading...') return;
             try {
-                const connection = new Connection('https://api.devnet.solana.com');
+                // Use shared connection if available, else fallback but don't spam
+                const conn = connection || new Connection('https://api.devnet.solana.com');
                 const pubkey = new PublicKey(address);
-                const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 10 });
+                const signatures = await conn.getSignaturesForAddress(pubkey, { limit: 10 });
                 setTransactions(prev => {
                     // Merge real signatures with simulated ones, keeping simulated ones at top if recent
                     const realTxs = signatures;
-                    const existingSigs = new Set(realTxs.map(tx => tx.signature));
+                    const existingSigs = new Set(realTxs.map((tx: any) => tx.signature));
                     const keptSimulated = prev.filter(tx => tx.signature.startsWith('funding_') && !existingSigs.has(tx.signature));
                     return [...keptSimulated, ...realTxs];
                 });
             } catch (error) {
-                console.error('Failed to fetch transactions:', error);
+                // console.error('Failed to fetch transactions:', error);
             }
         };
         fetchTransactions();
         // Refresh every 10 seconds
         const interval = setInterval(fetchTransactions, 10000);
         return () => clearInterval(interval);
-    }, [address]);
+    }, [address, connection]);
 
     const balanceValue = parseFloat(balance);
     const usdValue = solPrice ? (balanceValue * solPrice).toFixed(2) : '0.00';
@@ -431,7 +436,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                     className="md:col-span-2 bg-linear-to-br from-orange-500/20 to-orange-600/10 backdrop-blur-md border border-orange-500/30 rounded-3xl p-8 relative overflow-hidden group"
                 >
                     <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <CurrencyDollar size={150} />
+                        <CurrencyDollarIcon size={150} />
                     </div>
                     <div className="relative z-10">
                         <div className="flex items-center justify-between mb-2">
@@ -468,7 +473,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                     </>
                                 ) : (
                                     <>
-                                        <Plus weight="bold" /> Add USDC
+                                        <PlusIcon weight="bold" /> Add USDC
                                     </>
                                 )}
                             </button>
@@ -494,7 +499,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                             <div key={tx.signature} className="flex items-center gap-3 p-3 bg-black/30 rounded-xl border border-white/5">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${tx.err ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
                                     }`}>
-                                    {tx.err ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
+                                    {tx.err ? <ArrowDownIcon size={16} /> : <ArrowUpIcon size={16} />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-white truncate">
@@ -519,9 +524,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                 <h3 className="text-sm font-bold text-zinc-400 mb-4 uppercase tracking-wider">Your Smart Wallet</h3>
                 <div className="flex items-center justify-between bg-black/30 p-4 rounded-xl border border-white/5">
                     <span className="font-mono text-sm text-zinc-200 truncate flex-1">{address}</span>
-                    <button onClick={copyToClipboard} className="text-orange-500 hover:text-orange-400 ml-4">
-                        <Copy size={20} />
-                    </button>
+                    <CopyButton text={address} />
                 </div>
             </div>
 
@@ -543,14 +546,46 @@ function StatCard({ title, value, color }: { title: string; value: string; color
 }
 
 // Subscriptions Section
-function SubscriptionsSection() {
+function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: number, refetchUsdc: () => void }) {
     const [activeTab, setActiveTab] = useState<'browse' | 'active' | 'analytics'>('browse');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [showSubscribeModal, setShowSubscribeModal] = useState(false);
     const [solPrice, setSolPrice] = useState<number | null>(null);
-    const { balance } = useLazorkit();
+    // @ts-ignore
+    const { balance, signAndSendTransaction, address } = useLazorkit();
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
+    const { services: dynamicServices, merchants } = useMerchant();
+
+    // Merge Static + Dynamic Services
+    // Merge Static + Dynamic Services
+    const allServices = [
+        ...SERVICES,
+        ...dynamicServices.map(ds => ({
+            id: ds.id,
+            name: ds.name,
+            description: ds.description || 'Custom Service',
+            price: ds.price,
+            icon: StorefrontIcon, // Default icon for dynamic services
+            color: ds.color,
+            category: 'other' as const, // Default category
+            features: ['Unified Billing', 'Gasless Payments', 'Instant Access'],
+            plans: [{
+                name: 'Standard',
+                price: ds.price,
+                features: ['Full Access', 'Priority Support', 'HD Streaming']
+            }]
+        }))
+    ];
+
+    const spendingData = [
+        { name: 'Jan', amount: 45 },
+        { name: 'Feb', amount: 52 },
+        { name: 'Mar', amount: 48 },
+        { name: 'Apr', amount: 70 },
+        { name: 'May', amount: 65 },
+        { name: 'Jun', amount: 85 },
+    ];
 
     // Fetch SOL price
     useEffect(() => {
@@ -568,36 +603,78 @@ function SubscriptionsSection() {
         return () => clearInterval(interval);
     }, []);
 
-    const filteredServices = categoryFilter === 'all'
-        ? SERVICES
-        : SERVICES.filter(s => s.category === categoryFilter);
-
     const handleServiceClick = (service: Service) => {
         setSelectedService(service);
         setShowSubscribeModal(true);
     };
 
     const handleSubscribe = async (serviceId: string, plan: SubscriptionPlan, email: string, price: number) => {
-        const service = SERVICES.find(s => s.id === serviceId);
-        if (!service) return;
+        try {
+            if (!address) throw new Error("Wallet not connected");
 
-        addSubscription({
-            serviceId,
-            serviceName: service.name,
-            plan: plan.name,
-            price,
-            email,
-            color: service.color,
-            icon: service.icon
-        });
+            // 1. Find the Merchant Wallet for this service
+            let targetMerchantAddress = DEMO_MERCHANT_WALLET.toString();
 
-        setShowSubscribeModal(false);
+            // Check if it's a dynamic service
+            const dynamicService = dynamicServices.find(s => s.id === serviceId);
+            if (dynamicService) {
+                const merchant = merchants.find(m => m.id === dynamicService.merchantId);
+                if (merchant) {
+                    targetMerchantAddress = merchant.walletPublicKey;
+                    console.log(`Found Dynamic Merchant: ${merchant.name} (${targetMerchantAddress})`);
+                }
+            }
+
+            console.log(`Processing Subscription for ${serviceId} -> Merchant: ${targetMerchantAddress}`);
+
+            // 2. Ensure Merchant Has ATA (System-sponsored if needed)
+            await ensureMerchantHasATA(targetMerchantAddress);
+
+            // 3. Construct the gasless transaction
+            const transaction = await constructTransferTransaction(
+                address,
+                price * 1_000_000,
+                targetMerchantAddress
+            );
+
+            // Sanitize transaction (Verify serialization to avoid object mismatches)
+            const serializedTx = transaction.serialize({ requireAllSignatures: false });
+            const cleanTransaction = Transaction.from(serializedTx);
+
+            // 3. User signs the transaction
+            const signature = await signAndSendTransaction(cleanTransaction);
+            console.log("Transaction Signature:", signature);
+
+            // 4. Update local state
+            addSubscription({
+                serviceId,
+                serviceName: dynamicService ? dynamicService.name : 'Unknown Service',
+                plan: plan.name,
+                price,
+                email,
+                color: dynamicService ? dynamicService.color : '#FFFFFF',
+                icon: StorefrontIcon
+            });
+
+            // 5. Refetch Balances
+            setTimeout(refetchUsdc, 2000);
+
+            setShowSubscribeModal(false);
+        } catch (error) {
+            console.error("Subscription failed:", error);
+            throw error; // Propagate to modal
+        }
     };
 
     const categoryCount = (cat: string) => {
-        if (cat === 'all') return SERVICES.length;
-        return SERVICES.filter(s => s.category === cat).length;
+        if (cat === 'all') return allServices.length;
+        return allServices.filter(s => s.category === cat).length;
     };
+
+    const filteredServices = allServices.filter(s => {
+        if (categoryFilter === 'all') return true;
+        return s.category === categoryFilter;
+    });
 
     return (
         <div className="space-y-8">
@@ -631,32 +708,111 @@ function SubscriptionsSection() {
 
             {/* Browse Tab */}
             {activeTab === 'browse' && (
-                <div>
-                    {/* Category Filters */}
-                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                        {CATEGORIES.map((cat) => (
-                            <button
-                                key={cat.id}
-                                onClick={() => setCategoryFilter(cat.id)}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${categoryFilter === cat.id
-                                    ? 'bg-orange-500 text-white'
-                                    : 'bg-zinc-900/50 text-zinc-400 hover:text-white border border-white/10'
-                                    }`}
-                            >
-                                {cat.name} ({categoryCount(cat.id)})
-                            </button>
-                        ))}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Column: Subscriptions List */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <StorefrontIcon size={24} className="text-orange-500" />
+                                Your Subscriptions
+                            </h2>
+                            {/* Filter Pills */}
+                            <div className="flex gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
+                                {CATEGORIES.filter(c => c.count > 0).slice(0, 4).map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => setCategoryFilter(cat.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${categoryFilter === cat.id
+                                            ? 'bg-white text-black shadow-lg'
+                                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredServices.map(service => (
+                                <ServiceCard
+                                    key={service.id}
+                                    service={service}
+                                    onClick={() => handleServiceClick(service)}
+                                />
+                            ))}
+                        </div>
                     </div>
 
-                    {/* Services Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredServices.map((service) => (
-                            <ServiceCard
-                                key={service.id}
-                                service={service}
-                                onClick={() => handleServiceClick(service)}
-                            />
-                        ))}
+                    {/* Right Column: Stats & Analytics */}
+                    <div className="space-y-6">
+                        {/* Spending Analytics Chart */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="font-bold text-white">Spending Activity</h3>
+                                    <p className="text-xs text-zinc-400">Past 6 Months</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black text-white">$365</p>
+                                    <p className="text-xs text-green-400 font-bold">+12% vs last mo</p>
+                                </div>
+                            </div>
+
+                            <div className="h-48 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={spendingData}>
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#71717a', fontSize: 10 }}
+                                            dy={10}
+                                        />
+                                        <RechartsTooltip
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                                            labelStyle={{ color: '#a1a1aa' }}
+                                        />
+                                        <Bar dataKey="amount" radius={[4, 4, 4, 4]}>
+                                            {spendingData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={index === 5 ? '#f97316' : '#27272a'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl sticky top-8">
+                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                                <WalletIcon size={20} className="text-blue-500" />
+                                Monthly Overview
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-zinc-500 text-xs font-bold uppercase">Total Budget</p>
+                                        <p className="text-lg font-bold text-white">$250.00</p>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                                        <span className="text-xs font-bold text-zinc-400">75%</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <p className="text-zinc-500 text-xs font-bold uppercase">Estimated Gas Saved</p>
+                                        <p className="text-lg font-bold text-green-400">0.024 SOL</p>
+                                    </div>
+                                    <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                        <div className="bg-green-500 h-full w-[85%]" />
+                                    </div>
+                                    <p className="text-[10px] text-zinc-500 mt-2 text-right">CadPay covers 100% of network fees</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -667,7 +823,7 @@ function SubscriptionsSection() {
                     {subscriptions.length === 0 ? (
                         <div className="text-center py-20">
                             <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Receipt size={40} className="text-zinc-600" />
+                                <ReceiptIcon size={40} className="text-zinc-600" />
                             </div>
                             <h3 className="text-xl font-bold text-white mb-2">No Active Subscriptions</h3>
                             <p className="text-zinc-400 mb-6">Browse services and subscribe to get started</p>
@@ -800,7 +956,9 @@ function SubscriptionsSection() {
                 service={selectedService}
                 onSubscribe={handleSubscribe}
                 balance={balance || 0}
+                usdcBalance={usdcBalance}
                 solPrice={solPrice}
+                existingSubscriptions={subscriptions}
             />
         </div>
     );
@@ -818,7 +976,7 @@ function WalletSection({ balance, address, copyToClipboard }: any) {
                     <div className="flex items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 text-sm">
                         <span className="font-mono text-zinc-300 truncate">{address}</span>
                         <button onClick={copyToClipboard} className="text-orange-500 ml-3">
-                            <Copy size={18} />
+                            <CopyIcon size={18} />
                         </button>
                     </div>
                 </div>
@@ -835,7 +993,7 @@ function PaymentLinkSection() {
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-8">
                 <p className="text-zinc-400 mb-6">Generate payment links to receive SOL payments</p>
                 <button className="px-8 py-4 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all flex items-center gap-2">
-                    <Plus weight="bold" size={20} /> Create New Payment Link
+                    <PlusIcon weight="bold" size={20} /> Create New Payment Link
                 </button>
             </div>
         </div>
@@ -848,7 +1006,7 @@ function InvoicesSection() {
         <div className="space-y-6">
             <h1 className="text-4xl font-bold">Invoices</h1>
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-12 text-center">
-                <CreditCard size={64} className="mx-auto mb-4 text-zinc-600" />
+                <CreditCardIcon size={64} className="mx-auto mb-4 text-zinc-600" />
                 <p className="text-zinc-400">No invoices yet</p>
             </div>
         </div>
@@ -863,7 +1021,7 @@ function DevKeysSection() {
             <div className="bg-zinc-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-8">
                 <p className="text-zinc-400 mb-6">Manage API keys for your applications</p>
                 <button className="px-8 py-4 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all flex items-center gap-2">
-                    <Key weight="bold" size={20} /> Generate API Key
+                    <KeyIcon weight="bold" size={20} /> Generate API Key
                 </button>
             </div>
         </div>
