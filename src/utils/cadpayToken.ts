@@ -6,6 +6,7 @@ import {
     Keypair,
     TransactionInstruction
 } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 // Constants
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -280,22 +281,23 @@ export async function constructTransferTransaction(
         }
     }
 
-    // 2. Create Transfer Instruction (SPL Token)
-    const data = Buffer.alloc(9);
-    data.writeUInt8(3, 0); // Instruction 3: Transfer
-    const bigAmount = BigInt(amount);
-    for (let i = 0; i < 8; i++) {
-        data[1 + i] = Number((bigAmount >> BigInt(8 * i)) & BigInt(0xff));
-    }
+    // 2. Create Transfer Instruction (SPL Token Transfer)
+    // Instruction: 3 (Transfer)
+    // Amount: u64 little-endian
+    const transferInstruction = Buffer.alloc(9);
+    transferInstruction.writeUInt8(3, 0); // Transfer instruction
+
+    // Write amount as little-endian u64
+    transferInstruction.writeBigUInt64LE(BigInt(amount), 1);
 
     const transferIx = new TransactionInstruction({
         keys: [
-            { pubkey: userATA, isSigner: false, isWritable: true },
-            { pubkey: merchantATA, isSigner: false, isWritable: true },
-            { pubkey: userPubkey, isSigner: true, isWritable: false },
+            { pubkey: userATA, isSigner: false, isWritable: true },      // Source account
+            { pubkey: merchantATA, isSigner: false, isWritable: true },  // Destination account
+            { pubkey: userPubkey, isSigner: true, isWritable: false },   // Owner/authority
         ],
         programId: TOKEN_PROGRAM_ID,
-        data
+        data: transferInstruction
     });
 
     return transferIx; // Return just the instruction
