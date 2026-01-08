@@ -9,7 +9,27 @@ export function useLazorkit() {
     const router = useRouter();
     const { showToast } = useToast();
     // @ts-ignore
-    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading } = useWallet();
+    const walletHook = useWallet();
+
+    // Log ALL properties from useWallet to find PDA derivation methods
+    useEffect(() => {
+        if (walletHook) {
+            console.log("===========================================");
+            console.log("🔍 useWallet() HOOK PROPERTIES:");
+            console.log("Available properties:", Object.keys(walletHook));
+            for (const key of Object.keys(walletHook)) {
+                // @ts-ignore
+                const value = walletHook[key];
+                if (typeof value !== 'function') {
+                    console.log(`walletHook.${key}:`, value);
+                }
+            }
+            console.log("===========================================");
+        }
+    }, [walletHook]);
+
+    // @ts-ignore
+    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading } = walletHook || {};
     const [localLoading, setLocalLoading] = useState(false);
 
     // Derived address from wallet object or hook state
