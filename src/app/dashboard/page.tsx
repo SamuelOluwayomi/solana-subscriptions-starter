@@ -668,7 +668,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 instructions: [transferInstruction],
                 transactionOptions: {
                     computeUnitLimit: 200_000,
-                    addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
+                    // addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined, // TEST: Disable ALT to check if error 0x2 persists
                 }
             });
 

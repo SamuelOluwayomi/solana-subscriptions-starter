@@ -247,10 +247,27 @@ export async function constructTransferTransaction(
     }
 
     // CRITICAL CHECK: Ensure User ATA is owned by Token Program
-    console.log(`User ATA Owner: ${userAccountInfo.owner.toBase58()}`);
+    console.log(`User ATA Code Owner: ${userAccountInfo.owner.toBase58()}`);
     if (!userAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
         console.error(`FATAL: User ATA is owned by ${userAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
         throw new Error("ERROR_INVALID_USER_ACCOUNT: Your USDC account is corrupted. Please contact support.");
+    }
+
+    // DEEP CHECK: Verify the Token Account's "Owner" field matches userPubkey
+    try {
+        const decodedData = AccountLayout.decode(userAccountInfo.data);
+        const actualOwner = new PublicKey(decodedData.owner);
+        console.log(`🔍 ATA Data Owner: ${actualOwner.toBase58()}`);
+        console.log(`🔍 Expected Signer: ${userPubkey.toBase58()}`);
+
+        if (!actualOwner.equals(userPubkey)) {
+            console.error(`❌ OWNER MISMATCH! ATA belongs to ${actualOwner.toBase58()}, but we are signing with ${userPubkey.toBase58()}`);
+            // This is the likely cause of 0x2 error
+        } else {
+            console.log("✅ Owner match confirmed.");
+        }
+    } catch (err) {
+        console.error("Failed to decode ATA data:", err);
     }
 
     try {
