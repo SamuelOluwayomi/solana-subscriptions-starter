@@ -265,6 +265,13 @@ export async function constructTransferTransaction(
         throw new Error("ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. Please try again.");
     } else {
         console.log(`Merchant ATA confirmed: ${merchantATA.toBase58()}`);
+        console.log(`Merchant ATA Owner: ${merchantAccountInfo.owner.toBase58()}`);
+
+        // CRITICAL CHECK: Ensure it is owned by Token Program
+        if (!merchantAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+            console.error(`FATAL: Merchant ATA is owned by ${merchantAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
+            throw new Error("ERROR_INVALID_MERCHANT: Merchant wallet is corrupted (Wrong Owner).");
+        }
     }
 
     // 2. Create Transfer Instruction (SPL Token)
