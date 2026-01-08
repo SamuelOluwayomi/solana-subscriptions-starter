@@ -557,25 +557,27 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
     const { services: dynamicServices, merchants } = useMerchant();
 
-    // Merge Static + Dynamic Services
-    // Merge Static + Dynamic Services
+    // Merge Static + Dynamic Services (Filter out duplicates)
+    const staticServiceNames = SERVICES.map(s => s.name.toLowerCase());
     const allServices = [
         ...SERVICES,
-        ...dynamicServices.map(ds => ({
-            id: ds.id,
-            name: ds.name,
-            description: ds.description || 'Custom Service',
-            price: ds.price,
-            icon: StorefrontIcon, // Default icon for dynamic services
-            color: ds.color,
-            category: 'other' as const, // Default category
-            features: ['Unified Billing', 'Gasless Payments', 'Instant Access'],
-            plans: [{
-                name: 'Standard',
+        ...dynamicServices
+            .filter(ds => !staticServiceNames.includes(ds.name.toLowerCase())) // Remove duplicates
+            .map(ds => ({
+                id: ds.id,
+                name: ds.name,
+                description: ds.description || 'Custom Service',
                 price: ds.price,
-                features: ['Full Access', 'Priority Support', 'HD Streaming']
-            }]
-        }))
+                icon: StorefrontIcon, // Default icon for dynamic services
+                color: ds.color,
+                category: 'other' as const, // Default category
+                features: ['Unified Billing', 'Gasless Payments', 'Instant Access'],
+                plans: [{
+                    name: 'Standard',
+                    price: ds.price,
+                    features: ['Full Access', 'Priority Support', 'HD Streaming']
+                }]
+            }))
     ];
 
     const spendingData = [
