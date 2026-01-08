@@ -230,6 +230,7 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
 // Import generic types from spl-token (using modern version)
 import {
     createTransferInstruction,
+    getAssociatedTokenAddress,
     AccountLayout
 } from '@solana/spl-token';
 
@@ -241,9 +242,35 @@ export async function constructTransferTransaction(
     const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
-    // 1. Get ATAs for User and Merchant
-    const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
-    const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
+    // 1. FORCE CLEAN ADDRESSES & RE-DERIVE (Fix for Off-Curve PDAs/Smart Wallets)
+    // We re-calculate everything to ensure mathematical correctness
+    const usdcMintKey = CADPAY_MINT; // Using the constant defined in this file
+
+    // Re-derive User ATA allowing for Off-Curve owners (PDAs)
+    const userATA = await getAssociatedTokenAddress(
+        usdcMintKey,
+        userPubkey,
+        true, // allowOwnerOffCurve = true (CRITICAL for Smart Wallets/PDAs)
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    // Re-derive Merchant ATA allowing for Off-Curve owners (just in case)
+    const merchantATA = await getAssociatedTokenAddress(
+        usdcMintKey,
+        merchantPubkey,
+        true, // allowOwnerOffCurve
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    console.log("-------------------------------------------");
+    console.log("🔐 RE-DERIVED DEBUG:");
+    console.log("My Wallet (Authority):", userPubkey.toBase58());
+    console.log("My ATA (Derived):", userATA.toBase58());
+    console.log("Merchant (Dest):", merchantPubkey.toBase58());
+    console.log("Merchant ATA (Derived):", merchantATA.toBase58());
+    console.log("-------------------------------------------");
 
     // 1a. Verify User Checks (Account Exists & Sufficient Funds)
     const userAccountInfo = await connection.getAccountInfo(userATA);
@@ -252,29 +279,12 @@ export async function constructTransferTransaction(
     }
 
     // CRITICAL CHECK: Ensure User ATA is owned by Token Program
-    console.log(`User ATA Owner (Program): ${userAccountInfo.owner.toBase58()}`);
     if (!userAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
         console.error(`FATAL: User ATA is owned by ${userAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
         throw new Error("ERROR_INVALID_USER_ACCOUNT: Your USDC account is corrupted. Please contact support.");
     }
 
-    // 1b. Verify True Owner of the Funds (Fixing 0x2 Error)
-    let finalAuthority = userPubkey;
-    try {
-        const decodedAccount = AccountLayout.decode(userAccountInfo.data);
-        const actualOwner = decodedAccount.owner; // This is a PublicKey
-        console.log(`User ATA Actual Owner (Wallet): ${actualOwner.toBase58()}`);
-        console.log(`Provided Authority: ${userPubkey.toBase58()}`);
-
-        if (!actualOwner.equals(userPubkey)) {
-            console.warn(`WARNING: Authority mismatch detected. Switching authority to actual owner: ${actualOwner.toBase58()}`);
-            finalAuthority = actualOwner;
-        }
-    } catch (e) {
-        console.error("Failed to decode account data for owner verification:", e);
-        // Fallback to provided userPubkey if decoding fails
-    }
-
+    // 1b. Verify Balance
     try {
         const balanceResponse = await connection.getTokenAccountBalance(userATA);
         const balance = balanceResponse.value.uiAmount || 0;
@@ -295,13 +305,12 @@ export async function constructTransferTransaction(
     }
 
     // 2. Create Transfer Instruction using SPL Token Library
-    // This handles encoding and isSigner logic standardly
     const transferIx = createTransferInstruction(
-        userATA,              // Source (User ATA)
-        merchantATA,          // Destination (Merchant ATA)
-        finalAuthority,       // Owner (Likely Smart Wallet PDA)
+        userATA,              // Source (Derived from Smart Wallet)
+        merchantATA,          // Destination
+        userPubkey,           // Authority (Smart Wallet Address)
         BigInt(amount),       // Amount
-        [],                   // MultiSigners (Empty)
+        [],                   // MultiSigners
         TOKEN_PROGRAM_ID      // Program ID
     );
 
