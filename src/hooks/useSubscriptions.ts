@@ -11,7 +11,7 @@ export interface ActiveSubscription {
     startDate: string;
     nextBilling: string;
     color: string;
-    icon: IconType;
+    iconId: string; // Changed from icon: IconType to iconId: string
 }
 
 interface MonthlyData {

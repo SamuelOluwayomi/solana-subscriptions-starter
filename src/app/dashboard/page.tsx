@@ -559,6 +559,18 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     const { showToast } = useToast();
     const { services: dynamicServices, merchants } = useMerchant();
 
+    // Helper to resolve icon from iconId
+    const getIconForService = (iconId: string) => {
+        const service = SERVICES.find(s => s.id === iconId);
+        return service?.icon || StorefrontIcon;
+    };
+
+    // Debug: Log subscriptions whenever they change
+    useEffect(() => {
+        console.log('📊 Current subscriptions:', subscriptions);
+        console.log('📊 Subscription count:', subscriptions.length);
+    }, [subscriptions]);
+
     // Merge Static + Dynamic Services (Filter out duplicates)
     const staticServiceNames = SERVICES.map(s => s.name.toLowerCase());
     const allServices = [
@@ -671,7 +683,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             const staticService = SERVICES.find(s => s.id === serviceId);
             const serviceName = dynamicService?.name || staticService?.name || 'Unknown Service';
             const serviceColor = dynamicService?.color || staticService?.color || '#FFFFFF';
-            const serviceIcon = staticService?.icon || StorefrontIcon;
+            const iconId = serviceId; // Use serviceId as iconId to look up icon later
 
             addSubscription({
                 serviceId,
@@ -680,7 +692,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 price,
                 email,
                 color: serviceColor,
-                icon: serviceIcon
+                iconId
             });
 
             // 6. Show success notification
@@ -932,23 +944,26 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                 <p className="text-zinc-500 text-sm text-center py-8">No active subscriptions to analyze</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {subscriptions.map((sub) => (
-                                        <div key={sub.id} className="flex items-center gap-3">
-                                            <div className="text-2xl" style={{ color: sub.color }}>
-                                                <sub.icon size={24} />
+                                    {subscriptions.map((sub) => {
+                                        const Icon = getIconForService(sub.iconId);
+                                        return (
+                                            <div key={sub.id} className="flex items-center gap-3">
+                                                <div className="text-2xl" style={{ color: sub.color }}>
+                                                    <Icon size={24} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
+                                                    <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-white">${sub.price}</p>
+                                                    <p className="text-xs text-zinc-500">
+                                                        {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
-                                                <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-sm font-bold text-white">${sub.price}</p>
-                                                <p className="text-xs text-zinc-500">
-                                                    {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>

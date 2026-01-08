@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { TrashIcon, CalendarIcon } from '@phosphor-icons/react';
+import { TrashIcon, CalendarIcon, StorefrontIcon } from '@phosphor-icons/react';
 import { ActiveSubscription } from '@/hooks/useSubscriptions';
+import { SERVICES } from '@/data/subscriptions';
 
 interface ActiveSubscriptionCardProps {
     subscription: ActiveSubscription;
@@ -15,6 +16,10 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
         day: 'numeric',
         year: 'numeric'
     });
+
+    // Resolve icon from iconId
+    const service = SERVICES.find(s => s.id === subscription.iconId);
+    const Icon = service?.icon || StorefrontIcon;
 
     return (
         <motion.div
@@ -30,7 +35,7 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
                     className="text-3xl p-3 rounded-lg shrink-0 flex items-center justify-center"
                     style={{ backgroundColor: `${subscription.color}20`, color: subscription.color }}
                 >
-                    <subscription.icon size={32} />
+                    <Icon size={32} />
                 </div>
 
                 {/* Subscription Details */}

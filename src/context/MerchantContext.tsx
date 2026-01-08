@@ -99,6 +99,18 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
         seed();
     }, []);
 
+    // Restore active merchant session on page load
+    useEffect(() => {
+        const activeMerchantId = localStorage.getItem('cadpay_active_merchant');
+        if (activeMerchantId && merchants.length > 0) {
+            const found = merchants.find(m => m.id === activeMerchantId);
+            if (found) {
+                setMerchant(found);
+                console.log('✅ Restored merchant session:', found.name);
+            }
+        }
+    }, [merchants]);
+
     // Load from local storage on mount (standard load)
     useEffect(() => {
         const storedMerchants = localStorage.getItem('cadpay_merchants');
