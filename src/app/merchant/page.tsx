@@ -37,6 +37,10 @@ export default function MerchantDashboard() {
     const [newServicePrice, setNewServicePrice] = useState(19.99);
     const [newServiceColor, setNewServiceColor] = useState('#EF4444');
 
+    // Navigation state
+    const [activeSection, setActiveSection] = useState<'dashboard' | 'analytics' | 'customers' | 'invoices' | 'developer'>('dashboard');
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
     // Protect Route
     useEffect(() => {
         if (!merchant) {
@@ -157,11 +161,36 @@ export default function MerchantDashboard() {
                     </Link>
 
                     <nav className="space-y-1">
-                        <NavItem icon={<StorefrontIcon size={20} />} label="Dashboard" active />
-                        <NavItem icon={<ChartPieIcon size={20} />} label="Analytics" />
-                        <NavItem icon={<UsersIcon size={20} />} label="Customers" />
-                        <NavItem icon={<ReceiptIcon size={20} />} label="Invoices" />
-                        <NavItem icon={<KeyIcon size={20} />} label="Developer" />
+                        <NavItem
+                            icon={<StorefrontIcon size={20} />}
+                            label="Dashboard"
+                            active={activeSection === 'dashboard'}
+                            onClick={() => setActiveSection('dashboard')}
+                        />
+                        <NavItem
+                            icon={<ChartPieIcon size={20} />}
+                            label="Analytics"
+                            active={activeSection === 'analytics'}
+                            onClick={() => setActiveSection('analytics')}
+                        />
+                        <NavItem
+                            icon={<UsersIcon size={20} />}
+                            label="Customers"
+                            active={activeSection === 'customers'}
+                            onClick={() => setActiveSection('customers')}
+                        />
+                        <NavItem
+                            icon={<ReceiptIcon size={20} />}
+                            label="Invoices"
+                            active={activeSection === 'invoices'}
+                            onClick={() => setActiveSection('invoices')}
+                        />
+                        <NavItem
+                            icon={<KeyIcon size={20} />}
+                            label="Developer"
+                            active={activeSection === 'developer'}
+                            onClick={() => setActiveSection('developer')}
+                        />
                     </nav>
                 </div>
 
@@ -182,7 +211,7 @@ export default function MerchantDashboard() {
             </aside>
 
             {/* MAIN CONTENT */}
-            <main className="flex-1 md:ml-64 p-8">
+            <main className="flex-1 md:ml-64 p-4 sm:p-6 md:p-8">
                 <header className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white">Dashboard Overview</h1>
@@ -191,7 +220,7 @@ export default function MerchantDashboard() {
                 </header>
 
                 {/* 1. NORTH STAR METRICS */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
                     <MetricCard
                         title="Total Revenue"
                         value={`$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -478,12 +507,15 @@ export default function MerchantDashboard() {
     );
 }
 
-function NavItem({ icon, label, active }: any) {
+function NavItem({ icon, label, active, onClick }: any) {
     return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all ${active
-            ? 'bg-white text-black font-bold shadow-lg'
-            : 'text-zinc-400 hover:text-white hover:bg-white/5'
-            }`}>
+        <div
+            onClick={onClick}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all ${active
+                    ? 'bg-white text-black font-bold shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+        >
             {icon}
             <span className="text-sm">{label}</span>
         </div>

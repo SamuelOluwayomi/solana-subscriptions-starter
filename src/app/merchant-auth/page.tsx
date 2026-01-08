@@ -29,10 +29,10 @@ export default function MerchantAuthPage() {
                 // Register
                 await createMerchant(name, email);
             } else {
-                // Login
-                const success = await loginMerchant(email);
+                // Login with password validation
+                const success = await loginMerchant(email, password);
                 if (!success) {
-                    throw new Error("Merchant not found. check your email.");
+                    throw new Error("Invalid email or password.");
                 }
             }
             // Redirect
@@ -53,8 +53,8 @@ export default function MerchantAuthPage() {
             </div>
 
             {/* NAV BACK */}
-            <div className="absolute top-8 left-8 z-20">
-                <Link href="/" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all group">
+            <div className="absolute top-4 left-4 md:top-8 md:left-8 z-20">
+                <Link href="/" className="inline-flex items-center justify-center w-12 h-12 md:w-10 md:h-10 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all group">
                     <ArrowLeftIcon size={20} className="group-hover:-translate-x-0.5 transition-transform" />
                 </Link>
             </div>
@@ -77,7 +77,7 @@ export default function MerchantAuthPage() {
                     </p>
                 </div>
 
-                <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-xl">
+                <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-xl">
                     <div className="flex bg-black/40 p-1 rounded-xl mb-6">
                         <button
                             onClick={() => setIsSignup(false)}

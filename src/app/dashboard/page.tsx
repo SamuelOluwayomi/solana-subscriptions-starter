@@ -120,9 +120,9 @@ export default function Dashboard() {
             {!sidebarOpen && (
                 <button
                     onClick={() => setSidebarOpen(true)}
-                    className="fixed top-6 left-6 z-50 w-10 h-10 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center hover:bg-zinc-800/80 transition-colors"
+                    className="fixed top-4 left-4 md:top-6 md:left-6 z-50 w-12 h-12 md:w-10 md:h-10 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center hover:bg-zinc-800/80 transition-colors shadow-lg"
                 >
-                    <ListIcon size={20} />
+                    <ListIcon size={24} className="md:w-5 md:h-5" />
                 </button>
             )}
 
@@ -146,7 +146,7 @@ export default function Dashboard() {
                         initial={{ x: -300 }}
                         animate={{ x: 0 }}
                         exit={{ x: -300 }}
-                        className="fixed left-0 top-0 h-screen w-72 bg-zinc-900/40 backdrop-blur-xl border-r border-white/10 z-40 p-6 flex flex-col overflow-y-auto"
+                        className="fixed left-0 top-0 h-screen w-80 md:w-72 bg-zinc-900/40 backdrop-blur-xl border-r border-white/10 z-40 p-4 md:p-6 flex flex-col overflow-y-auto"
                     >
                         {/* Header with Logo and Close Button */}
                         <div className="flex items-center justify-between mb-8 mt-2">
@@ -263,7 +263,7 @@ export default function Dashboard() {
 
             {/* Main Content */}
             <div className={`${sidebarOpen ? 'ml-0 md:ml-72' : 'ml-0'} relative z-10 transition-all duration-300`}>
-                <div className="p-6 md:p-12 pt-20">
+                <div className="p-4 sm:p-6 md:p-8 lg:p-12 pt-16 md:pt-20">
                     {activeSection === 'overview' && (
                         <OverviewSection
                             userName={userProfile.username}
@@ -428,7 +428,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             </div>
 
             {/* Stats Grid */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {/* Balance Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -656,14 +656,18 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             console.log("Transaction Signature:", signature);
 
             // 5. Update local state
+            // Find the actual service from SERVICES or dynamic services
+            const actualService = SERVICES.find(s => s.id === serviceId) || dynamicService;
+
             addSubscription({
                 serviceId,
-                serviceName: dynamicService ? dynamicService.name : 'Unknown Service',
+                serviceName: actualService ? actualService.name : serviceId,
                 plan: plan.name,
                 price,
                 email,
-                color: dynamicService ? dynamicService.color : '#FFFFFF',
-                icon: StorefrontIcon
+                color: actualService ? actualService.color : '#FF6B35',
+                icon: (actualService ? actualService.icon : StorefrontIcon) as any,
+                transactionSignature: signature // Store transaction ID
             });
 
             // 5. Refetch Balances
@@ -718,7 +722,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             {/* Browse Tab */}
             {activeTab === 'browse' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                     {/* Left Column: Subscriptions List */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="flex items-center justify-between">
@@ -883,7 +887,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             {/* Analytics Tab */}
             {activeTab === 'analytics' && (
                 <div className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                         {/* Monthly Spending Chart */}
                         <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
                             <h3 className="text-lg font-bold text-white mb-4">Monthly Spending Trend</h3>

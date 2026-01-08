@@ -12,6 +12,7 @@ export interface ActiveSubscription {
     nextBilling: string;
     color: string;
     icon: IconType;
+    transactionSignature?: string; // Add transaction ID
 }
 
 interface MonthlyData {
@@ -80,13 +81,15 @@ export function useSubscriptions() {
         });
     };
 
-    // Generate simulated historical data for the chart (6 months from July 2025 to Dec 2025)
+    // Generate simulated historical data for the chart (last 6 months)
     const getHistoricalData = useCallback(() => {
         const months = [];
-        const baseDate = new Date(2025, 6, 1); // July 2025
+        const now = new Date();
+        // Start from 5 months ago (to show 6 months total including current)
+        const baseDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
         const currentMonthTotal = getMonthlyTotal();
 
-        // Generate data for July - December 2025
+        // Generate data for last 6 months
         for (let i = 0; i < 6; i++) {
             const date = new Date(baseDate);
             date.setMonth(baseDate.getMonth() + i);

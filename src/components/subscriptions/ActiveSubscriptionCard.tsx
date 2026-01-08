@@ -52,6 +52,27 @@ export default function ActiveSubscriptionCard({ subscription, onUnsubscribe }: 
 
                     <p className="text-xs text-zinc-600 mt-2 truncate">{subscription.email}</p>
 
+                    {/* Transaction ID (if available) */}
+                    {subscription.transactionSignature && (
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-zinc-600">TX:</span>
+                            <code className="text-xs text-zinc-500 font-mono truncate max-w-[200px]">
+                                {subscription.transactionSignature.slice(0, 8)}...{subscription.transactionSignature.slice(-8)}
+                            </code>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(subscription.transactionSignature!);
+                                }}
+                                className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-orange-400 transition-colors"
+                                title="Copy Transaction ID"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
+
                     {/* Gasless indicator */}
                     <div className="flex items-center gap-1 mt-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />

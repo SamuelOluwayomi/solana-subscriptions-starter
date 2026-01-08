@@ -152,17 +152,21 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     const loginMerchant = async (email: string, password?: string) => {
         const found = merchants.find(m => m.email.toLowerCase() === email.toLowerCase());
 
-        if (found) {
-            // Password check (if provided in found record)
-            if (found.password && password && found.password !== password) {
+        if (!found) {
+            return false; // Merchant not found
+        }
+
+        // STRICT password check - password is required if merchant has one set
+        if (found.password) {
+            if (!password || found.password !== password) {
+                console.log('Password mismatch or not provided');
                 return false;
             }
-
-            setMerchant(found);
-            localStorage.setItem('cadpay_active_merchant', found.id);
-            return true;
         }
-        return false;
+
+        setMerchant(found);
+        localStorage.setItem('cadpay_active_merchant', found.id);
+        return true;
     };
 
     const logoutMerchant = () => {
