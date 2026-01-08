@@ -632,15 +632,20 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
             await ensureMerchantHasATA(targetMerchantAddress);
 
-            // 3. Construct the gasless transaction
-            const transaction = await constructTransferTransaction(
+            // 3. Construct the transfer instruction
+            const transferInstruction = await constructTransferTransaction(
                 address,
                 price * 1_000_000,
                 targetMerchantAddress
             );
 
-            // 4. User signs the transaction (Lazorkit handles gas sponsorship)
-            const signature = await signAndSendTransaction(transaction);
+            // 4. User signs and sends transaction using Lazorkit's instruction-based API
+            const signature = await signAndSendTransaction({
+                instructions: [transferInstruction],
+                transactionOptions: {
+                    computeUnitLimit: 200_000, // Increased compute units for complex transactions
+                }
+            });
             console.log("Transaction Signature:", signature);
 
             // 5. Update local state

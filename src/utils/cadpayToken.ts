@@ -231,10 +231,9 @@ export async function constructTransferTransaction(
     userAddress: string,
     amount: number,
     merchantAddress: string // Dynamic Merchant Wallet
-) {
+): Promise<TransactionInstruction> {
     const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
-    const transaction = new Transaction();
 
     // 1. Get ATAs for User and Merchant
     const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
@@ -299,12 +298,5 @@ export async function constructTransferTransaction(
         data
     });
 
-    transaction.add(transferIx);
-
-    // 3. Set Fee Payer to User (Lazorkit SDK sponsors this)
-    const { blockhash } = await connection.getLatestBlockhash('finalized');
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = userPubkey;
-
-    return transaction;
+    return transferIx; // Return just the instruction
 }
