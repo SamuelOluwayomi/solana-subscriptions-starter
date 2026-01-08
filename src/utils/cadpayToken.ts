@@ -1,4 +1,3 @@
-import { AccountLayout } from '@solana/spl-token';
 import {
     Connection,
     PublicKey,
@@ -7,7 +6,6 @@ import {
     Keypair,
     TransactionInstruction
 } from '@solana/web3.js';
-import bs58 from 'bs58';
 
 // Constants
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -230,18 +228,15 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
 }
 
 export async function constructTransferTransaction(
-    smartWalletAddress: string,
+    userAddress: string,
     amount: number,
     merchantAddress: string // Dynamic Merchant Wallet
 ): Promise<TransactionInstruction> {
-    // ⚠️ IMPORTANT:
-    // smartWalletAddress MUST be the Smart Wallet / PDA that actually OWNS the USDC ATA,
-    // NOT the passkey / credential public key.
-    const smartWalletPubkey = new PublicKey(smartWalletAddress);
+    const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
-    // 1. Get ATAs for User (Smart Wallet) and Merchant
-    const userATA = await findAssociatedTokenAddress(smartWalletPubkey, CADPAY_MINT);
+    // 1. Get ATAs for User and Merchant
+    const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
     const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
 
     // 1a. Verify User Checks (Account Exists & Sufficient Funds)
@@ -251,27 +246,10 @@ export async function constructTransferTransaction(
     }
 
     // CRITICAL CHECK: Ensure User ATA is owned by Token Program
-    console.log(`User ATA Code Owner: ${userAccountInfo.owner.toBase58()}`);
+    console.log(`User ATA Owner: ${userAccountInfo.owner.toBase58()}`);
     if (!userAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
         console.error(`FATAL: User ATA is owned by ${userAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
         throw new Error("ERROR_INVALID_USER_ACCOUNT: Your USDC account is corrupted. Please contact support.");
-    }
-
-    // DEEP CHECK: Verify the Token Account's "Owner" field matches userPubkey
-    try {
-        const decodedData = AccountLayout.decode(userAccountInfo.data);
-        const actualOwner = new PublicKey(decodedData.owner);
-        console.log(`🔍 ATA Data Owner: ${actualOwner.toBase58()}`);
-        console.log(`🔍 Expected Smart Wallet Owner: ${smartWalletPubkey.toBase58()}`);
-
-        if (!actualOwner.equals(smartWalletPubkey)) {
-            console.error(`❌ OWNER MISMATCH! ATA belongs to ${actualOwner.toBase58()}, but Smart Wallet is ${smartWalletPubkey.toBase58()}`);
-            // This mismatch will cause custom program error 0x2 (InvalidDelegate / Owner mismatch)
-        } else {
-            console.log("✅ Owner match confirmed.");
-        }
-    } catch (err) {
-        console.error("Failed to decode ATA data:", err);
     }
 
     try {
@@ -284,6 +262,7 @@ export async function constructTransferTransaction(
         }
     } catch (e) {
         console.error("Failed to check balance:", e);
+        // If we can't check balance, we proceed (might fail simulate)
     }
     // 1b. Verify Merchant ATA Exists (Should have been created by ensureMerchantHasATA)
     const merchantAccountInfo = await connection.getAccountInfo(merchantATA);
@@ -301,12 +280,9 @@ export async function constructTransferTransaction(
         }
     }
 
-    // 2. Create Transfer Instruction (SPL Token Transfer)
-    // Authority MUST be the Smart Wallet PDA that owns `userATA`, NOT the passkey.
+    // 2. Create Transfer Instruction (SPL Token)
     const data = Buffer.alloc(9);
-    data.writeUInt8(3, 0); // Transfer instruction
-
-    // Manually encode amount as little-endian u64 (browser-compatible)
+    data.writeUInt8(3, 0); // Instruction 3: Transfer
     const bigAmount = BigInt(amount);
     for (let i = 0; i < 8; i++) {
         data[1 + i] = Number((bigAmount >> BigInt(8 * i)) & BigInt(0xff));
@@ -314,9 +290,9 @@ export async function constructTransferTransaction(
 
     const transferIx = new TransactionInstruction({
         keys: [
-            { pubkey: userATA, isSigner: false, isWritable: true },          // Source ATA (Smart Wallet's USDC)
-            { pubkey: merchantATA, isSigner: false, isWritable: true },      // Destination ATA (Merchant)
-            { pubkey: smartWalletPubkey, isSigner: true, isWritable: false } // Authority MUST be signer (Lazorkit provides signature)
+            { pubkey: userATA, isSigner: false, isWritable: true },
+            { pubkey: merchantATA, isSigner: false, isWritable: true },
+            { pubkey: userPubkey, isSigner: true, isWritable: false },
         ],
         programId: TOKEN_PROGRAM_ID,
         data

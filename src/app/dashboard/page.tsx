@@ -30,7 +30,6 @@ import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
 import CopyButton from '@/components/shared/CopyButton';
 import { useMerchant } from '@/context/MerchantContext';
-import { useToast } from '@/context/ToastContext';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
@@ -556,20 +555,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     // @ts-ignore
     const { balance, signAndSendTransaction, address } = useLazorkit();
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
-    const { showToast } = useToast();
     const { services: dynamicServices, merchants } = useMerchant();
-
-    // Helper to resolve icon from iconId
-    const getIconForService = (iconId: string) => {
-        const service = SERVICES.find(s => s.id === iconId);
-        return service?.icon || StorefrontIcon;
-    };
-
-    // Debug: Log subscriptions whenever they change
-    useEffect(() => {
-        console.log('📊 Current subscriptions:', subscriptions);
-        console.log('📊 Subscription count:', subscriptions.length);
-    }, [subscriptions]);
 
     // Merge Static + Dynamic Services (Filter out duplicates)
     const staticServiceNames = SERVICES.map(s => s.name.toLowerCase());
@@ -668,7 +654,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 instructions: [transferInstruction],
                 transactionOptions: {
                     computeUnitLimit: 200_000,
-                    // addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined, // TEST: Disable ALT to check if error 0x2 persists
+                    addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
 
@@ -680,25 +666,17 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             console.log("✅ Transaction Signature:", signature);
 
             // 5. Update local state
-            const staticService = SERVICES.find(s => s.id === serviceId);
-            const serviceName = dynamicService?.name || staticService?.name || 'Unknown Service';
-            const serviceColor = dynamicService?.color || staticService?.color || '#FFFFFF';
-            const iconId = serviceId; // Use serviceId as iconId to look up icon later
-
             addSubscription({
                 serviceId,
-                serviceName,
+                serviceName: dynamicService ? dynamicService.name : 'Unknown Service',
                 plan: plan.name,
                 price,
                 email,
-                color: serviceColor,
-                iconId
+                color: dynamicService ? dynamicService.color : '#FFFFFF',
+                icon: StorefrontIcon
             });
 
-            // 6. Show success notification
-            showToast(`Successfully subscribed to ${dynamicService?.name || 'service'}!`, 'success');
-
-            // 7. Refetch Balances
+            // 5. Refetch Balances
             setTimeout(refetchUsdc, 2000);
 
             setShowSubscribeModal(false);
@@ -944,26 +922,23 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                 <p className="text-zinc-500 text-sm text-center py-8">No active subscriptions to analyze</p>
                             ) : (
                                 <div className="space-y-3">
-                                    {subscriptions.map((sub) => {
-                                        const Icon = getIconForService(sub.iconId);
-                                        return (
-                                            <div key={sub.id} className="flex items-center gap-3">
-                                                <div className="text-2xl" style={{ color: sub.color }}>
-                                                    <Icon size={24} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
-                                                    <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-white">${sub.price}</p>
-                                                    <p className="text-xs text-zinc-500">
-                                                        {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
-                                                    </p>
-                                                </div>
+                                    {subscriptions.map((sub) => (
+                                        <div key={sub.id} className="flex items-center gap-3">
+                                            <div className="text-2xl" style={{ color: sub.color }}>
+                                                <sub.icon size={24} />
                                             </div>
-                                        )
-                                    })}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
+                                                <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-white">${sub.price}</p>
+                                                <p className="text-xs text-zinc-500">
+                                                    {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
