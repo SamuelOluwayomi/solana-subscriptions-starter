@@ -316,7 +316,7 @@ export async function constructTransferTransaction(
         keys: [
             { pubkey: userATA, isSigner: false, isWritable: true },          // Source ATA (Smart Wallet's USDC)
             { pubkey: merchantATA, isSigner: false, isWritable: true },      // Destination ATA (Merchant)
-            { pubkey: smartWalletPubkey, isSigner: false, isWritable: false } // Authority = Smart Wallet PDA (NOT passkey)
+            { pubkey: smartWalletPubkey, isSigner: true, isWritable: false } // Authority MUST be signer (Lazorkit provides signature)
         ],
         programId: TOKEN_PROGRAM_ID,
         data
