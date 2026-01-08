@@ -263,7 +263,6 @@ export async function constructTransferTransaction(
         }
     } catch (e) {
         console.error("Failed to check balance:", e);
-        // If we can't check balance, we proceed (might fail simulate)
     }
     // 1b. Verify Merchant ATA Exists (Should have been created by ensureMerchantHasATA)
     const merchantAccountInfo = await connection.getAccountInfo(merchantATA);
@@ -282,22 +281,23 @@ export async function constructTransferTransaction(
     }
 
     // 2. Create Transfer Instruction (SPL Token Transfer)
-    // Instruction: 3 (Transfer)
-    // Amount: u64 little-endian
-    const transferInstruction = Buffer.alloc(9);
-    transferInstruction.writeUInt8(3, 0); // Transfer instruction
+    const data = Buffer.alloc(9);
+    data.writeUInt8(3, 0); // Transfer instruction
 
-    // Write amount as little-endian u64
-    transferInstruction.writeBigUInt64LE(BigInt(amount), 1);
+    // Manually encode amount as little-endian u64 (browser-compatible)
+    const bigAmount = BigInt(amount);
+    for (let i = 0; i < 8; i++) {
+        data[1 + i] = Number((bigAmount >> BigInt(8 * i)) & BigInt(0xff));
+    }
 
     const transferIx = new TransactionInstruction({
         keys: [
-            { pubkey: userATA, isSigner: false, isWritable: true },      // Source account
-            { pubkey: merchantATA, isSigner: false, isWritable: true },  // Destination account
-            { pubkey: userPubkey, isSigner: true, isWritable: false },   // Owner/authority
+            { pubkey: userATA, isSigner: false, isWritable: true },
+            { pubkey: merchantATA, isSigner: false, isWritable: true },
+            { pubkey: userPubkey, isSigner: true, isWritable: false },
         ],
         programId: TOKEN_PROGRAM_ID,
-        data: transferInstruction
+        data
     });
 
     return transferIx; // Return just the instruction
