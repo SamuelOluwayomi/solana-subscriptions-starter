@@ -639,21 +639,31 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 targetMerchantAddress
             );
 
-            // 3.5. Fetch Address Lookup Table for transaction compression
+            console.log("📍 Fetching Address Lookup Table...");
             const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
             const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
             const lookupTableAccount = await connection.getAddressLookupTable(lookupTableAddress)
                 .then((res) => res.value);
+            console.log("✅ Lookup Table fetched:", lookupTableAccount ? "Found" : "Not found");
 
             // 4. User signs and sends transaction using Lazorkit's instruction-based API with ALT
-            const signature = await signAndSendTransaction({
+            console.log("🔐 Signing transaction with Lazorkit...");
+
+            // Add timeout wrapper (30 seconds)
+            const signaturePromise = signAndSendTransaction({
                 instructions: [transferInstruction],
                 transactionOptions: {
                     computeUnitLimit: 200_000,
                     addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
-            console.log("Transaction Signature:", signature);
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Transaction timeout after 30 seconds")), 30000)
+            );
+
+            const signature = await Promise.race([signaturePromise, timeoutPromise]) as string;
+            console.log("✅ Transaction Signature:", signature);
 
             // 5. Update local state
             addSubscription({
@@ -671,7 +681,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             setShowSubscribeModal(false);
         } catch (error) {
-            console.error("Subscription failed:", error);
+            console.error("❌ Subscription failed:", error);
             throw error; // Propagate to modal
         }
     };
