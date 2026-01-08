@@ -639,11 +639,18 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 targetMerchantAddress
             );
 
-            // 4. User signs and sends transaction using Lazorkit's instruction-based API
+            // 3.5. Fetch Address Lookup Table for transaction compression
+            const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
+            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const lookupTableAccount = await connection.getAddressLookupTable(lookupTableAddress)
+                .then((res) => res.value);
+
+            // 4. User signs and sends transaction using Lazorkit's instruction-based API with ALT
             const signature = await signAndSendTransaction({
                 instructions: [transferInstruction],
                 transactionOptions: {
-                    computeUnitLimit: 200_000, // Increased compute units for complex transactions
+                    computeUnitLimit: 200_000,
+                    addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
             console.log("Transaction Signature:", signature);
