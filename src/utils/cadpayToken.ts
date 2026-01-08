@@ -246,6 +246,13 @@ export async function constructTransferTransaction(
         throw new Error("ERROR_NO_ACCOUNT: You don't have a USDC account. Please use the Faucet first.");
     }
 
+    // CRITICAL CHECK: Ensure User ATA is owned by Token Program
+    console.log(`User ATA Owner: ${userAccountInfo.owner.toBase58()}`);
+    if (!userAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+        console.error(`FATAL: User ATA is owned by ${userAccountInfo.owner.toBase58()}, expected ${TOKEN_PROGRAM_ID.toBase58()}`);
+        throw new Error("ERROR_INVALID_USER_ACCOUNT: Your USDC account is corrupted. Please contact support.");
+    }
+
     try {
         const balanceResponse = await connection.getTokenAccountBalance(userATA);
         const balance = balanceResponse.value.uiAmount || 0;
