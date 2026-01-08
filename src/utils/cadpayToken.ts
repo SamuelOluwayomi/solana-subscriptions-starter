@@ -4,8 +4,7 @@ import {
     Transaction,
     SystemProgram,
     Keypair,
-    TransactionInstruction,
-    ComputeBudgetProgram
+    TransactionInstruction
 } from '@solana/web3.js';
 
 // Constants
@@ -279,10 +278,6 @@ export async function constructTransferTransaction(
     });
 
     transaction.add(transferIx);
-
-    // Add Compute Budget to ensure reliability (Standard for Devnet/Mainnet)
-    transaction.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }));
-    transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }));
 
     // 3. Set Fee Payer to User (Lazorkit SDK sponsors this)
     const { blockhash } = await connection.getLatestBlockhash('confirmed');

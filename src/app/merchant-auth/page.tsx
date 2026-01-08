@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { StorefrontIcon, UserCircleIcon, ArrowRightIcon, SpinnerIcon, LockKeyIcon } from '@phosphor-icons/react';
+import { StorefrontIcon, UserCircleIcon, ArrowRightIcon, SpinnerIcon, LockKeyIcon, ArrowLeftIcon } from '@phosphor-icons/react';
 import { useMerchant } from '@/context/MerchantContext';
 import Image from 'next/image';
 
@@ -11,7 +12,7 @@ export default function MerchantAuthPage() {
     const [isSignup, setIsSignup] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
-    const [password, setPassword] = useState(''); // Added missing state
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -49,6 +50,13 @@ export default function MerchantAuthPage() {
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] bg-orange-500/10 rounded-full blur-[120px]" />
                 <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]" />
+            </div>
+
+            {/* NAV BACK */}
+            <div className="absolute top-8 left-8 z-20">
+                <Link href="/" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all group">
+                    <ArrowLeftIcon size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+                </Link>
             </div>
 
             <div className="w-full max-w-md relative z-10">

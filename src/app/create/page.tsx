@@ -126,12 +126,17 @@ export default function CreateAccount() {
                     </button>
 
                     <div className="mt-8 pt-6 border-t border-white/5 text-center">
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-zinc-500 mb-4">
                             Already have a wallet?{' '}
                             <Link href="/signin" className="text-orange-500 hover:text-orange-400 font-medium transition-colors">
                                 Sign In
                             </Link>
                         </p>
+                        <div className="text-xs md:text-sm text-center text-zinc-500 mt-6">
+                            <p>Are you a Merchant?{" "}<Link href="/merchant-auth" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                                <span className="text-orange-500 hover:text-orange-400 font-medium">Login to Portal</span>
+                            </Link></p>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ShoppingBagIcon, FingerprintIcon, ShieldCheckIcon } from '@phosphor-icons/react';
+import { ShoppingBagIcon, FingerprintIcon, ShieldCheckIcon, SpinnerIcon } from '@phosphor-icons/react';
 import { ArrowLeftIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useLazorkit } from '@/hooks/useLazorkit';
@@ -19,16 +19,17 @@ export default function SignIn() {
             {/* GRID FLOOR (Subtle texture) */}
             <div className="absolute bottom-0 w-[200%] h-[50vh] bg-[linear-gradient(to_bottom,transparent,rgba(255,255,255,0.03)_1px),linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[4rem_4rem] transform-[perspective(500px)_rotateX(60deg)] pointer-events-none origin-bottom opacity-20" />
 
+            <div className="absolute top-8 left-8 z-20">
+                <Link href="/" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all group">
+                    <ArrowLeftIcon size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+                </Link>
+            </div>
+
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="w-full max-w-md relative z-10"
             >
-                {/* NAV BACK */}
-                <Link href="/" className="inline-flex items-center text-zinc-500 hover:text-orange-400 mb-8 transition-colors text-sm font-medium group">
-                    <ArrowLeftIcon size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Back to Home
-                </Link>
-
                 {/* LOGIN CARD */}
                 <div className="bg-zinc-900/80 backdrop-blur-lg border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl">
                     {/* Icon */}
@@ -59,8 +60,14 @@ export default function SignIn() {
                         disabled={loading}
                         className="w-full py-3 md:py-4 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
                     >
-                        <FingerprintIcon size={24} weight="bold" />
-                        Authenticate with Biometrics
+                        {loading ? (
+                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <>
+                                <FingerprintIcon size={24} weight="bold" />
+                                Authenticate with Biometrics
+                            </>
+                        )}
                     </button>
 
                     {/* Security Info */}
@@ -77,6 +84,14 @@ export default function SignIn() {
                             Create Smart Wallet
                         </a>
                     </p>
+
+                    {/* Merchant Portal Link */}
+                    <div className="text-xs md:text-sm text-center text-zinc-500 mt-6">
+                        <p>Are you a Merchant?{" "}<Link href="/merchant-auth" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                            <span className="text-orange-500 hover:text-orange-400 font-medium">Login to Portal</span>
+                        </Link></p>
+
+                    </div>
                 </div>
             </motion.div>
         </div>
