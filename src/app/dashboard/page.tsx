@@ -239,12 +239,7 @@ export default function Dashboard() {
                                         onClick={() => { setActiveSection('dev-keys'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
 
-                                    <div className="pt-2">
-                                        <Link href="/merchant" className="flex items-center gap-3 px-4 py-3 text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 rounded-xl transition-all group">
-                                            <StorefrontIcon size={20} className="group-hover:text-orange-500" />
-                                            <span className="text-sm font-medium">Merchant Portal</span>
-                                        </Link>
-                                    </div>
+
                                 </div>
                             </div>
                         </nav>

@@ -31,7 +31,7 @@ export default function NavBar() {
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
                         <div className="hidden md:flex items-center gap-8">
                             <NavLink href="#">The Bridge</NavLink>
-                            <NavLink href="#">For Merchants</NavLink>
+                            <NavLink href="/merchant-auth">Merchant Portal</NavLink>
                             <NavLink href="#">Lazorkit Engine</NavLink>
                         </div>
                     </div>
@@ -68,7 +68,7 @@ export default function NavBar() {
                     >
                         <div className="flex flex-col gap-6 text-lg font-medium">
                             <MobileLink href="#" onClick={() => setIsOpen(false)}>The Bridge</MobileLink>
-                            <MobileLink href="#" onClick={() => setIsOpen(false)}>For Merchants</MobileLink>
+                            <MobileLink href="/merchant-auth" onClick={() => setIsOpen(false)}>Merchant Portal</MobileLink>
                             <MobileLink href="#" onClick={() => setIsOpen(false)}>Lazorkit Engine</MobileLink>
                             <hr className="border-white/10" />
                             <MobileLink href="/signin" onClick={() => setIsOpen(false)}>Log In</MobileLink>
