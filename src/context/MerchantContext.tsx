@@ -34,7 +34,9 @@ interface MerchantContextType {
     loginMerchant: (email: string, password?: string) => Promise<boolean>;
     logoutMerchant: () => void;
     createNewService: (name: string, price: number, description: string, color: string) => void;
+
     getMerchantServices: (merchantId: string) => MerchantService[];
+    isLoading: boolean;
 }
 
 const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
@@ -43,6 +45,7 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     const [merchant, setMerchant] = useState<Merchant | null>(null);
     const [merchants, setMerchants] = useState<Merchant[]>([]);
     const [services, setServices] = useState<MerchantService[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Seed Default Merchant
     useEffect(() => {
@@ -110,15 +113,25 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const storedMerchants = localStorage.getItem('cadpay_merchants');
         const storedServices = localStorage.getItem('cadpay_services');
-        const activeMerchantId = localStorage.getItem('cadpay_active_merchant');
+        try {
+            const storedMerchants = localStorage.getItem('cadpay_merchants');
+            const storedServices = localStorage.getItem('cadpay_services');
+            const activeMerchantId = localStorage.getItem('cadpay_active_merchant');
 
-        if (storedMerchants) setMerchants(JSON.parse(storedMerchants));
-        if (storedServices) setServices(JSON.parse(storedServices));
+            if (storedMerchants) setMerchants(JSON.parse(storedMerchants));
+            if (storedServices) setServices(JSON.parse(storedServices));
 
-        if (activeMerchantId && storedMerchants) {
-            const allMerchants = JSON.parse(storedMerchants);
-            const found = allMerchants.find((m: Merchant) => m.id === activeMerchantId);
-            if (found) setMerchant(found);
+            if (activeMerchantId && storedMerchants) {
+                const allMerchants = JSON.parse(storedMerchants);
+                if (activeMerchantId) {
+                    const found = allMerchants.find((m: Merchant) => m.id === activeMerchantId);
+                    if (found) setMerchant(found);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load merchant:", error);
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
@@ -211,7 +224,8 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
             loginMerchant,
             logoutMerchant,
             createNewService,
-            getMerchantServices
+            getMerchantServices,
+            isLoading
         }}>
             {children}
         </MerchantContext.Provider>
