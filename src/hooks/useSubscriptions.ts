@@ -32,7 +32,21 @@ export function useSubscriptions() {
         const monthlyStored = localStorage.getItem(MONTHLY_DATA_KEY);
 
         if (stored) {
-            setSubscriptions(JSON.parse(stored));
+            const loadedSubs: ActiveSubscription[] = JSON.parse(stored);
+
+            // Restore icon functions (they can't be serialized to JSON)
+            // We need to import SERVICES to match icons
+            const restoredSubs = loadedSubs.map(sub => {
+                // Try to find matching service by ID to restore icon
+                // Since we can't import SERVICES here without circular dependency,
+                // we'll use a fallback icon that will be replaced by the type check in the component
+                return {
+                    ...sub,
+                    icon: sub.icon || 'StorefrontIcon' // Will be handled by component's type check
+                };
+            });
+
+            setSubscriptions(restoredSubs);
         }
 
         if (monthlyStored) {
@@ -54,7 +68,9 @@ export function useSubscriptions() {
 
     // Save to localStorage whenever subscriptions change
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions));
+        // Remove icon functions before saving (they can't be JSON serialized)
+        const subsToSave = subscriptions.map(({ icon, ...rest }) => rest);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(subsToSave));
         updateMonthlyData();
     }, [subscriptions, updateMonthlyData]);
 
