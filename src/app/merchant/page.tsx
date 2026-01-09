@@ -11,6 +11,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Added Router
 import { Connection, PublicKey } from '@solana/web3.js';
+import { CADPAY_MINT } from '@/utils/cadpayToken';
 import { useMerchant } from '@/context/MerchantContext'; // Added Context
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -42,19 +43,23 @@ export default function MerchantDashboard() {
     const [activeSection, setActiveSection] = useState<'dashboard' | 'analytics' | 'customers' | 'invoices' | 'developer'>('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
-    // Protect Route
+    // Protect Route - redirect to signin if not logged in (only after loading completes)
     useEffect(() => {
-        if (!merchant) {
-            router.push('/merchant-auth');
-        }
-    }, [merchant, router]);
+        const timer = setTimeout(() => {
+            if (!isLoading && !merchant) {
+                router.push('/merchant-auth');
+            }
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [merchant, isLoading, router]);
 
     // Calculate Base Logic & Fetch Ledger
     useEffect(() => {
         if (!merchant) return;
 
         // 1. Determine Authorization for Mock Data
-        const isDefaultMerchant = merchant.email === 'samuelfaith500@gmail.com';
+        const isDefaultMerchant = merchant.email.toLowerCase() === 'admin@gmail.com';
+        console.log(`📊 Merchant: ${merchant.email}, isDefault: ${isDefaultMerchant}`);
 
         let baseRevenue = 0;
         let baseUsers = 0;
@@ -73,6 +78,7 @@ export default function MerchantDashboard() {
                 value: s.plans[0].price * 42,
                 color: s.color
             }));
+            console.log(`✅ Default merchant detected. Initial chart data: ${initialChartData.length} services`);
         } else {
             // New Merchant starts fresh
             initialChartData = [
@@ -80,46 +86,190 @@ export default function MerchantDashboard() {
             ];
         }
 
-        const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+        // Use custom RPC URL from environment (fallback to public devnet)
+        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+        const connection = new Connection(rpcUrl, 'confirmed');
         const merchantKey = new PublicKey(merchant.walletPublicKey);
 
         const fetchHistory = async () => {
             try {
-                // Fetch recent signatures for the MERCHANT wallet
-                const signatures = await connection.getSignaturesForAddress(merchantKey, { limit: 20 });
+                // Only fetch for the default seeded admin merchant to reduce load
+                if (!isDefaultMerchant) {
+                    console.log("⏭️ Skipping transaction fetch for non-default merchant");
+                    setLoading(false);
+                    return;
+                }
 
-                // Fetch parsed transaction details to get real amounts
+                console.log(`🔍 Fetching transactions for wallet: ${merchant.walletPublicKey} via ${rpcUrl}`);
+
+                const merchantTokenAccount = new PublicKey('58Bx8fD3RP4dCaoKiYQW76PUMEXSmLvcb5pT1sv2ypRj');
+                console.log(`📍 Merchant Token Account (direct): ${merchantTokenAccount.toBase58()}`);
+
+                const signatures = await connection.getSignaturesForAddress(merchantTokenAccount, { limit: 5 });
+                console.log(`📝 Found ${signatures.length} signatures on token account`);
+
+                if (signatures.length === 0) {
+                    setTransactions([]);
+                    setLoading(false);
+                    return;
+                }
+
                 const txIds = signatures.map(s => s.signature);
-                const txDetails = await connection.getParsedTransactions(txIds, { maxSupportedTransactionVersion: 0 });
+                const txDetails: any[] = [];
 
-                // Map signatures to details
+                // Helius free tier does not allow JSON-RPC batch requests.
+                // Fetch transactions one-by-one to avoid 403: paid-batch restriction.
+                for (let i = 0; i < txIds.length; i++) {
+                    const sig = txIds[i];
+                    try {
+                        const single = await connection.getParsedTransaction(sig, 'confirmed');
+                        txDetails.push(single);
+                    } catch (singleError) {
+                        console.warn(`⚠️ Transaction ${i} (${sig}) failed, inserting null:`, singleError);
+                        txDetails.push(null);
+                    }
+                    // small delay to reduce burst rate
+                    if (i + 1 < txIds.length) await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
                 const txMap = new Map();
-                txDetails.forEach((tx, i) => {
-                    if (tx) txMap.set(txIds[i], tx);
-                });
+                txDetails.forEach((tx, i) => { if (tx) txMap.set(txIds[i], tx); });
 
-                // Transform into "Legible" Ledger items
                 const formattedTxs = signatures.map((sig, i) => {
                     const tx = txMap.get(sig.signature);
                     let amount = 0;
+                    let memoText = '';
 
-                    // Try to calculate token balance change for this wallet
-                    if (tx?.meta?.postTokenBalances && tx?.meta?.preTokenBalances) {
-                        const myPost = tx.meta.postTokenBalances.find((b: any) => b.owner === merchant.walletPublicKey);
-                        const myPre = tx.meta.preTokenBalances.find((b: any) => b.owner === merchant.walletPublicKey);
+                    console.log(`\n📋 === TX ${i} ===`);
+                    console.log(`Signature: ${sig.signature.slice(0, 8)}...`);
+                    console.log(`Full TX object:`, tx);
+                    console.log(`Transaction available:`, !!tx?.transaction);
+                    console.log(`Meta available:`, !!tx?.meta);
 
-                        if (myPost) {
-                            const postAmount = myPost.uiTokenAmount.uiAmount || 0;
-                            const preAmount = myPre?.uiTokenAmount?.uiAmount || 0;
-                            const diff = postAmount - preAmount;
-                            if (diff > 0) amount = diff;
+                    // Extract memo from transaction (often contains subscription tier info)
+                    if (tx?.transaction?.message?.instructions) {
+                        for (let j = 0; j < tx.transaction.message.instructions.length; j++) {
+                            const instr = tx.transaction.message.instructions[j];
+                            const instrType = instr.parsed?.type || instr.program || 'unknown';
+                            console.log(`   Instr ${j}: type=${instrType}, info=${JSON.stringify(instr.parsed?.info || {})}`);
+                            
+                            // Check for memo instruction
+                            if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
+                                memoText = instr.parsed.info.memo;
+                                console.log(`   📝 Memo found: "${memoText}"`);
+                            }
+                            // Check for MintTo (token generation)
+                            if (instr.parsed?.type === 'mintTo' && instr.parsed?.info?.amount) {
+                                const amountLamports = BigInt(instr.parsed.info.amount);
+                                amount = Number(amountLamports) / 1_000_000; // 6 decimals
+                                console.log(`   🪙 Found mintTo: ${amount}`);
+                            }
+                            // Check for parsed token transfer instruction
+                            if (instr.parsed?.type === 'transfer' && instr.parsed?.info?.tokenAmount?.uiAmount) {
+                                amount = instr.parsed.info.tokenAmount.uiAmount;
+                                console.log(`   ✅ Found transfer instruction: ${amount}`);
+                                break;
+                            }
+                            // Check for parsed transferChecked (SPL token standard)
+                            if (instr.parsed?.type === 'transferChecked' && instr.parsed?.info?.tokenAmount?.uiAmount) {
+                                amount = instr.parsed.info.tokenAmount.uiAmount;
+                                console.log(`   ✅ Found transferChecked instruction: ${amount}`);
+                                break;
+                            }
                         }
                     }
 
-                    // Extract Customer Address (Sender)
+                    // Check program logs for subscription tier hints
+                    if (!memoText && tx?.meta?.logMessages) {
+                        const logs = tx.meta.logMessages.join(' ');
+                        if (logs.includes('netflix') || logs.includes('spotify')) {
+                            console.log(`   🔍 Found subscription hint in logs`);
+                            memoText = logs.substring(0, 100);
+                        }
+                    }
+
+                    // Fallback: if no instruction amount, check token balance changes
+                    if (amount === 0) {
+                        const preBalances = tx?.meta?.preTokenBalances || [];
+                        const postBalances = tx?.meta?.postTokenBalances || [];
+
+                        console.log(`📋 Tx ${i} (${sig.signature.slice(0, 8)}...): pre=${preBalances.length} post=${postBalances.length}`);
+                        if (postBalances.length > 0) {
+                            console.log(`   Post balances:`, postBalances.map((p: any) => ({ mint: p.mint?.slice(0, 8), amount: p.uiTokenAmount?.uiAmount })));
+                        }
+                        if (preBalances.length > 0) {
+                            console.log(`   Pre balances:`, preBalances.map((p: any) => ({ mint: p.mint?.slice(0, 8), amount: p.uiTokenAmount?.uiAmount })));
+                        }
+
+                        if (postBalances.length > 0 || preBalances.length > 0) {
+                            // Try to find a post balance entry matching the CADPAY mint
+                            const cadpayMint = (typeof CADPAY_MINT?.toBase58 === 'function') ? CADPAY_MINT.toBase58() : String(CADPAY_MINT);
+
+                            // First pass: look for any post balance with CADPAY_MINT and positive diff
+                            for (const p of postBalances) {
+                                const postAmt = p?.uiTokenAmount?.uiAmount || 0;
+                                const preMatch = preBalances.find((q: any) => q.accountIndex === p.accountIndex || q.pubkey === p.pubkey || q.owner === p.owner);
+                                const preAmt = preMatch?.uiTokenAmount?.uiAmount || 0;
+                                const diff = postAmt - preAmt;
+                                const mint = p?.mint || '';
+                                if (diff > 0 && mint === cadpayMint) {
+                                    amount = diff;
+                                    console.log(`   ✅ Found CADPAY match: ${amount}`);
+                                    break;
+                                }
+                            }
+
+                            // Second pass: if nothing matched CADPAY, check for new account creation (pre=0 post=1)
+                            // Use post amount directly if it's a newly created account receiving tokens
+                            if (amount === 0 && preBalances.length === 0 && postBalances.length > 0) {
+                                for (const p of postBalances) {
+                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
+                                    const mint = p?.mint || '';
+                                    if (postAmt > 0 && mint === cadpayMint) {
+                                        amount = postAmt;
+                                        console.log(`   ✅ New account CADPAY (pre=0): ${amount}`);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Third pass: if pre=0, this is definitely a new account—take first positive balance
+                            // regardless of mint (it could be a different token or ATA).
+                            if (amount === 0 && preBalances.length === 0 && postBalances.length > 0) {
+                                for (const p of postBalances) {
+                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
+                                    if (postAmt > 0) {
+                                        amount = postAmt;
+                                        console.log(`   ✅ New account, any token (pre=0): ${amount} (mint: ${p.mint})`);
+                                        break;
+                                    }
+                                }
+                                // If all post balances are 0 or null, still log for debugging
+                                if (amount === 0 && postBalances.length > 0) {
+                                    console.log(`   ⚠️  New account has postBalances but all amounts are 0`);
+                                }
+                            }
+
+                            // Fourth pass: accept any positive token diff
+                            if (amount === 0) {
+                                for (const p of postBalances) {
+                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
+                                    const preMatch = preBalances.find((q: any) => q.accountIndex === p.accountIndex || q.pubkey === p.pubkey || q.owner === p.owner);
+                                    const preAmt = preMatch?.uiTokenAmount?.uiAmount || 0;
+                                    const diff = postAmt - preAmt;
+                                    if (diff > 0) {
+                                        amount = diff;
+                                        console.log(`   ✅ Found positive diff (fallback): ${amount}`);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (amount === 0) console.log(`   ❌ No amount detected`);
+                    }
+
                     let customerAddress = '0x' + sig.signature.slice(0, 4) + '...' + sig.signature.slice(-4);
                     if (tx?.meta?.preTokenBalances && tx?.meta?.postTokenBalances) {
-                        // Find who lost tokens (Sender)
                         const senderBalance = tx.meta.preTokenBalances.find((b: any) => {
                             const post = tx.meta.postTokenBalances?.find((p: any) => p.accountIndex === b.accountIndex);
                             return post && (b.uiTokenAmount.uiAmount || 0) > (post.uiTokenAmount.uiAmount || 0);
@@ -129,51 +279,101 @@ export default function MerchantDashboard() {
                         }
                     }
 
-                    // Fallback to generic if no token change found (maybe SOL transfer?)
-                    if (amount === 0) {
-                        // Check for SOL transfer (lamports)
-                        // This is header if parsing standard SOL transfers, but we are mostly doing Tokens
-                        // For now, if 0, keep it 0 or use a fallback
-                        amount = 0;
-                    }
+                    if (amount === 0) amount = 0;
 
-                    // Infer Tier/Service from Amount
+                    // Smart price matching: find matching service & plan from SERVICES data
                     let serviceName = 'Subscription';
                     let planName = 'Standard';
                     let serviceColor = '#888';
+                    
+                    // Search all services for matching price (within $0.10 tolerance for floating point)
+                    for (const service of SERVICES) {
+                        for (const plan of service.plans) {
+                            if (Math.abs(amount - plan.price) < 0.1) {
+                                serviceName = service.name;
+                                planName = plan.name;
+                                serviceColor = service.color;
+                                console.log(`   ✅ Price matched to ${serviceName} ${planName}: $${plan.price}`);
+                                break;
+                            }
+                        }
+                        if (serviceName !== 'Subscription') break; // Found match, exit
+                    }
 
-                    // Simple "Guessing" Logic based on known prices
-                    if (Math.abs(amount - 9.99) < 0.1) { serviceName = 'Netflix'; planName = 'Basic'; serviceColor = '#E50914'; }
-                    else if (Math.abs(amount - 15.99) < 0.1) { serviceName = 'Netflix'; planName = 'Standard'; serviceColor = '#E50914'; }
-                    else if (Math.abs(amount - 19.99) < 0.1) { serviceName = 'Netflix'; planName = 'Premium'; serviceColor = '#E50914'; }
-                    else if (Math.abs(amount - 5.99) < 0.1) { serviceName = 'Spotify'; planName = 'Student'; serviceColor = '#1DB954'; }
-                    else if (Math.abs(amount - 10.99) < 0.1) { serviceName = 'Spotify'; planName = 'Individual'; serviceColor = '#1DB954'; }
-                    else if (Math.abs(amount - 16.99) < 0.1) { serviceName = 'Spotify'; planName = 'Family'; serviceColor = '#1DB954'; }
-                    else if (amount > 0) { serviceName = 'Custom Service'; planName = 'Tier 1'; serviceColor = '#F97316'; }
+                    // Try to extract subscription info from memo (override price match)
+                    if (memoText) {
+                        const memoLower = memoText.toLowerCase();
+                        // Map memo keywords to subscription tiers
+                        if (memoLower.includes('netflix') || memoLower.includes('nf_')) {
+                            const netflixService = SERVICES.find(s => s.id === 'netflix');
+                            if (netflixService) {
+                                serviceName = netflixService.name;
+                                serviceColor = netflixService.color;
+                                if (memoLower.includes('basic')) { 
+                                    const plan = netflixService.plans.find(p => p.name === 'Basic');
+                                    planName = 'Basic'; 
+                                    amount = plan?.price ?? 9.99;
+                                }
+                                else if (memoLower.includes('standard') || memoLower.includes('std')) { 
+                                    const plan = netflixService.plans.find(p => p.name === 'Standard');
+                                    planName = 'Standard'; 
+                                    amount = plan?.price ?? 15.49;
+                                }
+                                else if (memoLower.includes('premium') || memoLower.includes('prem')) { 
+                                    const plan = netflixService.plans.find(p => p.name === 'Premium');
+                                    planName = 'Premium'; 
+                                    amount = plan?.price ?? 19.99;
+                                }
+                                console.log(`   📝 Memo mapped to ${serviceName} ${planName}`);
+                            }
+                        }
+                        else if (memoLower.includes('spotify') || memoLower.includes('sp_')) {
+                            const spotifyService = SERVICES.find(s => s.id === 'spotify');
+                            if (spotifyService) {
+                                serviceName = spotifyService.name;
+                                serviceColor = spotifyService.color;
+                                if (memoLower.includes('student')) { 
+                                    planName = 'Premium'; // Note: Spotify has Free/Premium/Family; Student mapped to Premium
+                                    amount = 10.99;
+                                }
+                                else if (memoLower.includes('individual') || memoLower.includes('ind')) { 
+                                    const plan = spotifyService.plans.find(p => p.name === 'Premium');
+                                    planName = 'Premium'; 
+                                    amount = plan?.price ?? 10.99;
+                                }
+                                else if (memoLower.includes('family') || memoLower.includes('fam')) { 
+                                    const plan = spotifyService.plans.find(p => p.name === 'Family');
+                                    planName = 'Family'; 
+                                    amount = plan?.price ?? 16.99;
+                                }
+                                console.log(`   📝 Memo mapped to ${serviceName} ${planName}`);
+                            }
+                        }
+                    }
 
-                    if (amount === 0 && !sig.err) {
-                        // If success but no amount detected, maybe it's just a setup tx or we missed the parsing
-                        // Hide it or show as "Interaction"
-                        serviceName = 'System';
+                    // Fallback: if no match found, use "Custom Service"
+                    if (serviceName === 'Subscription' && amount > 0) {
+                        serviceName = 'Custom Service';
+                        planName = `Tier ${Math.ceil(amount / 10)}`;
+                        serviceColor = '#F97316';
+                        console.log(`   🔧 No price match, using fallback: ${serviceName} ${planName} → $${amount.toFixed(2)}`);
                     }
 
                     return {
                         id: sig.signature,
-                        customer: '0x' + sig.signature.slice(0, 4) + '...' + sig.signature.slice(-4),
+                        customer: customerAddress,
                         service: { name: serviceName, color: serviceColor },
                         amount: amount,
                         plan: planName,
                         status: sig.err ? 'Failed' : 'Success',
                         date: new Date((sig.blockTime || 0) * 1000),
-                        gasFee: '0.000005 SOL' // Estimate
+                        gasFee: '0.000005 SOL'
                     };
-                }).filter(tx => tx.amount > 0); // Only show transfers with value? Or show all? Let's show active transfers.
+                }).filter(tx => tx.amount > 0);
 
                 setTransactions(formattedTxs);
 
-                // Add Real Activity to Base
                 const realUsers = formattedTxs.length;
-                // Calculate Real Revenue from parsed amounts
                 const realRevenue = formattedTxs.reduce((sum, tx) => sum + tx.amount, 0);
 
                 setTxCount(baseUsers + realUsers);
@@ -181,52 +381,41 @@ export default function MerchantDashboard() {
                 setMrr(baseMrr + realRevenue);
                 setGasSaved(realUsers * 0.000005);
 
-                // Aggregate live data by service
                 const serviceAggregation: Record<string, { value: number, color: string }> = {};
                 formattedTxs.forEach(tx => {
                     const name = tx.service.name;
-                    if (!serviceAggregation[name]) {
-                        serviceAggregation[name] = { value: 0, color: tx.service.color };
-                    }
+                    if (!serviceAggregation[name]) serviceAggregation[name] = { value: 0, color: tx.service.color };
                     serviceAggregation[name].value += tx.amount;
                 });
 
-                // Merge with initial chart data (Simulated + Real)
                 let newChartData = [...initialChartData];
-                if (!isDefaultMerchant) {
-                    // If fresh merchant, start empty (or with "No Data" removed if we have data)
-                    if (realRevenue > 0) newChartData = [];
-                }
+                if (!isDefaultMerchant) { if (realRevenue > 0) newChartData = []; }
 
                 Object.keys(serviceAggregation).forEach(serviceName => {
                     const existingIndex = newChartData.findIndex(item => item.name === serviceName);
                     if (existingIndex >= 0) {
-                        // Update existing (Simulated + Live)
                         newChartData[existingIndex] = {
                             ...newChartData[existingIndex],
                             value: newChartData[existingIndex].value + serviceAggregation[serviceName].value
                         };
                     } else {
-                        // Add new service
-                        newChartData.push({
-                            name: serviceName,
-                            value: serviceAggregation[serviceName].value,
-                            color: serviceAggregation[serviceName].color
-                        });
+                        newChartData.push({ name: serviceName, value: serviceAggregation[serviceName].value, color: serviceAggregation[serviceName].color });
                     }
                 });
 
                 setChartData(newChartData);
+                console.log(`✅ Transaction fetch complete: ${formattedTxs.length} formatted transactions, chart data: ${newChartData.length} items`);
 
                 setLoading(false);
             } catch (e) {
-                console.error("Failed to fetch merchant history", e);
+                console.error("❌ Failed to fetch merchant history:", e);
                 setLoading(false);
             }
         };
 
+        // Run once immediately, then poll (60s)
         fetchHistory();
-        const interval = setInterval(fetchHistory, 10000);
+        const interval = setInterval(fetchHistory, 60000);
         return () => clearInterval(interval);
     }, [merchant]);
 
@@ -345,7 +534,13 @@ export default function MerchantDashboard() {
                                     <p className="text-xs text-zinc-400 truncate">{merchant.email}</p>
                                 </div>
                             </div>
-                            <button onClick={logoutMerchant} className="w-full py-2 text-xs text-zinc-500 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-colors">
+                            <button 
+                                onClick={() => {
+                                    logoutMerchant();
+                                    router.push('/merchant-auth');
+                                }} 
+                                className="w-full py-2 text-xs text-zinc-500 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+                            >
                                 Sign Out
                             </button>
                         </div>
@@ -355,6 +550,12 @@ export default function MerchantDashboard() {
 
             {/* MAIN CONTENT */}
             <main className="flex-1 md:ml-64 p-4 sm:p-6 md:p-8">
+                {!merchant ? (
+                    <div className="flex items-center justify-center h-screen">
+                        <div className="text-zinc-500">Loading...</div>
+                    </div>
+                ) : (
+                <>
                 <header className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-white">Dashboard Overview</h1>
@@ -368,21 +569,21 @@ export default function MerchantDashboard() {
                         <MetricCard
                             title="Total Revenue"
                             value={`$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            trend={merchant.email === 'samuelfaith500@gmail.com' ? "+12%" : "+0%"}
+                            trend={merchant.email === 'admin@gmail.com' ? "+12%" : "+0%"}
                             icon={<TrendUpIcon size={24} className="text-green-400" />}
                             color="green"
                         />
                         <MetricCard
                             title="Total Customers"
                             value={txCount.toLocaleString()}
-                            trend={merchant.email === 'samuelfaith500@gmail.com' ? "+42 new" : "+0 new"}
+                            trend={merchant.email === 'admin@gmail.com' ? "+42 new" : "+0 new"}
                             icon={<UsersIcon size={24} className="text-blue-400" />}
                             color="blue"
                         />
                         <MetricCard
                             title="Monthly Recurring (MRR)"
                             value={`$${mrr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            trend={merchant.email === 'samuelfaith500@gmail.com' ? "+8%" : "+0%"}
+                            trend={merchant.email === 'admin@gmail.com' ? "+8%" : "+0%"}
                             icon={<ReceiptIcon size={24} className="text-purple-400" />}
                             color="purple"
                         />
@@ -406,8 +607,8 @@ export default function MerchantDashboard() {
                                 <button className="text-zinc-500 hover:text-white"><ChartPieIcon size={20} /></button>
                             </div>
 
-                            <div className="h-[200px] w-full relative">
-                                <ResponsiveContainer width="100%" height="100%">
+                            <div className="h-80 w-full relative min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                     <PieChart>
                                         <Pie
                                             data={chartData}
@@ -462,15 +663,15 @@ export default function MerchantDashboard() {
                                 </div>
                             </div>
 
-                            <div className="overflow-hidden flex-1">
-                                <table className="w-full text-left border-collapse">
+                            <div className="overflow-x-auto flex-1">
+                                <table className="w-full text-left border-collapse text-xs sm:text-sm">
                                     <thead>
                                         <tr className="text-xs text-zinc-500 uppercase tracking-wider border-b border-white/5">
                                             <th className="pb-3 pl-2 font-medium">Status</th>
-                                            <th className="pb-3 font-medium">Product</th>
-                                            <th className="pb-3 font-medium">Customer</th>
-                                            <th className="pb-3 text-right font-medium">Amount</th>
-                                            <th className="pb-3 text-right font-medium pr-2">Gas Fee</th>
+                                            <th className="pb-3 font-medium hidden sm:table-cell">Product</th>
+                                            <th className="pb-3 font-medium hidden md:table-cell">Customer</th>
+                                            <th className="pb-3 text-right font-medium">Service</th>
+                                            <th className="pb-3 text-right font-medium pr-2 hidden lg:table-cell">Gas Fee</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm divide-y divide-white/5">
@@ -499,15 +700,16 @@ export default function MerchantDashboard() {
                                                     </div>
                                                 </td>
                                                 <td className="py-3">
-                                                    <span className="font-medium text-zinc-200">Subscription</span>
+                                                    <span className="font-medium text-zinc-200 hidden sm:inline">Subscription</span>
+                                                    <span className="font-medium text-zinc-200 sm:hidden text-xs">Sub</span>
                                                 </td>
-                                                <td className="py-3 font-mono text-xs text-zinc-400">
+                                                <td className="py-3 font-mono text-xs text-zinc-400 hidden md:table-cell">
                                                     {tx.customer}
                                                 </td>
-                                                <td className="py-3 text-right font-bold text-white">
-                                                    +${tx.amount.toFixed(2)} USDC
+                                                <td className="py-3 text-right font-bold text-white text-xs sm:text-sm">
+                                                    {tx.serviceName}
                                                 </td>
-                                                <td className="py-3 pr-2 text-right">
+                                                <td className="py-3 pr-2 text-right hidden lg:table-cell">
                                                     <span className="px-2 py-1 rounded bg-green-500/10 text-green-400 text-xs font-bold border border-green-500/20">
                                                         0.00 SOL
                                                     </span>
@@ -604,6 +806,8 @@ export default function MerchantDashboard() {
                         <h2 className="text-2xl font-bold text-white mb-2">Invoices Coming Soon</h2>
                         <p className="text-zinc-400 max-w-md">Streamline your billing with professional, on-chain invoices. This feature is currently under development.</p>
                     </div>
+                )}
+                </>
                 )}
             </main>
 

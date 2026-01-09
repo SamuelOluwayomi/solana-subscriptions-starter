@@ -66,6 +66,7 @@ export default function MerchantAuthPage() {
                             src="/lazorkit-logo.png"
                             alt="CadPay"
                             fill
+                            sizes="64px"
                             className="object-contain p-3"
                         />
                     </div>

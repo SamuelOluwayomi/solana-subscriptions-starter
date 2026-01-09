@@ -57,8 +57,8 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
             const ADMIN_PUBKEY = "CqUmZNET15kK6qjNPrtPZdE3VUMem9ULtQ77GtVpUo1f";
             const ADMIN_SECRET = "370e1d9f4aa42bf53d7adf0f25034153406d8edaeec852c5e369f5ebb5b36cf3afdbd52a4e7e31ed6d1b0fc138d225a0bcece0a289e39539c7ecb73277566486"; // bs58 encoded
 
-            // Check if default merchant exists
-            const defaultEmail = 'Admin@gmail.com';
+            // Check if default merchant exists (use lowercase email for consistency)
+            const defaultEmail = 'admin@gmail.com';
             const existingAdminIndex = currentMerchants.findIndex((m: Merchant) => m.email === defaultEmail);
 
             // Should we force update the admin? Yes, to ensure wallet sync
@@ -87,8 +87,9 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
                 setMerchants(currentMerchants);
 
                 // Seed Services for this Merchant
+                // Seed services using the same IDs as the static SERVICES list so lookups match
                 const seedServices = SERVICES.map(s => ({
-                    id: crypto.randomUUID(),
+                    id: s.id,
                     merchantId: defaultMerchant.id,
                     name: s.name,
                     description: s.description,
@@ -99,41 +100,61 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
 
                 const storedServices = localStorage.getItem('cadpay_services');
                 const currentServices = storedServices ? JSON.parse(storedServices) : [];
-                const updatedServices = [...currentServices, ...seedServices];
+
+                // Avoid duplicating existing seeded services — merge by id
+                const existingIds = new Set(currentServices.map((s: any) => s.id));
+                const servicesToAdd = seedServices.filter(s => !existingIds.has(s.id));
+                const updatedServices = [...currentServices, ...servicesToAdd];
 
                 localStorage.setItem('cadpay_services', JSON.stringify(updatedServices));
                 setServices(updatedServices);
                 console.log("Default Merchant & Services Seeded!");
             }
         };
-        seed();
+        seed().finally(() => {
+            // Initial loading complete after seeding
+            setIsLoading(false);
+        });
     }, []);
 
     // Load from local storage on mount (standard load)
     useEffect(() => {
-        const storedMerchants = localStorage.getItem('cadpay_merchants');
-        const storedServices = localStorage.getItem('cadpay_services');
+        // ✅ LOADING GUARD: Don't clear merchant while still loading
+        if (isLoading) return;
+
         try {
             const storedMerchants = localStorage.getItem('cadpay_merchants');
             const storedServices = localStorage.getItem('cadpay_services');
             const activeMerchantId = localStorage.getItem('cadpay_active_merchant');
+            // ✅ Only restore if user explicitly logged in before (not just because we seeded default)
+            const hasExplicitlyLoggedIn = localStorage.getItem('cadpay_merchant_logged_in') === 'true';
 
             if (storedMerchants) setMerchants(JSON.parse(storedMerchants));
             if (storedServices) setServices(JSON.parse(storedServices));
 
             if (activeMerchantId && storedMerchants) {
                 const allMerchants = JSON.parse(storedMerchants);
-                if (activeMerchantId) {
-                    const found = allMerchants.find((m: Merchant) => m.id === activeMerchantId);
-                    if (found) setMerchant(found);
+                const found = allMerchants.find((m: Merchant) => m.id === activeMerchantId);
+
+                // ✅ Auto-login for default admin OR if user explicitly logged in
+                const isDefaultAdmin = found?.email.toLowerCase() === 'admin@gmail.com';
+                const shouldRestore = isDefaultAdmin || hasExplicitlyLoggedIn;
+
+                if (found && shouldRestore) {
+                    setMerchant(found);
+                    // Only log if not on auth page to reduce noise
+                    if (typeof window !== 'undefined' && !window.location.pathname.includes('auth')) {
+                        console.log('✅ Merchant session restored:', found.email);
+                    }
+                } else if (!shouldRestore) {
+                    console.log('⚠️ Merchant session cleared (not explicitly logged in)');
+                    localStorage.removeItem('cadpay_active_merchant');
                 }
             }
         } catch (error) {
             console.error("Failed to load merchant:", error);
-        } finally {
-            setIsLoading(false);
         }
-    }, []);
+    }, [isLoading]);
 
     const saveMerchants = (newMerchants: Merchant[]) => {
         setMerchants(newMerchants);
@@ -165,6 +186,8 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
         saveMerchants(updatedMerchants);
         setMerchant(newMerchant);
         localStorage.setItem('cadpay_active_merchant', newMerchant.id);
+        // ✅ Mark that user explicitly created/logged in
+        localStorage.setItem('cadpay_merchant_logged_in', 'true');
 
         return newMerchant;
     };
@@ -186,12 +209,16 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
 
         setMerchant(found);
         localStorage.setItem('cadpay_active_merchant', found.id);
+        // ✅ Mark that user explicitly logged in
+        localStorage.setItem('cadpay_merchant_logged_in', 'true');
         return true;
     };
 
     const logoutMerchant = () => {
         setMerchant(null);
         localStorage.removeItem('cadpay_active_merchant');
+        // ✅ Clear the explicit login flag
+        localStorage.removeItem('cadpay_merchant_logged_in');
     };
 
     const createNewService = (name: string, price: number, description: string, color: string) => {

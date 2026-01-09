@@ -4,10 +4,21 @@ import { motion } from 'framer-motion';
 import { ShoppingBagIcon, FingerprintIcon, ShieldCheckIcon, SpinnerIcon } from '@phosphor-icons/react';
 import { ArrowLeftIcon } from '@phosphor-icons/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useLazorkit } from '@/hooks/useLazorkit';
 
 export default function SignIn() {
-    const { loginWithPasskey, loading } = useLazorkit();
+    const { loginWithPasskey, loading, isAuthenticated, address } = useLazorkit();
+    const router = useRouter();
+
+    // Auto-redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated && address) {
+            console.log('✅ Already authenticated, redirecting to dashboard...');
+            router.push('/dashboard');
+        }
+    }, [isAuthenticated, address, router]);
 
     return (
         <div className="min-h-screen bg-[#1c1209] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">

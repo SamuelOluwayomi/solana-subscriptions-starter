@@ -68,17 +68,14 @@ export function useLazorkit() {
         }
     }, [wallet]);
 
-    // Clear any auto-login session on mount to force biometric re-auth
+    // ✅ PERSIST SESSION ACROSS REFRESH
+    // On signin page, if already connected, redirect to dashboard automatically
     useEffect(() => {
-        const clearAutoLogin = async () => {
-            // Only auto-disconnect if we're on signin page and already connected
-            if (window.location.pathname === '/signin' && isConnected) {
-                console.log('Clearing cached session - requiring fresh biometric auth');
-                await disconnect();
-            }
-        };
-        clearAutoLogin();
-    }, []);
+        if (window.location.pathname === '/signin' && isConnected && address) {
+            console.log('✅ Session restored! Redirecting to dashboard...');
+            router.push('/dashboard');
+        }
+    }, [isConnected, address, router]);
 
     const handleAuth = useCallback(async () => {
         try {

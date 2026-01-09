@@ -30,11 +30,13 @@ import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
 import CopyButton from '@/components/shared/CopyButton';
 import { useMerchant } from '@/context/MerchantContext';
+import { useToast } from '@/context/ToastContext';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
 
 export default function Dashboard() {
     const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
+    const { showToast } = useToast(); // Use toast context
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
     const [userProfile, setUserProfile] = useState({
@@ -547,7 +549,10 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [showSubscribeModal, setShowSubscribeModal] = useState(false);
     const [solPrice, setSolPrice] = useState<number | null>(null);
-    const [showToast, setShowToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+
+    // Toast notifications
+    const { showToast } = useToast();
+
     // @ts-ignore
     const { balance, signAndSendTransaction, address } = useLazorkit();
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
@@ -670,12 +675,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             setTimeout(refetchUsdc, 2000);
 
             // Show success toast
-            setShowToast({
-                show: true,
-                message: `Successfully subscribed to ${actualService?.name || serviceId}! 🎉`,
-                type: 'success'
-            });
-            setTimeout(() => setShowToast({ show: false, message: '', type: 'success' }), 4000);
+            showToast(`Successfully subscribed to ${actualService?.name || serviceId}! 🎉`, 'success');
 
             setShowSubscribeModal(false);
         } catch (error: any) {
