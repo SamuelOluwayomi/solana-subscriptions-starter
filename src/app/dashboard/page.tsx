@@ -746,7 +746,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                 Your Subscriptions
                             </h2>
                             {/* Filter Pills */}
-                            <div className="flex gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
+                            <div className="flex flex-wrap gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
                                 {CATEGORIES.filter(c => c.count > 0).slice(0, 4).map(cat => (
                                     <button
                                         key={cat.id}
@@ -762,7 +762,8 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Service Cards Grid - Mobile: 2 cols, Desktop: 2 cols */}
+                        <div className="grid grid-cols-2 gap-3 md:gap-4">
                             {filteredServices.map(service => (
                                 <ServiceCard
                                     key={service.id}
