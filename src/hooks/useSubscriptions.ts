@@ -40,11 +40,23 @@ export function useSubscriptions() {
         }
     }, []);
 
+    // Update monthly data helper - must be before useEffect that uses it
+    const updateMonthlyData = useCallback(() => {
+        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const total = subscriptions.reduce((sum, sub) => sum + sub.price, 0);
+
+        setMonthlyData(prev => {
+            const updated = { ...prev, [currentMonth]: total };
+            localStorage.setItem(MONTHLY_DATA_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    }, [subscriptions]);
+
     // Save to localStorage whenever subscriptions change
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions));
         updateMonthlyData();
-    }, [subscriptions]);
+    }, [subscriptions, updateMonthlyData]);
 
     const addSubscription = useCallback((subscription: Omit<ActiveSubscription, 'id' | 'startDate' | 'nextBilling'>) => {
         const now = new Date();
@@ -70,16 +82,7 @@ export function useSubscriptions() {
         return subscriptions.reduce((sum, sub) => sum + sub.price, 0);
     }, [subscriptions]);
 
-    const updateMonthlyData = () => {
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-        const total = subscriptions.reduce((sum, sub) => sum + sub.price, 0);
 
-        setMonthlyData(prev => {
-            const updated = { ...prev, [currentMonth]: total };
-            localStorage.setItem(MONTHLY_DATA_KEY, JSON.stringify(updated));
-            return updated;
-        });
-    };
 
     // Generate simulated historical data for the chart (last 6 months)
     const getHistoricalData = useCallback(() => {

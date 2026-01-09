@@ -674,8 +674,14 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             setTimeout(refetchUsdc, 2000);
 
             setShowSubscribeModal(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Subscription failed:", error);
+
+            // Check for TransactionTooOld error
+            if (error?.message?.includes('0x1783') || error?.message?.includes('TransactionTooOld')) {
+                throw new Error("Transaction expired. This usually means your system clock is out of sync. Please check your date/time settings and try again.");
+            }
+
             throw error; // Propagate to modal
         }
     };
