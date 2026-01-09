@@ -69,10 +69,18 @@ export function useSubscriptions() {
     }, [subscriptions]);
 
     // Save to localStorage whenever subscriptions change
+    // 🛑 GUARD: Don't save empty array during initialization - only save when we have data
     useEffect(() => {
-        // Remove icon functions before saving (they can't be JSON serialized)
-        const subsToSave = subscriptions.map(({ icon, ...rest }) => rest);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(subsToSave));
+        // Only save if we have subscriptions (prevent wiping during wallet init)
+        if (subscriptions.length > 0) {
+            // Remove icon functions before saving (they can't be JSON serialized)
+            const subsToSave = subscriptions.map(({ icon, ...rest }) => rest);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(subsToSave));
+            console.log('💾 Saved', subscriptions.length, 'subscriptions to localStorage');
+        }
+        // Note: We don't clear localStorage when subscriptions.length === 0 automatically
+        // Clearing only happens explicitly through removeSubscription
+
         updateMonthlyData();
     }, [subscriptions, updateMonthlyData]);
 
@@ -93,7 +101,15 @@ export function useSubscriptions() {
     }, []);
 
     const removeSubscription = useCallback((id: string) => {
-        setSubscriptions(prev => prev.filter(sub => sub.id !== id));
+        setSubscriptions(prev => {
+            const updated = prev.filter(sub => sub.id !== id);
+            // Explicitly clear localStorage if this was the last subscription
+            if (updated.length === 0) {
+                localStorage.removeItem(STORAGE_KEY);
+                console.log('🗑️ Cleared all subscriptions from localStorage');
+            }
+            return updated;
+        });
     }, []);
 
     const getMonthlyTotal = useCallback(() => {
