@@ -197,7 +197,7 @@ export async function constructMintTransaction(
     };
 }
 
-export const DEMO_MERCHANT_WALLET = new PublicKey("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263");
+export const DEMO_MERCHANT_WALLET = new PublicKey("CqUmZNET15kK6qjNPrtPZdE3VUMem9ULtQ77GtVpUo1f");
 
 // Helper to ensure Merchant has an ATA (Paid by Mint Auth)
 export async function ensureMerchantHasATA(merchantAddress: string) {

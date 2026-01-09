@@ -710,7 +710,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             {/* Header with Tabs */}
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold">Subscriptions</h2>
-                <div className="flex gap-2 bg-zinc-900/50 p-1 rounded-xl">
+                <div className="flex flex-wrap gap-2 bg-zinc-900/50 p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab('browse')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'

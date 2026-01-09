@@ -50,29 +50,36 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
             const storedMerchants = localStorage.getItem('cadpay_merchants');
             let currentMerchants = storedMerchants ? JSON.parse(storedMerchants) : [];
 
+            // FIXED KEYPAIR for Admin 01 to match DEMO_MERCHANT_WALLET
+            const ADMIN_PUBKEY = "CqUmZNET15kK6qjNPrtPZdE3VUMem9ULtQ77GtVpUo1f";
+            const ADMIN_SECRET = "370e1d9f4aa42bf53d7adf0f25034153406d8edaeec852c5e369f5ebb5b36cf3afdbd52a4e7e31ed6d1b0fc138d225a0bcece0a289e39539c7ecb73277566486"; // bs58 encoded
+
             // Check if default merchant exists
             const defaultEmail = 'Admin@gmail.com';
-            const exists = currentMerchants.find((m: Merchant) => m.email === defaultEmail);
+            const existingAdminIndex = currentMerchants.findIndex((m: Merchant) => m.email === defaultEmail);
 
-            if (!exists) {
-                console.log("Seeding Default Merchant...");
+            // Should we force update the admin? Yes, to ensure wallet sync
+            const forceUpdate = existingAdminIndex !== -1 && currentMerchants[existingAdminIndex].walletPublicKey !== ADMIN_PUBKEY;
 
-                // Create Wallet
-                const keypair = Keypair.generate();
-                const publicKey = keypair.publicKey.toString();
-                const secretKey = bs58.encode(keypair.secretKey);
+            if (existingAdminIndex === -1 || forceUpdate) {
+                console.log(forceUpdate ? "Updating Admin 01 Wallet..." : "Seeding Default Merchant...");
 
                 const defaultMerchant: Merchant = {
-                    id: crypto.randomUUID(),
+                    id: existingAdminIndex !== -1 ? currentMerchants[existingAdminIndex].id : crypto.randomUUID(),
                     name: 'Admin 01',
                     email: defaultEmail,
                     password: 'admin',
-                    walletPublicKey: publicKey,
-                    walletSecretKey: secretKey,
+                    walletPublicKey: ADMIN_PUBKEY, // Syncs with DEMO_MERCHANT_WALLET
+                    walletSecretKey: ADMIN_SECRET,
                     joinedAt: new Date()
                 };
 
-                currentMerchants = [...currentMerchants, defaultMerchant];
+                if (forceUpdate) {
+                    currentMerchants[existingAdminIndex] = defaultMerchant;
+                } else {
+                    currentMerchants = [...currentMerchants, defaultMerchant];
+                }
+
                 localStorage.setItem('cadpay_merchants', JSON.stringify(currentMerchants));
                 setMerchants(currentMerchants);
 
