@@ -552,6 +552,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [showSubscribeModal, setShowSubscribeModal] = useState(false);
     const [solPrice, setSolPrice] = useState<number | null>(null);
+    const [showToast, setShowToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
     // @ts-ignore
     const { balance, signAndSendTransaction, address } = useLazorkit();
     const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
@@ -672,6 +673,14 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             // 5. Refetch Balances
             setTimeout(refetchUsdc, 2000);
+
+            // Show success toast
+            setShowToast({
+                show: true,
+                message: `Successfully subscribed to ${actualService?.name || serviceId}! 🎉`,
+                type: 'success'
+            });
+            setTimeout(() => setShowToast({ show: false, message: '', type: 'success' }), 4000);
 
             setShowSubscribeModal(false);
         } catch (error: any) {
