@@ -119,10 +119,14 @@ export function useSubscriptions() {
             let value;
             if (monthlyData[monthKey]) {
                 value = monthlyData[monthKey];
-            } else {
+            } else if (currentMonthTotal > 0) {
                 // Simulate growth from 40% to 100% of current total  
                 const growthFactor = 0.4 + (i / 5) * 0.6;
                 value = currentMonthTotal * growthFactor;
+            } else {
+                // Show dummy data when no subscriptions (for demo purposes)
+                const dummyValues = [8.00, 10.39, 12.79, 15.19, 17.59, 19.99];
+                value = dummyValues[i] || 0;
             }
 
             months.push({
