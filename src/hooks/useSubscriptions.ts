@@ -31,22 +31,24 @@ export function useSubscriptions() {
         const stored = localStorage.getItem(STORAGE_KEY);
         const monthlyStored = localStorage.getItem(MONTHLY_DATA_KEY);
 
+        console.log('📦 Loading subscriptions from localStorage:', stored);
+
         if (stored) {
-            const loadedSubs: ActiveSubscription[] = JSON.parse(stored);
+            try {
+                const loadedSubs: any[] = JSON.parse(stored);
+                console.log('✅ Parsed subscriptions:', loadedSubs.length, 'items');
 
-            // Restore icon functions (they can't be serialized to JSON)
-            // We need to import SERVICES to match icons
-            const restoredSubs = loadedSubs.map(sub => {
-                // Try to find matching service by ID to restore icon
-                // Since we can't import SERVICES here without circular dependency,
-                // we'll use a fallback icon that will be replaced by the type check in the component
-                return {
+                // Restore subscriptions without icon (component will handle fallback)
+                const restoredSubs = loadedSubs.map(sub => ({
                     ...sub,
-                    icon: sub.icon || 'StorefrontIcon' // Will be handled by component's type check
-                };
-            });
+                    // Don't include icon - let component use fallback
+                })) as ActiveSubscription[];
 
-            setSubscriptions(restoredSubs);
+                console.log('✅ Setting subscriptions:', restoredSubs);
+                setSubscriptions(restoredSubs);
+            } catch (error) {
+                console.error('❌ Failed to load subscriptions:', error);
+            }
         }
 
         if (monthlyStored) {
