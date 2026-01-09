@@ -65,8 +65,7 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
             const forceUpdate = existingAdminIndex !== -1 && currentMerchants[existingAdminIndex].walletPublicKey !== ADMIN_PUBKEY;
 
             if (existingAdminIndex === -1 || forceUpdate) {
-                console.log(forceUpdate ? "Updating Admin 01 Wallet..." : "Seeding Default Merchant...");
-
+                // Default Merchant & Services Seeded silently,
                 const defaultMerchant: Merchant = {
                     id: existingAdminIndex !== -1 ? currentMerchants[existingAdminIndex].id : crypto.randomUUID(),
                     name: 'Admin 01',
@@ -108,7 +107,6 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
 
                 localStorage.setItem('cadpay_services', JSON.stringify(updatedServices));
                 setServices(updatedServices);
-                console.log("Default Merchant & Services Seeded!");
             }
         };
         seed().finally(() => {
@@ -142,12 +140,8 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
 
                 if (found && shouldRestore) {
                     setMerchant(found);
-                    // Only log if not on auth page to reduce noise
-                    if (typeof window !== 'undefined' && !window.location.pathname.includes('auth')) {
-                        console.log('✅ Merchant session restored:', found.email);
-                    }
-                } else if (!shouldRestore) {
-                    console.log('⚠️ Merchant session cleared (not explicitly logged in)');
+                } else {
+                    // Session cleared silently
                     localStorage.removeItem('cadpay_active_merchant');
                 }
             }
@@ -167,7 +161,7 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
     };
 
     const createMerchant = async (name: string, email: string, password?: string) => {
-        console.log("Generating new wallet for merchant...");
+        // Generate new wallet for merchant
         const keypair = Keypair.generate();
         const publicKey = keypair.publicKey.toString();
         const secretKey = bs58.encode(keypair.secretKey);

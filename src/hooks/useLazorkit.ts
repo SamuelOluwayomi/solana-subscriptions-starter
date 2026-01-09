@@ -13,19 +13,7 @@ export function useLazorkit() {
 
     // Log ALL properties from useWallet to find PDA derivation methods
     useEffect(() => {
-        if (walletHook) {
-            console.log("===========================================");
-            console.log("🔍 useWallet() HOOK PROPERTIES:");
-            console.log("Available properties:", Object.keys(walletHook));
-            for (const key of Object.keys(walletHook)) {
-                // @ts-ignore
-                const value = walletHook[key];
-                if (typeof value !== 'function') {
-                    console.log(`walletHook.${key}:`, value);
-                }
-            }
-            console.log("===========================================");
-        }
+        // Lazy load without verbose logging
     }, [walletHook]);
 
     // @ts-ignore
@@ -42,29 +30,14 @@ export function useLazorkit() {
     // 🔍 VERIFICATION: Log to confirm we're using the right address
     useEffect(() => {
         if (smartWalletPubkey && wallet) {
-            console.log("===========================================");
-            console.log("✅ WALLET ADDRESS VERIFICATION:");
-            console.log("Smart Wallet PDA (CORRECT):", smartWalletPubkey.toBase58());
-            console.log("wallet.smartWallet (PASSKEY?):", wallet.smartWallet);
-            console.log("Are they different?", smartWalletPubkey.toBase58() !== wallet.smartWallet);
-            console.log("===========================================");
+            // Verify wallet addresses silently
         }
     }, [smartWalletPubkey, wallet]);
 
     // 🔍 DIAGNOSTIC: Log wallet structure to identify Passkey vs PDA
     useEffect(() => {
         if (wallet) {
-            console.log("===========================================");
-            console.log("🔍 WALLET IDENTITY DIAGNOSTIC:");
-            console.log("Full wallet object:", wallet);
-            console.log("---");
-            // Log each property individually
-            for (const key of Object.keys(wallet)) {
-                // @ts-ignore
-                const value = wallet[key];
-                console.log(`wallet.${key}:`, typeof value === 'object' && value?.toBase58 ? value.toBase58() : value);
-            }
-            console.log("===========================================");
+            // Wallet identity diagnostic removed for production
         }
     }, [wallet]);
 
@@ -72,7 +45,7 @@ export function useLazorkit() {
     // On signin page, if already connected, redirect to dashboard automatically
     useEffect(() => {
         if (window.location.pathname === '/signin' && isConnected && address) {
-            console.log('✅ Session restored! Redirecting to dashboard...');
+            // Session restored, redirecting
             router.push('/dashboard');
         }
     }, [isConnected, address, router]);
@@ -110,7 +83,7 @@ export function useLazorkit() {
 
             // Disconnect any existing wallet first to prevent conflicts
             if (isConnected) {
-                console.log('Disconnecting existing wallet before creating new one...');
+                // Disconnect existing wallet before creating new one
                 await disconnect();
                 // Wait a moment for disconnect to complete
                 await new Promise(resolve => setTimeout(resolve, 500));

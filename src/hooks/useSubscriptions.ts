@@ -31,12 +31,10 @@ export function useSubscriptions() {
         const stored = localStorage.getItem(STORAGE_KEY);
         const monthlyStored = localStorage.getItem(MONTHLY_DATA_KEY);
 
-        console.log('📦 Loading subscriptions from localStorage:', stored);
 
         if (stored) {
             try {
                 const loadedSubs: any[] = JSON.parse(stored);
-                console.log('✅ Parsed subscriptions:', loadedSubs.length, 'items');
 
                 // Restore subscriptions without icon (component will handle fallback)
                 const restoredSubs = loadedSubs.map(sub => ({
@@ -44,7 +42,6 @@ export function useSubscriptions() {
                     // Don't include icon - let component use fallback
                 })) as ActiveSubscription[];
 
-                console.log('✅ Setting subscriptions:', restoredSubs);
                 setSubscriptions(restoredSubs);
             } catch (error) {
                 console.error('❌ Failed to load subscriptions:', error);
@@ -76,7 +73,6 @@ export function useSubscriptions() {
             // Remove icon functions before saving (they can't be JSON serialized)
             const subsToSave = subscriptions.map(({ icon, ...rest }) => rest);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(subsToSave));
-            console.log('💾 Saved', subscriptions.length, 'subscriptions to localStorage');
         }
         // Note: We don't clear localStorage when subscriptions.length === 0 automatically
         // Clearing only happens explicitly through removeSubscription

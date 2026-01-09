@@ -62,7 +62,7 @@ export function useUSDCBalance(walletAddress: string | null) {
                 }
             } catch (e) {
                 // Account doesn't exist or error fetching
-                console.log('Token account not found or error:', e);
+                // Token account not found or error
                 setBalance(0);
             }
         } catch (error) {

@@ -98,20 +98,16 @@ export async function constructMintTransaction(
     const transaction = new Transaction();
 
     // 0. Check if Mint exists and Initialize if needed
-    // 0. Check if Mint exists and Initialize if needed
     const mintInfo = await connection.getAccountInfo(CADPAY_MINT);
     if (!mintInfo) {
-        console.log(" Mint Account not found. Initializing...");
 
         // A. Check Mint Authority Balance - It needs SOL to pay for the Mint Account
         const authBalance = await connection.getBalance(MINT_AUTHORITY.publicKey);
         if (authBalance < 0.05 * 1000000000) { // If less than 0.05 SOL
-            console.log("Mint Authority needs SOL. Requesting Airdrop...");
             try {
                 const sig = await connection.requestAirdrop(MINT_AUTHORITY.publicKey, 1 * 1000000000); // 1 SOL
                 const latest = await connection.getLatestBlockhash();
                 await connection.confirmTransaction({ signature: sig, ...latest });
-                console.log("Mint Authority funded.");
             } catch (e) {
                 console.error("Failed to fund Mint Authority:", e);
                 // Proceed anyway, maybe it has just enough
@@ -147,7 +143,7 @@ export async function constructMintTransaction(
             data: initData
         }));
     } else {
-        console.log("Mint Account found. Proceeding to mint...");
+        // Mint Account found
     }
 
     // 1. Get User's ATA
@@ -206,7 +202,6 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
     const accountInfo = await connection.getAccountInfo(merchantATA);
 
     if (!accountInfo) {
-        console.log("Merchant ATA missing. Initializing via System...");
         const transaction = new Transaction().add(
             createAssociatedTokenAccountInstruction(
                 MINT_AUTHORITY.publicKey, // System Payer
@@ -223,7 +218,6 @@ export async function ensureMerchantHasATA(merchantAddress: string) {
 
         const signature = await connection.sendRawTransaction(transaction.serialize());
         await connection.confirmTransaction({ signature, ...await connection.getLatestBlockhash() });
-        console.log("Merchant ATA Initialized:", signature);
     }
 }
 
@@ -246,18 +240,12 @@ export async function constructTransferTransaction(
     const userAccountOwner = await connection.getAccountInfo(userPubkey);
     const SYSTEM_PROGRAM = new PublicKey('11111111111111111111111111111111');
 
-    console.log("===========================================");
-    console.log("🔍 ACCOUNT OWNERSHIP CHECK:");
-    console.log("User Address:", userPubkey.toBase58());
-    console.log("Account Owner Program:", userAccountOwner?.owner.toBase58() || "Account doesn't exist");
-    console.log("Expected PDA: GenHeNGnqhM23wbn54r1zov86gtcp5VXjGYWtWfD4oHG");
 
     // Temporarily disabled to allow transaction to proceed
     // if (userAccountOwner && userAccountOwner.owner.equals(SYSTEM_PROGRAM)) {
     //     console.error("❌ CRITICAL: This address is owned by System Program (Standard Wallet/Passkey)!");
     //     throw new Error("ERROR_PASSKEY_ADDRESS...");
     // }
-    console.log("===========================================");
 
 
     // 1. FORCE CLEAN ADDRESSES & RE-DERIVE (Fix for Off-Curve PDAs/Smart Wallets)
@@ -282,13 +270,6 @@ export async function constructTransferTransaction(
         ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    console.log("-------------------------------------------");
-    console.log("🔐 RE-DERIVED DEBUG:");
-    console.log("My Wallet (Authority):", userPubkey.toBase58());
-    console.log("My ATA (Derived):", userATA.toBase58());
-    console.log("Merchant (Dest):", merchantPubkey.toBase58());
-    console.log("Merchant ATA (Derived):", merchantATA.toBase58());
-    console.log("-------------------------------------------");
 
     // 1a. Verify User Checks (Account Exists & Sufficient Funds)
     const userAccountInfo = await connection.getAccountInfo(userATA);
@@ -306,7 +287,7 @@ export async function constructTransferTransaction(
     try {
         const balanceResponse = await connection.getTokenAccountBalance(userATA);
         const balance = balanceResponse.value.uiAmount || 0;
-        console.log(`User Balance: ${balance} USDC, Required: ${amount / 1_000_000} USDC`);
+        // Check user balance
 
         if (balance < (amount / 1_000_000)) {
             throw new Error(`ERROR_INSUFFICIENT_FUNDS: You have ${balance} USDC but need ${amount / 1_000_000}.`);
