@@ -898,20 +898,24 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                         <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
                             <h3 className="text-lg font-bold text-white mb-4">Monthly Spending Trend</h3>
                             <div className="space-y-3">
-                                {getHistoricalData().map((item, idx) => (
-                                    <div key={idx}>
-                                        <div className="flex items-center justify-between text-sm mb-1">
-                                            <span className="text-zinc-400">{item.month}</span>
-                                            <span className="text-white font-medium">${item.amount.toFixed(2)}</span>
+                                {(() => {
+                                    const historicalData = getHistoricalData();
+                                    const maxAmount = Math.max(...historicalData.map(d => d.amount));
+                                    return historicalData.map((item, idx) => (
+                                        <div key={idx}>
+                                            <div className="flex items-center justify-between text-sm mb-1">
+                                                <span className="text-zinc-400">{item.month}</span>
+                                                <span className="text-white font-medium">${item.amount.toFixed(2)}</span>
+                                            </div>
+                                            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-linear-to-r from-orange-500 to-orange-600 rounded-full"
+                                                    style={{ width: `${(item.amount / maxAmount) * 100}%` }}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-linear-to-r from-orange-500 to-orange-600 rounded-full"
-                                                style={{ width: `${(item.amount / Math.max(...getHistoricalData().map(d => d.amount))) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
+                                    ));
+                                })()}
                             </div>
                         </div>
 
@@ -925,7 +929,11 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                     {subscriptions.map((sub) => (
                                         <div key={sub.id} className="flex items-center gap-3">
                                             <div className="text-2xl" style={{ color: sub.color }}>
-                                                <sub.icon size={24} />
+                                                {typeof sub.icon === 'function' ? (
+                                                    <sub.icon size={24} />
+                                                ) : (
+                                                    <StorefrontIcon size={24} />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
