@@ -154,7 +154,7 @@ src/
 
 ## 🌐 Live Demo
 
-**Deployed URL:** [Your Vercel/Netlify URL Here]
+**Deployed URL:** https://cadpay.vercel.app/
 
 ## 🎥 Demo Video
 
