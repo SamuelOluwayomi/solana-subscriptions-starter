@@ -196,7 +196,7 @@ export function MerchantProvider({ children }: { children: React.ReactNode }) {
         // STRICT password check - password is required if merchant has one set
         if (found.password) {
             if (!password || found.password !== password) {
-                console.log('Password mismatch or not provided');
+                // Password mismatch or not provided
                 return false;
             }
         }

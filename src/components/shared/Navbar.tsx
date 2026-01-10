@@ -30,9 +30,13 @@ export default function NavBar() {
 
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
                         <div className="hidden md:flex items-center gap-8">
-                            <NavLink href="#">The Bridge</NavLink>
+                            <a href="https://github.com/lazor-kit/lazor-kit" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium">
+                                The Bridge
+                            </a>
                             <NavLink href="/merchant-auth">Merchant Portal</NavLink>
-                            <NavLink href="#">Lazorkit Engine</NavLink>
+                            <a href="https://docs.lazorkit.com/" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium">
+                                Lazorkit Engine
+                            </a>
                         </div>
                     </div>
 

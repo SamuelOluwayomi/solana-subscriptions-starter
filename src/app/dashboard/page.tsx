@@ -345,7 +345,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             // 2. Send directly (User does not need to sign!)
             const signature = await sendTransaction();
 
-            console.log("Mint Success! Signature:", signature);
+            // Mint success
 
             // 3. Update UI
             // Wait a few seconds for confirmation then refetch
@@ -624,11 +624,11 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 const merchant = merchants.find(m => m.id === dynamicService.merchantId);
                 if (merchant) {
                     targetMerchantAddress = merchant.walletPublicKey;
-                    console.log(`Found Dynamic Merchant: ${merchant.name} (${targetMerchantAddress})`);
+                    // Found dynamic merchant
                 }
             }
 
-            console.log(`Processing Subscription for ${serviceId} -> Merchant: ${targetMerchantAddress}`);
+            // Processing subscription
 
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
             await ensureMerchantHasATA(targetMerchantAddress);
@@ -654,7 +654,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                     addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
-            console.log("Transaction Signature:", signature);
+            // Transaction completed
 
             // 5. Update local state
             // Find the actual service from SERVICES or dynamic services

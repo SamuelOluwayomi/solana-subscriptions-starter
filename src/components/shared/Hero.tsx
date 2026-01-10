@@ -125,9 +125,9 @@ export default function Hero({ startAnimation = true }: { startAnimation?: boole
             transition={{ delay: 0.3 }}
             className="flex items-center justify-center lg:justify-start gap-4 pt-2"
           >
-            <button className="px-8 py-3.5 bg-orange-400 text-black rounded-full font-semibold text-sm hover:bg-orange-300 transition-all flex items-center gap-2">
+            <a href="/signin" className="px-8 py-3.5 bg-orange-400 text-black rounded-full font-semibold text-sm hover:bg-orange-300 transition-all flex items-center gap-2">
               <FingerprintIcon size={16} /> Start Demo
-            </button>
+            </a>
           </motion.div>
         </div>
 

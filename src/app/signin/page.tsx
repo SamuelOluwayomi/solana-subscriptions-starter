@@ -15,7 +15,7 @@ export default function SignIn() {
     // Auto-redirect if already authenticated
     useEffect(() => {
         if (isAuthenticated && address) {
-            console.log('✅ Already authenticated, redirecting to dashboard...');
+            // Already authenticated, redirecting
             router.push('/dashboard');
         }
     }, [isAuthenticated, address, router]);

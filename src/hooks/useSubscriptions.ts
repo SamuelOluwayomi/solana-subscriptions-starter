@@ -102,7 +102,7 @@ export function useSubscriptions() {
             // Explicitly clear localStorage if this was the last subscription
             if (updated.length === 0) {
                 localStorage.removeItem(STORAGE_KEY);
-                console.log('🗑️ Cleared all subscriptions from localStorage');
+                // Cleared all subscriptions
             }
             return updated;
         });
