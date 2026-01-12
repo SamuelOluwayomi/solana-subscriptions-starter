@@ -211,21 +211,34 @@ export default function MerchantDashboard() {
                             // Check for parsed token transfer instruction
                             if (instr.parsed?.type === 'transfer' && instr.parsed?.info?.tokenAmount?.uiAmount) {
                                 amount = instr.parsed.info.tokenAmount.uiAmount;
-                                break;
+                                // Don't break, keep looking for memo
                             }
                             // Check for parsed transferChecked (SPL token standard)
                             if (instr.parsed?.type === 'transferChecked' && instr.parsed?.info?.tokenAmount?.uiAmount) {
                                 amount = instr.parsed.info.tokenAmount.uiAmount;
-                                break;
+                                // Don't break, keep looking for memo
                             }
                         }
                     }
 
-                    // Check program logs for subscription tier hints
+                    // Check program logs for subscription tier hints (Fallback if instruction parsing failed)
                     if (!memoText && tx?.meta?.logMessages) {
-                        const logs = tx.meta.logMessages.join(' ');
-                        if (logs.includes('netflix') || logs.includes('spotify')) {
-                            memoText = logs.substring(0, 100);
+                        const logs = tx.meta.logMessages;
+                        for (const log of logs) {
+                            // Look for standard SPL Memo log format: Program log: Memo (len X): "Content"
+                            const match = log.match(/Memo \(len \d+\): "(.*?)"/);
+                            if (match && match[1]) {
+                                memoText = match[1];
+                                break;
+                            }
+                        }
+
+                        // Legacy check for specific keywords if regex didn't match
+                        if (!memoText) {
+                            const joinedLogs = logs.join(' ');
+                            if (joinedLogs.includes('netflix') || joinedLogs.includes('spotify')) {
+                                memoText = joinedLogs.substring(0, 100);
+                            }
                         }
                     }
 
