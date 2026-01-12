@@ -16,6 +16,7 @@ CadPay demonstrates the power of Lazorkit SDK by solving two major crypto UX pro
 - 💳 **Subscription Management** - Netflix, Spotify, and custom services
 - 📊 **Merchant Dashboard** - Live transaction tracking and analytics
 - 🔄 **Session Persistence** - Seamless cross-device experience
+- 🌟 **Jupiter DEX Integration** - Auto-swap subscriptions with best rates
 
 ## 🛠️ Tech Stack
 
@@ -23,6 +24,7 @@ CadPay demonstrates the power of Lazorkit SDK by solving two major crypto UX pro
 - **Blockchain:** Solana (Devnet)
 - **Account Abstraction:** Lazorkit SDK v2.0.1
 - **Wallet:** `@lazorkit/wallet` with Passkey integration
+- **DEX Integration:** Jupiter Aggregator API
 - **Payments:** USDC token transfers
 - **Styling:** Tailwind CSS 4
 - **Animations:** Framer Motion
@@ -77,12 +79,43 @@ npm run build
 npm start
 ```
 
+## 🏆 Bounty Submission: Two Examples
+
+This project demonstrates **two distinct integration examples** to meet bounty requirements:
+
+### Example 1: Jupiter DEX Integration (Existing Protocol)
+- **Protocol:** Jupiter Aggregator - Solana's leading DEX aggregator
+- **Feature:** Auto-swap subscriptions (USDC → SOL)
+- **Demo Page:** `/jupiter`
+- **Highlights:**
+  - Fetches best swap rates across all Solana DEXs
+  - Executes gasless swaps via Lazorkit
+  - Live quote display with slippage protection
+  - Transaction history with Explorer links
+
+### Example 2: CadPay Platform (Original Idea)
+- **Concept:** Netflix-style recurring crypto payments
+- **Features:** Passkey wallets, gasless transactions, auto-settlement
+- **Demo Pages:** `/`, `/dashboard`, `/merchant`
+- **Highlights:**
+  - Biometric authentication (no seed phrases)
+  - Subscription management for 10+ services
+  - Merchant analytics dashboard
+  - Real-time payment tracking
+
+**Learn More:** [Bounty Requirements Explained](./BOUNTY_REQUIREMENTS.md)
+
+---
+
 ## 📚 Tutorials
 
-We've created comprehensive step-by-step guides to help you understand the Lazorkit integration:
+Comprehensive step-by-step guides for developers and judges:
 
-1. **[Creating a Passkey Wallet](./docs/TUTORIAL_PASSKEY_WALLET.md)** - Learn how to onboard users with biometric authentication
-2. **[Gasless Transactions with Paymaster](./docs/TUTORIAL_GASLESS_TRANSACTIONS.md)** - Understand how to sponsor transaction fees
+1. **[Bounty Requirements](./BOUNTY_REQUIREMENTS.md)** - Overview of both examples
+2. **[Jupiter DEX Integration](./TUTORIAL_JUPITER_INTEGRATION.md)** - Build auto-swap subscriptions
+3. **[Creating a Passkey Wallet](./TUTORIAL_PASSKEY_WALLET.md)** - Biometric authentication guide
+4. **[Gasless Transactions](./TUTORIAL_GASLESS_TRANSACTIONS.md)** - How Paymaster works
+5. **[Devnet Deployment Guide](./TUTORIAL_DEVNET_DEPLOYMENT.md)** - Deploy & test on Solana devnet
 
 ## 🎮 User Flow
 

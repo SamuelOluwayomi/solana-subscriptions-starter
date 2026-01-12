@@ -30,6 +30,7 @@ export default function NavBar() {
 
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
                         <div className="hidden md:flex items-center gap-8">
+                            <NavLink href="/jupiter">Jupiter Demo</NavLink>
                             <a href="https://github.com/lazor-kit/lazor-kit" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium">
                                 The Bridge
                             </a>
@@ -71,6 +72,7 @@ export default function NavBar() {
                         className="fixed inset-0 z-40 bg-black pt-24 px-6 md:hidden"
                     >
                         <div className="flex flex-col gap-6 text-lg font-medium">
+                            <MobileLink href="/jupiter" onClick={() => setIsOpen(false)}>Jupiter Demo</MobileLink>
                             <MobileLink href="#" onClick={() => setIsOpen(false)}>The Bridge</MobileLink>
                             <MobileLink href="/merchant-auth" onClick={() => setIsOpen(false)}>Merchant Portal</MobileLink>
                             <MobileLink href="#" onClick={() => setIsOpen(false)}>Lazorkit Engine</MobileLink>

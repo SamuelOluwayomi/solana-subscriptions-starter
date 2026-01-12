@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
+    "@jup-ag/api": "^6.0.48",
+    "@jup-ag/common": "^6.1.0",
     "@lazorkit/wallet": "^2.0.1",
     "@lazorkit/wallet-mobile-adapter": "^1.5.1",
     "@phosphor-icons/react": "^2.1.10",
