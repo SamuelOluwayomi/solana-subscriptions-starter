@@ -27,7 +27,7 @@ const cadpayFeatures: Feature[] = [
         id: 'gasless',
         headline: 'Zero Transaction Fees for Users.',
         description: 'Lazorkit Paymaster sponsors all transaction fees, removing the friction of holding SOL for gas.',
-        fullDescription: 'Lazorkit\'s built-in Paymaster service sponsors all network fees automatically. Unlike traditional wallets where users must hold native tokens for gas, CadPay eliminates this barrier entirely. All subscription charges, payments, and on-chain operations are executed gaslessly—you never need to think about transaction costs.',
+        fullDescription: 'Lazorkit\'s built-in Paymaster service sponsors all network fees automatically. Unlike traditional wallets where users must hold native tokens for gas, Lazorkit eliminates this barrier entirely. All subscription charges, payments, and on-chain operations are executed gaslessly—you never need to think about transaction costs.',
         image: '/features/security.png'
     },
     {

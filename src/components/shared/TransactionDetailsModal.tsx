@@ -100,7 +100,7 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction }
                                     <CurrencyDollarIcon size={16} className="text-orange-400" />
                                     <p className="text-sm font-bold text-orange-400">Gasless Transaction</p>
                                 </div>
-                                <p className="text-xs text-orange-200/60">Transaction fees sponsored by CadPay Paymaster</p>
+                                <p className="text-xs text-orange-200/60">Transaction fees sponsored by Lazorkit Paymaster</p>
                             </div>
 
                             {/* Details */}

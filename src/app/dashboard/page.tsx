@@ -836,7 +836,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                     <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
                                         <div className="bg-green-500 h-full w-[85%]" />
                                     </div>
-                                    <p className="text-[10px] text-zinc-500 mt-2 text-right">CadPay covers 100% of network fees</p>
+                                    <p className="text-[10px] text-zinc-500 mt-2 text-right">Lazorkit covers 100% of network fees</p>
                                 </div>
                             </div>
                         </div>

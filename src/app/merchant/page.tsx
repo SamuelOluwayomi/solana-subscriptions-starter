@@ -168,56 +168,74 @@ export default function MerchantDashboard() {
                     let amount = 0;
                     let memoText = '';
 
-                    // Extract memo from transaction (often contains subscription tier info)
-                    if (tx?.transaction?.message?.instructions) {
-                        for (let j = 0; j < tx.transaction.message.instructions.length; j++) {
-                            const instr = tx.transaction.message.instructions[j];
+                    // Helper to check an instruction for memo data
+                    const checkInstructionForMemo = (instr: any) => {
+                        let extracted = '';
 
-                            // Check for parsed memo instruction
-                            if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
-                                memoText = instr.parsed.info.memo;
-                            }
+                        // Check for parsed memo instruction
+                        if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
+                            extracted = instr.parsed.info.memo;
+                        }
 
-                            // IMPORTANT: Also check for SPL Memo Program ID (MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr)
-                            // Sometimes RPC doesn't parse memo, so we need to check programId directly
-                            if (!memoText && instr.programId) {
-                                const programId = typeof instr.programId === 'string'
-                                    ? instr.programId
-                                    : instr.programId.toBase58?.() || String(instr.programId);
+                        // Check for SPL Memo Program ID (raw data)
+                        if (!extracted && instr.programId) {
+                            const programId = typeof instr.programId === 'string'
+                                ? instr.programId
+                                : instr.programId.toBase58?.() || String(instr.programId);
 
-                                // SPL Memo Program ID
-                                if (programId === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' ||
-                                    programId === 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo') {
-                                    // Try to extract memo from data field
-                                    if (instr.data) {
-                                        try {
-                                            // Memo data is UTF-8 encoded text
-                                            const decoded = typeof instr.data === 'string'
-                                                ? Buffer.from(instr.data, 'base64').toString('utf-8')
-                                                : instr.data;
-                                            memoText = decoded;
-                                        } catch (e) {
-                                            console.log('Could not decode memo data');
-                                        }
+                            if (programId === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' ||
+                                programId === 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo') {
+                                if (instr.data) {
+                                    try {
+                                        const decoded = typeof instr.data === 'string'
+                                            ? Buffer.from(instr.data, 'base64').toString('utf-8')
+                                            : instr.data;
+                                        // Handle potential non-printable chars or length prefixes if raw
+                                        // Simple clean: take the string as is, usually it works for SPL Memo
+                                        extracted = decoded;
+                                    } catch (e) {
+                                        // ignore decode error
                                     }
                                 }
                             }
+                        }
+                        return extracted;
+                    };
 
-                            // Check for MintTo (token generation)
+                    // Extract memo from transaction (scans top-level AND inner instructions)
+                    // 1. Scan Top-Level Instructions
+                    if (tx?.transaction?.message?.instructions) {
+                        for (const instr of tx.transaction.message.instructions) {
+                            const found = checkInstructionForMemo(instr);
+                            if (found) {
+                                memoText = found; // Don't break immediately, but usually first memo is good
+                            }
+
+                            // ... (Amount logic for Transfer/MintTo remains here - keeping original flows)
                             if (instr.parsed?.type === 'mintTo' && instr.parsed?.info?.amount) {
                                 const amountLamports = BigInt(instr.parsed.info.amount);
-                                amount = Number(amountLamports) / 1_000_000; // 6 decimals
+                                amount = Number(amountLamports) / 1_000_000;
                             }
-                            // Check for parsed token transfer instruction
                             if (instr.parsed?.type === 'transfer' && instr.parsed?.info?.tokenAmount?.uiAmount) {
                                 amount = instr.parsed.info.tokenAmount.uiAmount;
-                                // Don't break, keep looking for memo
                             }
-                            // Check for parsed transferChecked (SPL token standard)
                             if (instr.parsed?.type === 'transferChecked' && instr.parsed?.info?.tokenAmount?.uiAmount) {
                                 amount = instr.parsed.info.tokenAmount.uiAmount;
-                                // Don't break, keep looking for memo
                             }
+                        }
+                    }
+
+                    // 2. Scan Inner Instructions (Crucial for Lazorkit/Relayers)
+                    if (!memoText && tx?.meta?.innerInstructions) {
+                        for (const innerSet of tx.meta.innerInstructions) {
+                            for (const instr of innerSet.instructions) {
+                                const found = checkInstructionForMemo(instr);
+                                if (found) {
+                                    memoText = found;
+                                    break;
+                                }
+                            }
+                            if (memoText) break;
                         }
                     }
 
