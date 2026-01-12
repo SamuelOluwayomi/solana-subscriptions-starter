@@ -104,7 +104,15 @@ export default function MerchantDashboard() {
         }
 
         // Use custom RPC URL from environment (fallback to public devnet)
-        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+
+        const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+        let rpcUrl = 'https://api.devnet.solana.com';
+
+        // Use env RPC if it exists and isn't a flaky Helius one
+        if (envRpc && !envRpc.includes('helius')) {
+            rpcUrl = envRpc;
+        }
+
         const connection = new Connection(rpcUrl, 'confirmed');
         const merchantKey = new PublicKey(merchant.walletPublicKey);
 
@@ -118,7 +126,15 @@ export default function MerchantDashboard() {
 
                 const merchantTokenAccount = new PublicKey('58Bx8fD3RP4dCaoKiYQW76PUMEXSmLvcb5pT1sv2ypRj');
 
-                const signatures = await connection.getSignaturesForAddress(merchantTokenAccount, { limit: 5 });
+                let signatures;
+                try {
+                    signatures = await connection.getSignaturesForAddress(merchantTokenAccount, { limit: 5 });
+                } catch (rpcError) {
+                    console.log('RPC fetch failed, using empty data:', rpcError);
+                    setTransactions([]);
+                    setLoading(false);
+                    return;
+                }
 
                 if (signatures.length === 0) {
                     setTransactions([]);
@@ -157,10 +173,36 @@ export default function MerchantDashboard() {
                         for (let j = 0; j < tx.transaction.message.instructions.length; j++) {
                             const instr = tx.transaction.message.instructions[j];
 
-                            // Check for memo instruction
+                            // Check for parsed memo instruction
                             if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
                                 memoText = instr.parsed.info.memo;
                             }
+
+                            // IMPORTANT: Also check for SPL Memo Program ID (MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr)
+                            // Sometimes RPC doesn't parse memo, so we need to check programId directly
+                            if (!memoText && instr.programId) {
+                                const programId = typeof instr.programId === 'string'
+                                    ? instr.programId
+                                    : instr.programId.toBase58?.() || String(instr.programId);
+
+                                // SPL Memo Program ID
+                                if (programId === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' ||
+                                    programId === 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo') {
+                                    // Try to extract memo from data field
+                                    if (instr.data) {
+                                        try {
+                                            // Memo data is UTF-8 encoded text
+                                            const decoded = typeof instr.data === 'string'
+                                                ? Buffer.from(instr.data, 'base64').toString('utf-8')
+                                                : instr.data;
+                                            memoText = decoded;
+                                        } catch (e) {
+                                            console.log('Could not decode memo data');
+                                        }
+                                    }
+                                }
+                            }
+
                             // Check for MintTo (token generation)
                             if (instr.parsed?.type === 'mintTo' && instr.parsed?.info?.amount) {
                                 const amountLamports = BigInt(instr.parsed.info.amount);
