@@ -633,11 +633,13 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
             await ensureMerchantHasATA(targetMerchantAddress);
 
-            // 3. Construct the transfer instruction
-            const transferInstruction = await constructTransferTransaction(
+            // 3. Construct the transfer and memo instructions
+            const instructions = await constructTransferTransaction(
                 address,
                 price * 1_000_000,
-                targetMerchantAddress
+                targetMerchantAddress,
+                selectedService?.name || 'Unknown Service',
+                plan.name
             );
 
             // 3.5. Fetch Address Lookup Table for transaction compression
@@ -648,7 +650,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             // 4. User signs and sends transaction using Lazorkit's instruction-based API with ALT
             const signature = await signAndSendTransaction({
-                instructions: [transferInstruction],
+                instructions: instructions, // Now includes both memo and transfer
                 transactionOptions: {
                     computeUnitLimit: 400_000, // Increased from 200k to handle larger transactions
                     addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,

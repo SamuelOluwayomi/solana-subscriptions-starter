@@ -30,7 +30,6 @@ export default function NavBar() {
 
                         {/* DESKTOP LINKS (Hidden on Mobile) */}
                         <div className="hidden md:flex items-center gap-8">
-                            <NavLink href="/jupiter">Jupiter Demo</NavLink>
                             <a href="https://github.com/lazor-kit/lazor-kit" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors text-sm font-medium">
                                 The Bridge
                             </a>

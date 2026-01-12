@@ -345,7 +345,8 @@ export default function MerchantDashboard() {
                         plan: planName,
                         status: sig.err ? 'Failed' : 'Success',
                         date: new Date((sig.blockTime || 0) * 1000),
-                        gasFee: '0.000005 SOL'
+                        gasFee: '0.000005 SOL',
+                        memo: memoText  // Add memo to transaction object
                     };
                 }).filter(tx => tx.amount > 0);
 
@@ -720,7 +721,7 @@ export default function MerchantDashboard() {
                                                             </div>
                                                         </td>
                                                         <td className="py-3 pr-2 text-right font-bold text-white text-[10px] sm:text-xs">
-                                                            {tx.serviceName}
+                                                            {tx.memo || 'Subscription'}
                                                         </td>
                                                         <td className="py-3 pr-2 text-right hidden lg:table-cell">
                                                             <span className="px-2 py-1 rounded bg-green-500/10 text-green-400 text-xs font-bold border border-green-500/20">

@@ -14,73 +14,84 @@ This document explains how CadPay meets the bounty requirement of providing **tw
 
 ---
 
-## Example 1: Jupiter DEX Integration
+## Example 1: SPL Memo Protocol Integration
 
-**Protocol Used:** [Jupiter Aggregator](https://jup.ag)
+**Protocol Used:** [SPL Memo Program](https://solana.com/docs/programs/memo) (Standard Solana Program)
 
-### What is Jupiter?
+### What is SPL Memo?
 
-Jupiter is Solana's leading DEX aggregator, routing trades across multiple decentralized exchanges (Raydium, Orca, Serum, etc.) to find the best swap rates.
+The SPL Memo Program is a standard Solana protocol that attaches UTF-8 text messages to transactions. It's widely used across the ecosystem for transaction metadata, payment descriptions, and on-chain notes.
+
+**Program ID:** `MemoSq4gq ABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`
 
 ### Our Integration
 
-**Feature:** **Auto-Swap Subscriptions**
+**Feature:** **Transaction Metadata & Protocol Interaction**
 
-Users can subscribe to automatically convert USDC → SOL monthly using Jupiter's API, with all transactions **gasless** via Lazorkit Paymaster.
+Every subscription payment in CadPay includes a memo instruction that identifies the payment source and adds transparency. All transactions are **gasless** via Lazorkit Paymaster.
 
 ### How It Works
 
 ```
-User subscribes ($10/month USDC → SOL swap)
+User subscribes to Netflix ($9.99/month)
            ↓
-Jupiter API fetches best route
+Memo instruction created: "CadPay: Netflix - Premium Plan"
            ↓
-Transaction built with optimal path
+Payment transaction built (USDC transfer)
+           ↓
+Both instructions added to transaction
            ↓
 Lazorkit signs & sponsors gas fees
            ↓
-SOL deposited to user wallet
+Transaction completes with memo on-chain
 ```
 
 ### Try It Live
 
-1. Visit [`/jupiter`](http://localhost:3000/jupiter)
-2. Connect wallet (biometric auth)
-3. Enter USDC amount (e.g., 10 USDC)
-4. Click "Get Quote" - see best rate across all DEXs
-5. Click "Swap (Gasless)" - execute transaction
-6. Verify on [Solana Explorer (devnet)](https://explorer.solana.com/?cluster=devnet)
+1. Visit `/create` - create passkey wallet
+2. Go to `/dashboard` - mint test USDC
+3. Subscribe to any service (Netflix, Spotify, etc.)
+4. Visit [Solana Explorer (devnet)](https://explorer.solana.com/?cluster=devnet)
+5. Find your transaction signature
+6. Look for the "Memo" instruction in transaction details
 
 ### Code Implementation
 
-**Jupiter Quote Fetching:**
+**Creating Memo Instruction:**
 ```typescript
-// src/utils/jupiterSwap.ts
-const quote = await getJupiterQuote(
-    USDC_MINT_DEVNET.toString(),
-    SOL_MINT.toString(),
-    10_000_000, // 10 USDC
-    50 // 0.5% slippage
-);
+// src/utils/memoProtocol.ts
+import { createMemoInstruction } from '@solana/spl-memo';
 
-// Returns: best route, expected output, price impact
+const memoInstruction = createMemoInstruction(
+    `CadPay: ${serviceName} - ${planName}`,
+    [userPublicKey]
+);
 ```
 
-**Gasless Execution:**
+**Adding to Transaction:**
 ```typescript
-// src/hooks/useJupiterSwap.ts
-const signature = await executeJupiterSwap(
-    connection,
-    swapTransaction,
-    signAndSendTransaction // Lazorkit handles gas sponsorship
-);
+// Add memo first, then the payment transfer
+transaction.add(memoInstruction);
+transaction.add(transferInstruction);
+
+// Lazorkit handles gas sponsorship
+await signAndSendTransaction(transaction);
 ```
 
 ### Documentation
 
-- **Full Tutorial:** [TUTORIAL_JUPITER_INTEGRATION.md](./TUTORIAL_JUPITER_INTEGRATION.md)
-- **Live Demo:** `/jupiter` page
-- **Code:** `src/utils/jupiterSwap.ts`, `src/hooks/useJupiterSwap.ts`
+- **Full Tutorial:** [TUTORIAL_MEMO_PROTOCOL.md](./TUTORIAL_MEMO_PROTOCOL.md)
+- **Code:** `src/utils/memoProtocol.ts`
+- **Live Demo:** All subscription payments in the app
+
+### Why SPL Memo (Not Jupiter)?
+
+> **Important Note:** Jupiter DEX aggregator is mainnet-only and does not exist on devnet. SPL Memo is the ideal protocol for devnet demo projects because:
+> - ✅ Works on devnet
+> - ✅ Standard Solana protocol
+> - ✅ Adds real value (transaction transparency)
+> - ✅ Simple and reliable
+> - ✅ Perfect for demonstrating protocol integration
 
 ---
 
@@ -115,7 +126,7 @@ CadPay creates a **Web2-like subscription experience** on Web3 infrastructure:
            ↓
 3. Subscribe to Netflix ($9.99/month)
            ↓
-4. Transaction executes (gasless)
+4. Transaction executes (gasless) + Memo added
            ↓
 5. Merchant receives payment instantly
 ```
@@ -156,19 +167,24 @@ await connect(); // Triggers biometric prompt
 // Wallet created and stored in device Secure Enclave
 ```
 
-**Gasless Subscription Payment:**
+**Gasless Subscription Payment (with Memo):**
 ```typescript
-// Transaction built with subscription details
-const transaction = new Transaction().add(
-    transferChecked({
-        source: userTokenAccount,
-        destination: merchantTokenAccount,
-        amount: subscriptionPrice,
-        // ...
-    })
-);
+// 1. Create memo instruction (SPL Memo Protocol)
+const memo = createMemoInstruction("CadPay: Netflix - Premium", [sender]);
 
-// Lazorkit sponsors gas fees
+// 2. Create payment transfer
+const transfer = transferChecked({
+    source: userTokenAccount,
+    destination: merchantTokenAccount,
+    amount: subscriptionPrice,
+    // ...
+});
+
+// 3. Add both to transaction
+transaction.add(memo);
+transaction.add(transfer);
+
+// 4. Lazorkit sponsors gas fees
 await signAndSendTransaction(transaction);
 ```
 
@@ -189,6 +205,7 @@ const addSubscription = (service) => {
 
 ### Documentation
 
+- **Memo Protocol Tutorial:** [TUTORIAL_MEMO_PROTOCOL.md](./TUTORIAL_MEMO_PROTOCOL.md)
 - **Passkey Wallet Tutorial:** [TUTORIAL_PASSKEY_WALLET.md](./TUTORIAL_PASSKEY_WALLET.md)
 - **Gasless Transactions Tutorial:** [TUTORIAL_GASLESS_TRANSACTIONS.md](./TUTORIAL_GASLESS_TRANSACTIONS.md)
 - **Live Demo:** Main application (`/`, `/dashboard`, `/merchant`)
@@ -198,16 +215,16 @@ const addSubscription = (service) => {
 
 ## Comparison Table
 
-| Aspect | Example 1: Jupiter | Example 2: CadPay |
-|--------|-------------------|-------------------|
+| Aspect | Example 1: SPL Memo | Example 2: CadPay |
+|--------|---------------------|-------------------|
 | **Type** | Existing Protocol | Original Idea |
-| **Protocol** | Jupiter DEX Aggregator | Lazorkit AA SDK |
-| **Use Case** | Auto-swap subscriptions | Recurring payments |
-| **Complexity** | DEX integration | Full payment platform |
-| **Demo Page** | `/jupiter` | `/`, `/dashboard`, `/merchant` |
+| **Protocol** | SPL Memo Program | Lazorkit AA SDK |
+| **Use Case** | Transaction metadata | Recurring payments |
+| **Complexity** | Protocol integration | Full payment platform |
+| **Demo** | All transactions | `/`, `/dashboard`, `/merchant` |
 | **Gasless** | ✅ Yes | ✅ Yes |
-| **Smart Contract** | Jupiter program | SPL Token transfers |
-| **User Flow** | Swap tokens | Subscribe & pay |
+| **Smart Contract** | Memo program | SPL Token transfers |
+| **User Flow** | Auto-added to payments | Subscribe & pay |
 
 ---
 
@@ -222,11 +239,11 @@ const addSubscription = (service) => {
 
 ### Unique to Each:
 
-**Jupiter Integration:**
-- Multi-DEX routing
-- Real-time quote fetching
-- Slippage protection
-- Cross-protocol liquidity
+**SPL Memo Integration:**
+- Standard Solana protocol
+- Transaction transparency
+- On-chain payment descriptions
+- Searchable transaction history
 
 **CadPay Platform:**
 - Subscription management
@@ -238,19 +255,22 @@ const addSubscription = (service) => {
 
 ## Verification for Judges
 
-### Test Example 1 (Jupiter)
+### Test Example 1 (SPL Memo Protocol)
 
 ```bash
-1. Visit /jupiter
+1. Visit /create
 2. Create wallet (biometric)
-3. Mint 100 devnet USDC
-4. Swap 10 USDC → SOL
-5. Verify transaction on Solana Explorer (devnet)
-6. Confirm SOL balance increased, USDC decreased
-7. Verify gas fee = 0 SOL (gasless)
+3. Go to /dashboard
+4. Mint 100 devnet USDC
+5. Subscribe to any service ($9.99)
+6. Copy transaction signature from confirmation
+7. Visit Solana Explorer (devnet)
+8. Paste signature - look for "Memo" instruction
+9. Verify memo message: "CadPay: [Service] - [Plan]"
+10. Confirm gas fee = 0 SOL (gasless)
 ```
 
-### Test Example 2 (CadPay)
+### Test Example 2 (CadPay Platform)
 
 ```bash
 1. Visit /create
@@ -260,20 +280,20 @@ const addSubscription = (service) => {
 5. Subscribe to Netflix ($9.99)
 6. Visit /merchant-auth (Admin@gmail.com / admin)
 7. See your transaction in merchant portal
-8. Verify gasless transaction
+8. Verify gasless transaction with memo
 ```
 
 ---
 
 ## Why These Examples?
 
-### Example 1: Jupiter (Ecosystem Integration)
+### Example 1: SPL Memo (Protocol Integration)
 
-Shows we can **integrate with Solana's DeFi ecosystem**:
-- Uses industry-standard protocol (Jupiter)
+Shows we can **integrate with Solana's core protocols**:
+- Uses standard system program
 - Demonstrates interoperability
-- Leverages existing liquidity
-- Real-world use case (auto-DCA, auto-rebalancing)
+- Adds value through metadata
+- Real-world use case (payment descriptions)
 
 ### Example 2: CadPay (Innovation)
 
@@ -293,17 +313,13 @@ Together, they demonstrate both **integration capability** and **original innova
 solana-subscriptions-starter/
 ├── src/
 │   ├── app/
-│   │   ├── jupiter/page.tsx          # Example 1: Jupiter demo
-│   │   ├── dashboard/page.tsx        # Example 2: User dashboard
+│   │   ├── dashboard/page.tsx        # Example 1 & 2: User dashboard
 │   │   └── merchant/page.tsx         # Example 2: Merchant portal
-│   ├── components/
-│   │   └── jupiter/                  # Example 1: Jupiter UI
 │   ├── hooks/
-│   │   ├── useJupiterSwap.ts         # Example 1: Jupiter logic
 │   │   └── useSubscriptions.ts       # Example 2: Subscription logic
 │   └── utils/
-│       └── jupiterSwap.ts            # Example 1: Jupiter utilities
-├── TUTORIAL_JUPITER_INTEGRATION.md   # Example 1: Full guide
+│       └── memoProtocol.ts           # Example 1: SPL Memo utility
+├── TUTORIAL_MEMO_PROTOCOL.md          # Example 1: Full guide
 ├── TUTORIAL_PASSKEY_WALLET.md        # Example 2: Wallet guide
 ├── TUTORIAL_GASLESS_TRANSACTIONS.md  # Example 2: Gasless guide
 └── TUTORIAL_DEVNET_DEPLOYMENT.md      # Deployment guide
@@ -313,10 +329,10 @@ solana-subscriptions-starter/
 
 ## Resources
 
-### Example 1: Jupiter
-- [Jupiter API Docs](https://station.jup.ag/docs/apis/swap-api)
-- [Jupiter Integration Tutorial](./TUTORIAL_JUPITER_INTEGRATION.md)
-- [Live Demo: /jupiter](/jupiter)
+### Example 1: SPL Memo
+- [SPL Memo Docs](https://solana.com/docs/programs/memo)
+- [SPL Memo Tutorial](./TUTORIAL_MEMO_PROTOCOL.md)
+- [Program Explorer](https://explorer.solana.com/address/MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr?cluster=devnet)
 
 ### Example 2: CadPay
 - [Passkey Wallet Tutorial](./TUTORIAL_PASSKEY_WALLET.md)
@@ -333,7 +349,7 @@ solana-subscriptions-starter/
 ## Questions?
 
 Both examples are fully functional on devnet. Test them at:
-- **Jupiter Swap:** `https://your-deployment.vercel.app/jupiter`
+- **SPL Memo Integration:** Any subscription payment
 - **CadPay Platform:** `https://your-deployment.vercel.app`
 
 All code is documented, tested, and ready for review! 🚀

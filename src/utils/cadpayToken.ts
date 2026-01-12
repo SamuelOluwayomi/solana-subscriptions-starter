@@ -231,8 +231,10 @@ import {
 export async function constructTransferTransaction(
     userAddress: string,
     amount: number,
-    merchantAddress: string // Dynamic Merchant Wallet
-): Promise<TransactionInstruction> {
+    merchantAddress: string, // Dynamic Merchant Wallet
+    serviceName?: string,
+    planName?: string
+): Promise<TransactionInstruction[]> {
     const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
@@ -303,7 +305,17 @@ export async function constructTransferTransaction(
         throw new Error("ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. Please try again.");
     }
 
-    // 2. Create Transfer Instruction using SPL Token Library
+    // 2. Create Memo Instruction (SPL Memo Protocol Integration)
+    const { createMemoInstruction } = await import('@solana/spl-memo');
+
+    // Simple format: "Netflix - Premium" (merchant displays this directly)
+    const memoMessage = serviceName && planName
+        ? `${serviceName} - ${planName}`
+        : `Subscription Payment`;
+
+    const memoInstruction = createMemoInstruction(memoMessage, [userPubkey]);
+
+    // 3. Create Transfer Instruction using SPL Token Library
     const transferIx = createTransferInstruction(
         userATA,              // Source (Derived from Smart Wallet)
         merchantATA,          // Destination
@@ -313,5 +325,7 @@ export async function constructTransferTransaction(
         TOKEN_PROGRAM_ID      // Program ID
     );
 
-    return transferIx;
+    // Return both instructions: memo first, then transfer
+    return [memoInstruction, transferIx];
 }
+
