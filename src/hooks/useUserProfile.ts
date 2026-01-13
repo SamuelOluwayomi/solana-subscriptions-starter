@@ -221,13 +221,19 @@ export function useUserProfile() {
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
 
-            const signature = await signAndSendTransaction(tx);
+            // Disable sponsorship to save 100+ bytes and fix "Transaction too large"
+            // Since we have SOL from airdrop, we don't need the Paymaster overhead
+            // @ts-ignore
+            const signature = await signAndSendTransaction(tx, { sponsor: false });
             console.log("Profile created successfully! Signature:", signature);
             setProfile({ username, emoji, gender, pin, authority: userPubkey });
             return signature;
         } catch (err: any) {
             console.error("Detailed Error in createProfile:", err);
             if (err.logs) console.log("Simulation Logs:", err.logs);
+            if (err.message?.includes("Transaction too large")) {
+                console.log("Pro-tip: Input data is too long for a Passkey transaction. Try shortening your username or removing emojis.");
+            }
             setError(err.message || "Failed to create profile");
             throw err;
         } finally {
@@ -261,12 +267,17 @@ export function useUserProfile() {
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
 
-            const signature = await signAndSendTransaction(tx);
+            // Disable sponsorship to save 100+ bytes and fix "Transaction too large"
+            // @ts-ignore
+            const signature = await signAndSendTransaction(tx, { sponsor: false });
             console.log("Profile updated successfully! Signature:", signature);
             setProfile({ username, emoji, gender, pin, authority: userPubkey });
         } catch (err: any) {
             console.error("Detailed Error in updateProfile:", err);
             if (err.logs) console.log("Simulation Logs:", err.logs);
+            if (err.message?.includes("Transaction too large")) {
+                console.log("Pro-tip: Input data is too long for a Passkey transaction. Try shortening your username or removing emojis.");
+            }
             throw err;
         } finally {
             setLoading(false);
