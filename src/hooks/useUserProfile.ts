@@ -58,10 +58,10 @@ const IDL: Idl = {
                 "kind": "struct",
                 "fields": [
                     { "name": "authority", "type": "pubkey" },
-                    { "name": "username", "type": "string" },
-                    { "name": "emoji", "type": "string" },
-                    { "name": "gender", "type": "string" },
-                    { "name": "pin", "type": "string" }
+                    { "name": "username", "type": { "array": ["u8", 16] } },
+                    { "name": "emoji", "type": { "array": ["u8", 4] } },
+                    { "name": "gender", "type": { "array": ["u8", 8] } },
+                    { "name": "pin", "type": { "array": ["u8", 4] } }
                 ]
             }
         }
@@ -77,59 +77,53 @@ export interface UserProfile {
 }
 
 export function useUserProfile() {
-    // @ts-ignore - 'connection' might not be exposed in all wallet adapter versions, fallback handled below
+    // @ts-ignore
     const { smartWalletPubkey, signAndSendTransaction, connection: lazorkitConnection } = useWallet();
-    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [profile, setProfile] = useState<UserProfile | null>(() => {
+        if (typeof window !== 'undefined' && smartWalletPubkey) {
+            const saved = localStorage.getItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`);
+            if (saved === 'true') return { loading: true } as any;
+        }
+        return null;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // 1. STABILIZE THE CONNECTION
     const connection = useMemo(() => {
         if (lazorkitConnection) return lazorkitConnection;
         return new Connection(DEVNET_RPC, 'confirmed');
     }, [lazorkitConnection?.rpcEndpoint]);
 
-    // 2. STABILIZE THE PROGRAM
     const program = useMemo(() => {
         if (!connection || !smartWalletPubkey) return null;
-
         try {
             const anchorWalletPubkey = new PublicKey(smartWalletPubkey.toString());
-
             const wallet = {
                 publicKey: anchorWalletPubkey,
                 signTransaction: async (tx: any) => tx,
                 signAllTransactions: async (txs: any[]) => txs,
             };
-
-            const provider = new anchor.AnchorProvider(
-                connection,
-                wallet as any,
-                { preflightCommitment: 'confirmed' }
-            );
-
-            const prog = new Program(IDL, provider);
-            console.log("useUserProfile: Program initialized successfully with v0.30+ IDL");
-            return prog;
+            const provider = new anchor.AnchorProvider(connection, wallet as any, { preflightCommitment: 'confirmed' });
+            return new Program(IDL, provider);
         } catch (e) {
             console.error("useUserProfile: Failed to init program", e);
             return null;
         }
     }, [connection, smartWalletPubkey?.toString()]);
 
+    const decodeString = (bytes: number[]) => {
+        return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\0/g, '');
+    };
+
     const checkAndAirdrop = async (address: anchor.web3.PublicKey) => {
         try {
             const balance = await connection.getBalance(address);
-            console.log(`Current balance: ${balance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
-
             if (balance < 0.02 * anchor.web3.LAMPORTS_PER_SOL) {
-                console.log("Balance low, requesting airdrop...");
                 const signature = await connection.requestAirdrop(address, 1 * anchor.web3.LAMPORTS_PER_SOL);
                 await connection.confirmTransaction(signature);
-                console.log("Airdrop confirmed!");
             }
         } catch (err) {
-            console.warn("Airdrop failed (rate limited?), continuing with current balance...", err);
+            console.warn("Airdrop skipped", err);
         }
     };
 
@@ -145,26 +139,24 @@ export function useUserProfile() {
             // @ts-ignore
             const account = await program.account.userProfile.fetchNullable(profilePda);
             if (account) {
-                setProfile({
-                    username: account.username as string,
-                    emoji: account.emoji as string,
-                    gender: account.gender as string,
-                    pin: account.pin as string,
+                const decodedProfile = {
+                    username: decodeString(account.username as number[]),
+                    emoji: decodeString(account.emoji as number[]),
+                    gender: decodeString(account.gender as number[]),
+                    pin: decodeString(account.pin as number[]),
                     authority: account.authority as anchor.web3.PublicKey
-                });
+                };
+                setProfile(decodedProfile);
+                localStorage.setItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`, 'true');
             } else {
                 setProfile(null);
+                localStorage.removeItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`);
             }
         } catch (err: any) {
-            // If the account has the wrong data (discriminator error) or doesn't exist,
-            // we treat it as if the profile doesn't exist yet.
-            const errMsg = err.message || "";
-            if (errMsg.includes("account discriminator") || errMsg.includes("Account does not exist")) {
-                console.warn("Profile not initialized correctly or doesn't exist. Showing onboarding.");
+            if (err.message.includes("discriminator") || err.message.includes("Account does not exist")) {
                 setProfile(null);
             } else {
                 console.error("Failed to fetch profile:", err);
-                setError("Failed to load profile");
             }
         } finally {
             setLoading(false);
@@ -175,11 +167,8 @@ export function useUserProfile() {
         if (!smartWalletPubkey || !program) throw new Error("Wallet not connected");
         setLoading(true);
         setError(null);
-
         try {
             const userPubkey = new PublicKey(smartWalletPubkey.toString());
-            console.log("Creating profile for:", userPubkey.toString());
-
             await checkAndAirdrop(userPubkey);
 
             const [profilePda] = PublicKey.findProgramAddressSync(
@@ -187,25 +176,14 @@ export function useUserProfile() {
                 new PublicKey(PROGRAM_ID_STR)
             );
 
-            // 1. Check if ANY account exists at this PDA
-            const accountInfo = await connection.getAccountInfo(profilePda);
-            if (accountInfo !== null) {
+            const info = await connection.getAccountInfo(profilePda);
+            if (info) {
                 try {
-                    // Try to fetch it to see if it's VALID
                     // @ts-ignore
-                    const validAccount = await program.account.userProfile.fetchNullable(profilePda);
-                    if (validAccount) {
-                        console.log("Valid profile exists! Switching to updateProfile.");
-                        return await updateProfile(username, emoji, gender, pin);
-                    }
-                } catch (e) {
-                    console.warn("Account exists but is INVALID (Zombie). Attempting to re-initialize...");
-                    // Note: This might still fail if Rust's 'init' check sees any lamports > 0.
-                    // If it fails, the user will need a new Program ID or different Seed.
-                }
+                    const exists = await program.account.userProfile.fetchNullable(profilePda);
+                    if (exists) return await updateProfile(username, emoji, gender, pin);
+                } catch (e) { }
             }
-
-            console.log("Profile not found. Initializing new account at PDA:", profilePda.toString());
 
             const instruction = await program.methods
                 .initializeUser(username, emoji, gender, pin)
@@ -221,19 +199,13 @@ export function useUserProfile() {
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
 
-            // Disable sponsorship to save 100+ bytes and fix "Transaction too large"
-            // Since we have SOL from airdrop, we don't need the Paymaster overhead
-            // @ts-ignore
-            const signature = await signAndSendTransaction(tx, { sponsor: false });
-            console.log("Profile created successfully! Signature:", signature);
-            setProfile({ username, emoji, gender, pin, authority: userPubkey });
+            // Paymaster can now be enabled because tx is smaller
+            const signature = await signAndSendTransaction(tx);
+            localStorage.setItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`, 'true');
+            await fetchProfile();
             return signature;
         } catch (err: any) {
-            console.error("Detailed Error in createProfile:", err);
-            if (err.logs) console.log("Simulation Logs:", err.logs);
-            if (err.message?.includes("Transaction too large")) {
-                console.log("Pro-tip: Input data is too long for a Passkey transaction. Try shortening your username or removing emojis.");
-            }
+            console.error("Error creating profile:", err);
             setError(err.message || "Failed to create profile");
             throw err;
         } finally {
@@ -246,8 +218,6 @@ export function useUserProfile() {
         setLoading(true);
         try {
             const userPubkey = new PublicKey(smartWalletPubkey.toString());
-            await checkAndAirdrop(userPubkey);
-
             const [profilePda] = PublicKey.findProgramAddressSync(
                 [Buffer.from("user-profile-v1"), userPubkey.toBuffer()],
                 new PublicKey(PROGRAM_ID_STR)
@@ -267,27 +237,18 @@ export function useUserProfile() {
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
 
-            // Disable sponsorship to save 100+ bytes and fix "Transaction too large"
-            // @ts-ignore
-            const signature = await signAndSendTransaction(tx, { sponsor: false });
-            console.log("Profile updated successfully! Signature:", signature);
-            setProfile({ username, emoji, gender, pin, authority: userPubkey });
+            await signAndSendTransaction(tx);
+            await fetchProfile();
         } catch (err: any) {
-            console.error("Detailed Error in updateProfile:", err);
-            if (err.logs) console.log("Simulation Logs:", err.logs);
-            if (err.message?.includes("Transaction too large")) {
-                console.log("Pro-tip: Input data is too long for a Passkey transaction. Try shortening your username or removing emojis.");
-            }
+            console.error("Error updating profile:", err);
             throw err;
         } finally {
             setLoading(false);
         }
     };
 
-    // 3. PREVENT THE FETCH LOOP
     useEffect(() => {
-        if (smartWalletPubkey) {
-            console.log("SMART WALLET ADDRESS:", smartWalletPubkey.toString());
+        if (smartWalletPubkey && program) {
             fetchProfile();
         } else if (!smartWalletPubkey) {
             setProfile(null);
