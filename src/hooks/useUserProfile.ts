@@ -196,13 +196,17 @@ export function useUserProfile() {
                 new PublicKey(PROGRAM_ID_STR)
             );
 
-            const info = await connection.getAccountInfo(profilePda);
-            if (info) {
-                try {
-                    // @ts-ignore
-                    const exists = await program.account.userProfile.fetchNullable(profilePda);
-                    if (exists) return await updateProfile(username, emoji, gender, pin);
-                } catch (e) { }
+            // Prefer Anchor's fetchNullable to reliably detect existing PDA
+            try {
+                // @ts-ignore
+                const existing = await program.account.userProfile.fetchNullable(profilePda);
+                if (existing) {
+                    // If a profile already exists, call update flow instead of init
+                    return await updateProfile(username, emoji, gender, pin);
+                }
+            } catch (e) {
+                // If fetchNullable fails for an unexpected reason, log and continue
+                console.warn('Could not fetch profile account; proceeding to initialize', e);
             }
 
             // Convert strings to fixed-size byte arrays for MAXIMUM TRANSCTION COMPRESSION
