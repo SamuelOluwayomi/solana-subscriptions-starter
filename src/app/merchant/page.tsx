@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Added AnimatePresence
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     WalletIcon, TrendUpIcon, UsersIcon, LightningIcon, CopyIcon, CheckIcon, StorefrontIcon,
     ReceiptIcon, ChartPieIcon, KeyIcon, ShieldCheckIcon, CaretRightIcon, ArrowLeftIcon,
-    EyeIcon, EyeSlashIcon, PlusIcon, XIcon, ListIcon
+    EyeIcon, EyeSlashIcon, PlusIcon, XIcon, ListIcon, ArrowsClockwise as ArrowsClockwiseIcon
 } from '@phosphor-icons/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -24,6 +24,7 @@ export default function MerchantDashboard() {
 
     // Create Service Modal State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false); // Added loading state for creation
     const [newServiceName, setNewServiceName] = useState('');
 
     // State for Metrics & Data
@@ -32,10 +33,10 @@ export default function MerchantDashboard() {
     const [txCount, setTxCount] = useState(0);
     const [mrr, setMrr] = useState(0);
     const [gasSaved, setGasSaved] = useState(0);
+    const [chartData, setChartData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showKey, setShowKey] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [chartData, setChartData] = useState<any[]>([]);
 
     const [newServicePrice, setNewServicePrice] = useState(19.99);
     const [newServiceColor, setNewServiceColor] = useState('#EF4444');
@@ -73,401 +74,240 @@ export default function MerchantDashboard() {
     }, []);
 
     // Calculate Base Logic & Fetch Ledger
-    useEffect(() => {
-        if (!merchant) return;
+    // Calculate Base Logic & Fetch Ledger
+    // useEffect(() => {
+    // if (!merchant) return;
 
-        // 1. Determine Authorization for Mock Data
-        const isDefaultMerchant = merchant.email.toLowerCase() === 'admin@gmail.com';
+    // 1. Determine Authorization for Mock Data
+    const isDefaultMerchant = merchant?.email?.toLowerCase() === 'admin@gmail.com';
 
-        let baseRevenue = 0;
-        let baseUsers = 0;
-        let baseMrr = 0;
-        let initialChartData: any[] = [];
+    let baseRevenue = 0;
+    let baseUsers = 0;
+    let baseMrr = 0;
+    let initialChartData: any[] = [];
 
-        if (isDefaultMerchant) {
-            // Calculate totals from hardcoded SERVICES
-            baseUsers = SERVICES.length * 42; // Fake multiplier for scale
-            baseRevenue = SERVICES.reduce((acc, s) => acc + (s.plans[0].price * 42), 0);
-            baseMrr = baseRevenue; // Simple assumption
+    if (isDefaultMerchant) {
+        // Calculate totals from hardcoded SERVICES
+        baseUsers = SERVICES.length * 42; // Fake multiplier for scale
+        baseRevenue = SERVICES.reduce((acc, s) => acc + (s.plans[0].price * 42), 0);
+        baseMrr = baseRevenue; // Simple assumption
 
-            // Prepare Pie Chart Data from SERVICES
-            initialChartData = SERVICES.slice(0, 5).map(s => ({
-                name: s.name,
-                value: s.plans[0].price * 42,
-                color: s.color
-            }));
-        } else {
-            // New Merchant starts fresh
-            initialChartData = [
-                { name: 'No Data', value: 100, color: '#27272a' }
-            ];
-        }
+        // Prepare Pie Chart Data from SERVICES
+        initialChartData = SERVICES.slice(0, 5).map(s => ({
+            name: s.name,
+            value: s.plans[0].price * 42,
+            color: s.color
+        }));
+    } else {
+        // New Merchant starts fresh
+        initialChartData = [
+            { name: 'No Data', value: 100, color: '#27272a' }
+        ];
+    }
 
-        // Use custom RPC URL from environment (fallback to public devnet)
+    // Use custom RPC URL from environment (fallback to public devnet)
 
-        const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-        let rpcUrl = 'https://api.devnet.solana.com';
+    const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+    let rpcUrl = 'https://api.devnet.solana.com';
 
-        // Use env RPC if it exists and isn't a flaky Helius one
-        if (envRpc && !envRpc.includes('helius')) {
-            rpcUrl = envRpc;
-        }
+    // Use env RPC if it exists and isn't a flaky Helius one
+    if (envRpc && !envRpc.includes('helius')) {
+        rpcUrl = envRpc;
+    }
 
-        const connection = new Connection(rpcUrl, 'confirmed');
-        const merchantKey = new PublicKey(merchant.walletPublicKey);
+    const connection = new Connection(rpcUrl, 'confirmed');
+    // const merchantKey = new PublicKey(merchant.walletPublicKey); // Unused here, kept for ref
 
-        const fetchHistory = async () => {
-            try {
-                // Only fetch for the default seeded admin merchant to reduce load
-                if (!isDefaultMerchant) {
-                    setLoading(false);
-                    return;
-                }
-
-                const merchantTokenAccount = new PublicKey('58Bx8fD3RP4dCaoKiYQW76PUMEXSmLvcb5pT1sv2ypRj');
-
-                let signatures;
-                try {
-                    signatures = await connection.getSignaturesForAddress(merchantTokenAccount, { limit: 5 });
-                } catch (rpcError) {
-                    console.log('RPC fetch failed, using empty data:', rpcError);
-                    setTransactions([]);
-                    setLoading(false);
-                    return;
-                }
-
-                if (signatures.length === 0) {
-                    setTransactions([]);
-                    setLoading(false);
-                    return;
-                }
-
-                const txIds = signatures.map(s => s.signature);
-                const txDetails: any[] = [];
-
-                // Helius free tier does not allow JSON-RPC batch requests.
-                // Fetch transactions one-by-one to avoid 403: paid-batch restriction.
-                for (let i = 0; i < txIds.length; i++) {
-                    const sig = txIds[i];
-                    try {
-                        const single = await connection.getParsedTransaction(sig, 'confirmed');
-                        txDetails.push(single);
-                    } catch (singleError) {
-                        // Transaction fetch failed, insert null
-                        txDetails.push(null);
-                    }
-                    // small delay to reduce burst rate
-                    if (i + 1 < txIds.length) await new Promise(resolve => setTimeout(resolve, 200));
-                }
-
-                const txMap = new Map();
-                txDetails.forEach((tx, i) => { if (tx) txMap.set(txIds[i], tx); });
-
-                const formattedTxs = signatures.map((sig, i) => {
-                    const tx = txMap.get(sig.signature);
-                    let amount = 0;
-                    let memoText = '';
-
-                    // Helper to check an instruction for memo data
-                    const checkInstructionForMemo = (instr: any) => {
-                        let extracted = '';
-
-                        // Check for parsed memo instruction
-                        if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
-                            extracted = instr.parsed.info.memo;
-                        }
-
-                        // Check for SPL Memo Program ID (raw data)
-                        if (!extracted && instr.programId) {
-                            const programId = typeof instr.programId === 'string'
-                                ? instr.programId
-                                : instr.programId.toBase58?.() || String(instr.programId);
-
-                            if (programId === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' ||
-                                programId === 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo') {
-                                if (instr.data) {
-                                    try {
-                                        const decoded = typeof instr.data === 'string'
-                                            ? Buffer.from(instr.data, 'base64').toString('utf-8')
-                                            : instr.data;
-                                        // Handle potential non-printable chars or length prefixes if raw
-                                        // Simple clean: take the string as is, usually it works for SPL Memo
-                                        extracted = decoded;
-                                    } catch (e) {
-                                        // ignore decode error
-                                    }
-                                }
-                            }
-                        }
-                        return extracted;
-                    };
-
-                    // Extract memo from transaction (scans top-level AND inner instructions)
-                    // 1. Scan Top-Level Instructions
-                    if (tx?.transaction?.message?.instructions) {
-                        for (const instr of tx.transaction.message.instructions) {
-                            const found = checkInstructionForMemo(instr);
-                            if (found) {
-                                memoText = found; // Don't break immediately, but usually first memo is good
-                            }
-
-                            // ... (Amount logic for Transfer/MintTo remains here - keeping original flows)
-                            if (instr.parsed?.type === 'mintTo' && instr.parsed?.info?.amount) {
-                                const amountLamports = BigInt(instr.parsed.info.amount);
-                                amount = Number(amountLamports) / 1_000_000;
-                            }
-                            if (instr.parsed?.type === 'transfer' && instr.parsed?.info?.tokenAmount?.uiAmount) {
-                                amount = instr.parsed.info.tokenAmount.uiAmount;
-                            }
-                            if (instr.parsed?.type === 'transferChecked' && instr.parsed?.info?.tokenAmount?.uiAmount) {
-                                amount = instr.parsed.info.tokenAmount.uiAmount;
-                            }
-                        }
-                    }
-
-                    // 2. Scan Inner Instructions (Crucial for Lazorkit/Relayers)
-                    if (!memoText && tx?.meta?.innerInstructions) {
-                        for (const innerSet of tx.meta.innerInstructions) {
-                            for (const instr of innerSet.instructions) {
-                                const found = checkInstructionForMemo(instr);
-                                if (found) {
-                                    memoText = found;
-                                    break;
-                                }
-                            }
-                            if (memoText) break;
-                        }
-                    }
-
-                    // Check program logs for subscription tier hints (Fallback if instruction parsing failed)
-                    if (!memoText && tx?.meta?.logMessages) {
-                        const logs = tx.meta.logMessages;
-                        for (const log of logs) {
-                            // Look for standard SPL Memo log format: Program log: Memo (len X): "Content"
-                            const match = log.match(/Memo \(len \d+\): "(.*?)"/);
-                            if (match && match[1]) {
-                                memoText = match[1];
-                                break;
-                            }
-                        }
-
-                        // Legacy check for specific keywords if regex didn't match
-                        if (!memoText) {
-                            const joinedLogs = logs.join(' ');
-                            if (joinedLogs.includes('netflix') || joinedLogs.includes('spotify')) {
-                                memoText = joinedLogs.substring(0, 100);
-                            }
-                        }
-                    }
-
-                    // Fallback: if no instruction amount, check token balance changes
-                    if (amount === 0) {
-                        const preBalances = tx?.meta?.preTokenBalances || [];
-                        const postBalances = tx?.meta?.postTokenBalances || [];
-
-                        if (postBalances.length > 0 || preBalances.length > 0) {
-                            // Try to find a post balance entry matching the CADPAY mint
-                            const cadpayMint = (typeof CADPAY_MINT?.toBase58 === 'function') ? CADPAY_MINT.toBase58() : String(CADPAY_MINT);
-
-                            // First pass: look for any post balance with CADPAY_MINT and positive diff
-                            for (const p of postBalances) {
-                                const postAmt = p?.uiTokenAmount?.uiAmount || 0;
-                                const preMatch = preBalances.find((q: any) => q.accountIndex === p.accountIndex || q.pubkey === p.pubkey || q.owner === p.owner);
-                                const preAmt = preMatch?.uiTokenAmount?.uiAmount || 0;
-                                const diff = postAmt - preAmt;
-                                const mint = p?.mint || '';
-                                if (diff > 0 && mint === cadpayMint) {
-                                    amount = diff;
-                                    break;
-                                }
-                            }
-
-                            // Second pass: if nothing matched CADPAY, check for new account creation (pre=0 post=1)
-                            // Use post amount directly if it's a newly created account receiving tokens
-                            if (amount === 0 && preBalances.length === 0 && postBalances.length > 0) {
-                                for (const p of postBalances) {
-                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
-                                    const mint = p?.mint || '';
-                                    if (postAmt > 0 && mint === cadpayMint) {
-                                        amount = postAmt;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Third pass: if pre=0, this is definitely a new account—take first positive balance
-                            // regardless of mint (it could be a different token or ATA).
-                            if (amount === 0 && preBalances.length === 0 && postBalances.length > 0) {
-                                for (const p of postBalances) {
-                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
-                                    if (postAmt > 0) {
-                                        amount = postAmt;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Fourth pass: accept any positive token diff
-                            if (amount === 0) {
-                                for (const p of postBalances) {
-                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
-                                    const preMatch = preBalances.find((q: any) => q.accountIndex === p.accountIndex || q.pubkey === p.pubkey || q.owner === p.owner);
-                                    const preAmt = preMatch?.uiTokenAmount?.uiAmount || 0;
-                                    const diff = postAmt - preAmt;
-                                    if (diff > 0) {
-                                        amount = diff;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    let customerAddress = '0x' + sig.signature.slice(0, 4) + '...' + sig.signature.slice(-4);
-                    if (tx?.meta?.preTokenBalances && tx?.meta?.postTokenBalances) {
-                        const senderBalance = tx.meta.preTokenBalances.find((b: any) => {
-                            const post = tx.meta.postTokenBalances?.find((p: any) => p.accountIndex === b.accountIndex);
-                            return post && (b.uiTokenAmount.uiAmount || 0) > (post.uiTokenAmount.uiAmount || 0);
-                        });
-                        if (senderBalance?.owner) {
-                            customerAddress = senderBalance.owner.slice(0, 4) + '...' + senderBalance.owner.slice(-4);
-                        }
-                    }
-
-                    if (amount === 0) amount = 0;
-
-                    // Smart price matching: find matching service & plan from SERVICES data
-                    let serviceName = 'Subscription';
-                    let planName = 'Standard';
-                    let serviceColor = '#888';
-
-                    // Search all services for matching price (within $0.10 tolerance for floating point)
-                    for (const service of SERVICES) {
-                        for (const plan of service.plans) {
-                            if (Math.abs(amount - plan.price) < 0.1) {
-                                serviceName = service.name;
-                                planName = plan.name;
-                                serviceColor = service.color;
-                                break;
-                            }
-                        }
-                        if (serviceName !== 'Subscription') break; // Found match, exit
-                    }
-
-                    // Try to extract subscription info from memo (override price match)
-                    if (memoText) {
-                        const memoLower = memoText.toLowerCase();
-                        // Map memo keywords to subscription tiers
-                        if (memoLower.includes('netflix') || memoLower.includes('nf_')) {
-                            const netflixService = SERVICES.find(s => s.id === 'netflix');
-                            if (netflixService) {
-                                serviceName = netflixService.name;
-                                serviceColor = netflixService.color;
-                                if (memoLower.includes('basic')) {
-                                    const plan = netflixService.plans.find(p => p.name === 'Basic');
-                                    planName = 'Basic';
-                                    amount = plan?.price ?? 9.99;
-                                }
-                                else if (memoLower.includes('standard') || memoLower.includes('std')) {
-                                    const plan = netflixService.plans.find(p => p.name === 'Standard');
-                                    planName = 'Standard';
-                                    amount = plan?.price ?? 15.49;
-                                }
-                                else if (memoLower.includes('premium') || memoLower.includes('prem')) {
-                                    const plan = netflixService.plans.find(p => p.name === 'Premium');
-                                    planName = 'Premium';
-                                    amount = plan?.price ?? 19.99;
-                                }
-                            }
-                        }
-                        else if (memoLower.includes('spotify') || memoLower.includes('sp_')) {
-                            const spotifyService = SERVICES.find(s => s.id === 'spotify');
-                            if (spotifyService) {
-                                serviceName = spotifyService.name;
-                                serviceColor = spotifyService.color;
-                                if (memoLower.includes('student')) {
-                                    planName = 'Premium'; // Note: Spotify has Free/Premium/Family; Student mapped to Premium
-                                    amount = 10.99;
-                                }
-                                else if (memoLower.includes('individual') || memoLower.includes('ind')) {
-                                    const plan = spotifyService.plans.find(p => p.name === 'Premium');
-                                    planName = 'Premium';
-                                    amount = plan?.price ?? 10.99;
-                                }
-                                else if (memoLower.includes('family') || memoLower.includes('fam')) {
-                                    const plan = spotifyService.plans.find(p => p.name === 'Family');
-                                    planName = 'Family';
-                                    amount = plan?.price ?? 16.99;
-                                }
-                            }
-                        }
-                    }
-
-                    // Fallback: if no match found, use "Custom Service"
-                    if (serviceName === 'Subscription' && amount > 0) {
-                        serviceName = 'Custom Service';
-                        planName = `Tier ${Math.ceil(amount / 10)}`;
-                        serviceColor = '#F97316';
-                    }
-
-                    return {
-                        id: sig.signature,
-                        customer: customerAddress,
-                        service: { name: serviceName, color: serviceColor },
-                        amount: amount,
-                        plan: planName,
-                        status: sig.err ? 'Failed' : 'Success',
-                        date: new Date((sig.blockTime || 0) * 1000),
-                        gasFee: '0.000005 SOL',
-                        memo: memoText  // Add memo to transaction object
-                    };
-                }).filter(tx => tx.amount > 0);
-
-                setTransactions(formattedTxs);
-
-                const realUsers = formattedTxs.length;
-                const realRevenue = formattedTxs.reduce((sum, tx) => sum + tx.amount, 0);
-
-                setTxCount(baseUsers + realUsers);
-                setTotalRevenue(baseRevenue + realRevenue);
-                setMrr(baseMrr + realRevenue);
-                setGasSaved(realUsers * 0.000005);
-
-                const serviceAggregation: Record<string, { value: number, color: string }> = {};
-                formattedTxs.forEach(tx => {
-                    const name = tx.service.name;
-                    if (!serviceAggregation[name]) serviceAggregation[name] = { value: 0, color: tx.service.color };
-                    serviceAggregation[name].value += tx.amount;
-                });
-
-                let newChartData = [...initialChartData];
-                if (!isDefaultMerchant) { if (realRevenue > 0) newChartData = []; }
-
-                Object.keys(serviceAggregation).forEach(serviceName => {
-                    const existingIndex = newChartData.findIndex(item => item.name === serviceName);
-                    if (existingIndex >= 0) {
-                        newChartData[existingIndex] = {
-                            ...newChartData[existingIndex],
-                            value: newChartData[existingIndex].value + serviceAggregation[serviceName].value
-                        };
-                    } else {
-                        newChartData.push({ name: serviceName, value: serviceAggregation[serviceName].value, color: serviceAggregation[serviceName].color });
-                    }
-                });
-
-                setChartData(newChartData);
+    const fetchHistory = useCallback(async () => {
+        try {
+            // Only fetch for the default seeded admin merchant to reduce load
+            if (!isDefaultMerchant) {
                 setLoading(false);
-            } catch (e) {
-                console.error("❌ Failed to fetch merchant history:", e);
-                setLoading(false);
+                return;
             }
-        };
 
-        // Run once immediately, then poll (60s)
+            const merchantTokenAccount = new PublicKey('58Bx8fD3RP4dCaoKiYQW76PUMEXSmLvcb5pT1sv2ypRj');
+
+            let signatures;
+            try {
+                signatures = await connection.getSignaturesForAddress(merchantTokenAccount, { limit: 10 });
+            } catch (rpcError) {
+                console.log('RPC fetch failed, using empty data:', rpcError);
+                setTransactions([]);
+                setLoading(false);
+                return;
+            }
+
+            if (signatures.length === 0) {
+                setTransactions([]);
+                setChartData(initialChartData);
+                setLoading(false);
+                return;
+            }
+
+            // 1. IMPROVEMENT: Show skeletons/placeholders immediately
+            const placeholders = signatures.map(s => ({
+                id: s.signature,
+                customer: 'Loading...',
+                amount: 0,
+                memo: 'Scanning...',
+                date: s.blockTime ? new Date(s.blockTime * 1000).toLocaleString() : 'Pending',
+                status: 'loading',
+                service: { name: '...', color: '#27272a' }
+            }));
+            setTransactions(placeholders);
+            setLoading(false); // Unblock UI immediately
+
+            const txIds = signatures.map(s => s.signature);
+            const txMap = new Map();
+
+            // Helius free tier / Public RPC rate limit handling
+            // Fetch incrementally and update UI per transaction or in small batches
+            for (let i = 0; i < txIds.length; i++) {
+                const sig = txIds[i];
+                try {
+                    const single: any = await connection.getParsedTransaction(sig, 'confirmed');
+                    if (single) {
+                        txMap.set(sig, single);
+
+                        // Process SINGLE transaction immediately for UI update
+                        const tx = single;
+                        let amount = 0;
+                        let memoText = '';
+
+                        // --- MEMO & AMOUNT LOGIC START ---
+                        const checkInstructionForMemo = (instr: any) => {
+                            let extracted = '';
+                            if (instr.parsed?.type === 'memo' && instr.parsed?.info?.memo) {
+                                extracted = instr.parsed.info.memo;
+                            }
+                            if (!extracted && instr.programId) {
+                                const programId = typeof instr.programId === 'string'
+                                    ? instr.programId
+                                    : instr.programId.toBase58?.() || String(instr.programId);
+
+                                if (programId === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' ||
+                                    programId === 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo') {
+                                    if (instr.data) {
+                                        try {
+                                            const decoded = typeof instr.data === 'string'
+                                                ? Buffer.from(instr.data, 'base64').toString('utf-8')
+                                                : instr.data;
+                                            extracted = decoded;
+                                        } catch (e) { }
+                                    }
+                                }
+                            }
+                            return extracted;
+                        };
+
+                        if (tx?.transaction?.message?.instructions) {
+                            for (const instr of tx.transaction.message.instructions) {
+                                const found = checkInstructionForMemo(instr);
+                                if (found) memoText = found;
+                                if (instr.parsed?.type === 'mintTo' && instr.parsed?.info?.amount) {
+                                    amount = Number(BigInt(instr.parsed.info.amount)) / 1_000_000;
+                                }
+                                if ((instr.parsed?.type === 'transfer' || instr.parsed?.type === 'transferChecked') && instr.parsed?.info?.tokenAmount?.uiAmount) {
+                                    amount = instr.parsed.info.tokenAmount.uiAmount;
+                                }
+                            }
+                        }
+                        if (!memoText && tx?.meta?.innerInstructions) {
+                            for (const innerSet of tx.meta.innerInstructions) {
+                                for (const instr of innerSet.instructions) {
+                                    const found = checkInstructionForMemo(instr);
+                                    if (found) { memoText = found; break; }
+                                }
+                                if (memoText) break;
+                            }
+                        }
+                        if (!memoText && tx?.meta?.logMessages) {
+                            const logs = tx.meta.logMessages;
+                            for (const log of logs) {
+                                const match = log.match(/Memo \(len \d+\): "(.*?)"/);
+                                if (match && match[1]) { memoText = match[1]; break; }
+                            }
+                        }
+                        // Fallback Balance Logic
+                        if (amount === 0) {
+                            const preBalances = tx?.meta?.preTokenBalances || [];
+                            const postBalances = tx?.meta?.postTokenBalances || [];
+                            if (postBalances.length > 0) {
+                                for (const p of postBalances) {
+                                    const postAmt = p?.uiTokenAmount?.uiAmount || 0;
+                                    const preMatch = preBalances.find((q: any) => q.accountIndex === p.accountIndex);
+                                    const preAmt = preMatch?.uiTokenAmount?.uiAmount || 0;
+                                    if (postAmt - preAmt > 0) { amount = postAmt - preAmt; break; }
+                                    if (preBalances.length === 0 && postAmt > 0) { amount = postAmt; break; }
+                                }
+                            }
+                        }
+                        // --- MEMO & AMOUNT LOGIC END ---
+
+                        // Update State for this specific transaction
+                        setTransactions(prev => prev.map(item => {
+                            if (item.id === sig) {
+                                return {
+                                    ...item,
+                                    customer: '0x' + sig.slice(0, 4) + '...' + sig.slice(-4),
+                                    amount: amount,
+                                    memo: memoText,
+                                    status: 'success',
+                                    service: {
+                                        name: memoText || 'Subscription',
+                                        color: '#10B981'
+                                    }
+                                };
+                            }
+                            return item;
+                        }));
+
+                        // Update Metrics Incrementally
+                        if (amount > 0) {
+                            const realRevenue = amount;
+                            setTotalRevenue(prev => prev + realRevenue);
+                            setMrr(prev => prev + realRevenue);
+                            setGasSaved(prev => prev + 0.000005);
+
+                            // Update Chart Incrementally
+                            setChartData(prevData => {
+                                const sName = memoText || 'Subscription';
+                                const existingIndex = prevData.findIndex(d => d.name === sName);
+                                const newD = [...prevData];
+                                if (existingIndex >= 0) {
+                                    newD[existingIndex] = { ...newD[existingIndex], value: newD[existingIndex].value + amount };
+                                } else {
+                                    newD.push({ name: sName, value: amount, color: '#10B981' });
+                                }
+                                return newD;
+                            });
+                        }
+                    }
+                } catch (singleError) {
+                    console.log(`Failed to fetch tx ${sig}`, singleError);
+                }
+
+                // small delay to reduce burst rate (1000ms) - kept for safety
+                if (i + 1 < txIds.length) await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            // End of loop
+
+        } catch (error) {
+            console.error("Error fetching merchant history:", error);
+            setLoading(false);
+        }
+    }, [merchant?.walletPublicKey, isDefaultMerchant]);
+
+    useEffect(() => {
+        if (!merchant?.walletPublicKey) return;
+
         fetchHistory();
+
+        // Refresh every 60 seconds (increased from 30s to avoid rate limits)
         const interval = setInterval(fetchHistory, 60000);
         return () => clearInterval(interval);
-    }, [merchant]);
+    }, [merchant?.walletPublicKey, fetchHistory]);
 
     const copyToClipboard = async (text: string, id: string) => {
         try {
@@ -479,9 +319,13 @@ export default function MerchantDashboard() {
         }
     };
 
-    const handleCreateService = (e: React.FormEvent) => {
+    const handleCreateService = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsCreating(true);
+        // Simulate network delay or await actual creation if async
+        await new Promise(resolve => setTimeout(resolve, 1000));
         createNewService(newServiceName, newServicePrice, "Monthly Subscription", newServiceColor);
+        setIsCreating(false);
         setIsCreateModalOpen(false);
         setNewServiceName('');
         setNewServicePrice(19.99);
@@ -711,11 +555,21 @@ export default function MerchantDashboard() {
                             {['dashboard', 'customers'].includes(activeSection) && (
                                 <div className={activeSection === 'customers' ? "lg:col-span-3 bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-sm flex flex-col" : "lg:col-span-2 bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-sm flex flex-col"}>
                                     <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="font-bold text-white">Live Ledger</h3>
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/10 rounded-full border border-green-500/20">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                                <span className="text-[10px] font-bold text-green-500 uppercase tracking-wide">Live Feed</span>
+                                        <div className="flex items-center gap-4">
+                                            <h3 className="text-xl font-bold text-white">Live Ledger</h3>
+                                            <div className="flex items-center gap-2">
+                                                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/10 rounded-full border border-green-500/20">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                    <span className="text-[10px] font-bold text-green-500 uppercase tracking-wider">Live Feed</span>
+                                                </span>
+                                                <button
+                                                    onClick={fetchHistory}
+                                                    disabled={loading}
+                                                    className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-white"
+                                                    title="Refresh Transactions"
+                                                >
+                                                    <ArrowsClockwiseIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -950,9 +804,17 @@ export default function MerchantDashboard() {
 
                                 <button
                                     type="submit"
-                                    className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-zinc-200 transition-colors mt-4"
+                                    disabled={isCreating}
+                                    className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-zinc-200 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Create Plan
+                                    {isCreating ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        'Create Plan'
+                                    )}
                                 </button>
                             </form>
                         </motion.div>
@@ -962,6 +824,7 @@ export default function MerchantDashboard() {
         </div>
     );
 }
+
 
 function NavItem({ icon, label, active, onClick }: any) {
     return (

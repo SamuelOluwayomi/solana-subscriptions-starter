@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLazorkit } from '@/hooks/useLazorkit';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { useState, useEffect } from 'react';
 import {
     HouseIcon, UserCircleIcon, CreditCardIcon, PlusIcon, LinkIcon,
@@ -39,66 +40,65 @@ export default function Dashboard() {
     const { showToast } = useToast(); // Use toast context
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
-    const [userProfile, setUserProfile] = useState({
-        username: 'User',
-        gender: 'other',
-        avatar: '👤'
-    });
+    // Use On-Chain Profile Hook
+    const { profile, loading: profileLoading, createProfile, updateProfile } = useUserProfile();
+
+    // Derived State: Use on-chain profile if available, else fall back to local (for optimistic/legacy)
+    // Actually, let's trust the on-chain profile primarily
+    const userProfile = {
+        username: profile?.username || 'User',
+        gender: profile?.gender || 'other',
+        avatar: profile?.emoji || '👤',
+        pin: profile?.pin || ''
+    };
 
     const [showProfileEdit, setShowProfileEdit] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
 
     // Use Real On-Chain Balance
     const { balance: usdcBalance, refetch: refetchUsdc } = useUSDCBalance(address);
-    // const [demoUSDCBalance, setDemoUSDCBalance] = useState(0); // Removed mock state
 
-    // Load profile and demo USDC from localStorage
+    // Check if onboarding is needed
     useEffect(() => {
-        // Must wait for loading to finish to know if we have a wallet or not
-        if (loading) return;
+        if (loading || profileLoading) return;
 
-        const savedUsername = localStorage.getItem('userName');
-        const savedGender = localStorage.getItem('userGender');
-        const savedAvatar = localStorage.getItem('userAvatar');
-        const savedPIN = localStorage.getItem('userPIN');
-        const hasCompletedOnboarding = localStorage.getItem('onboardingComplete');
-        const savedDemoUSDC = localStorage.getItem('demoUSDCBalance');
-
-        setUserProfile({
-            username: savedUsername || 'User',
-            gender: savedGender || 'other',
-            avatar: savedAvatar || '👤'
-        });
-        if (address && !hasCompletedOnboarding) {
+        // If we have an address but NO profile on chain -> Show Onboarding
+        if (address && !profile) {
             setShowOnboarding(true);
+        } else {
+            setShowOnboarding(false);
         }
-    }, [address, loading]);
+    }, [address, loading, profile, profileLoading]);
 
-    // Handle onboarding completion
-    const handleOnboardingComplete = (data: { username: string; pin: string; gender: string; avatar: string }) => {
-        setUserProfile({
-            username: data.username,
-            gender: data.gender,
-            avatar: data.avatar
-        });
-        localStorage.setItem('userName', data.username);
-        localStorage.setItem('userGender', data.gender);
-        localStorage.setItem('userAvatar', data.avatar);
-        localStorage.setItem('userPIN', data.pin);
-        localStorage.setItem('onboardingComplete', 'true');
-        setShowOnboarding(false);
+    // Handle onboarding completion -> CREATE ON-CHAIN PROFILE
+    const handleOnboardingComplete = async (data: { username: string; pin: string; gender: string; avatar: string }) => {
+        try {
+            await createProfile(data.username, data.avatar, data.gender, data.pin);
+            setShowOnboarding(false);
+            showToast("Profile created on-chain!", "success");
+        } catch (e) {
+            console.error("Onboarding failed", e);
+            showToast("Failed to create profile. Try again.", "error");
+        }
     };
 
-    // Save profile to localStorage
-    const saveUserProfile = (profile: { username: string; gender: string; avatar: string; pin?: string }) => {
-        setUserProfile({
-            username: profile.username,
-            gender: profile.gender,
-            avatar: profile.avatar
-        });
-        localStorage.setItem('userName', profile.username);
-        localStorage.setItem('userGender', profile.gender);
-        localStorage.setItem('userAvatar', profile.avatar);
+    // Save profile -> UPDATE ON-CHAIN PROFILE
+    const saveUserProfile = async (data: { username: string; gender: string; avatar: string; pin?: string }) => {
+        try {
+            if (data.pin && data.pin.length === 4) {
+                // Update with PIN
+                await updateProfile(data.username, data.avatar, data.gender, data.pin);
+            } else {
+                // Use existing PIN if not provided (should fetch from profile, but for now we require it or use default)
+                const existingPin = profile?.pin || "0000";
+                await updateProfile(data.username, data.avatar, data.gender, existingPin);
+            }
+            setShowProfileEdit(false);
+            showToast("Profile updated on-chain!", "success");
+        } catch (e) {
+            console.error("Update failed", e);
+            showToast("Failed to update profile", "error");
+        }
     };
 
     const walletAddress = address || "Loading...";
