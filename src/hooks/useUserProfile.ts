@@ -155,9 +155,17 @@ export function useUserProfile() {
             } else {
                 setProfile(null);
             }
-        } catch (err) {
-            console.error("Failed to fetch profile:", err);
-            setError("Failed to load profile");
+        } catch (err: any) {
+            // If the account has the wrong data (discriminator error) or doesn't exist,
+            // we treat it as if the profile doesn't exist yet.
+            const errMsg = err.message || "";
+            if (errMsg.includes("account discriminator") || errMsg.includes("Account does not exist")) {
+                console.warn("Profile not initialized correctly or doesn't exist. Showing onboarding.");
+                setProfile(null);
+            } else {
+                console.error("Failed to fetch profile:", err);
+                setError("Failed to load profile");
+            }
         } finally {
             setLoading(false);
         }
@@ -179,11 +187,22 @@ export function useUserProfile() {
                 new PublicKey(PROGRAM_ID_STR)
             );
 
-            // 1. Check if ANY account exists at this PDA to prevent 'Already in Use'
+            // 1. Check if ANY account exists at this PDA
             const accountInfo = await connection.getAccountInfo(profilePda);
             if (accountInfo !== null) {
-                console.log("Profile PDA already exists! Switching to updateProfile.");
-                return await updateProfile(username, emoji, gender, pin);
+                try {
+                    // Try to fetch it to see if it's VALID
+                    // @ts-ignore
+                    const validAccount = await program.account.userProfile.fetchNullable(profilePda);
+                    if (validAccount) {
+                        console.log("Valid profile exists! Switching to updateProfile.");
+                        return await updateProfile(username, emoji, gender, pin);
+                    }
+                } catch (e) {
+                    console.warn("Account exists but is INVALID (Zombie). Attempting to re-initialize...");
+                    // Note: This might still fail if Rust's 'init' check sees any lamports > 0.
+                    // If it fails, the user will need a new Program ID or different Seed.
+                }
             }
 
             console.log("Profile not found. Initializing new account at PDA:", profilePda.toString());
