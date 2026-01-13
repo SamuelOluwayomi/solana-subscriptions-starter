@@ -54,6 +54,15 @@ export default function Dashboard() {
 
     const [showProfileEdit, setShowProfileEdit] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+    const [isProfileSaving, setIsProfileSaving] = useState(false);
+
+    // Explicitly log wallet address to console (User Request)
+    useEffect(() => {
+        if (address) {
+            console.log("SMART WALLET ADDRESS:", address);
+        }
+    }, [address]);
 
     // Use Real On-Chain Balance
     const { balance: usdcBalance, refetch: refetchUsdc } = useUSDCBalance(address);
@@ -72,6 +81,7 @@ export default function Dashboard() {
 
     // Handle onboarding completion -> CREATE ON-CHAIN PROFILE
     const handleOnboardingComplete = async (data: { username: string; pin: string; gender: string; avatar: string }) => {
+        setIsOnboardingSubmitting(true);
         try {
             await createProfile(data.username, data.avatar, data.gender, data.pin);
             setShowOnboarding(false);
@@ -79,11 +89,14 @@ export default function Dashboard() {
         } catch (e) {
             console.error("Onboarding failed", e);
             showToast("Failed to create profile. Try again.", "error");
+        } finally {
+            setIsOnboardingSubmitting(false);
         }
     };
 
     // Save profile -> UPDATE ON-CHAIN PROFILE
     const saveUserProfile = async (data: { username: string; gender: string; avatar: string; pin?: string }) => {
+        setIsProfileSaving(true);
         try {
             if (data.pin && data.pin.length === 4) {
                 // Update with PIN
@@ -98,6 +111,8 @@ export default function Dashboard() {
         } catch (e) {
             console.error("Update failed", e);
             showToast("Failed to update profile", "error");
+        } finally {
+            setIsProfileSaving(false);
         }
     };
 
@@ -288,6 +303,7 @@ export default function Dashboard() {
             {/* Full Profile Edit Modal */}
             <FullProfileEditModal
                 isOpen={showProfileEdit}
+                isLoading={isProfileSaving}
                 onClose={() => setShowProfileEdit(false)}
                 currentProfile={{
                     username: userProfile.username,
@@ -300,6 +316,8 @@ export default function Dashboard() {
             {/* Onboarding Modal - First Time Setup */}
             <OnboardingModal
                 isOpen={showOnboarding}
+                isSubmitting={isOnboardingSubmitting}
+                walletAddress={walletAddress}
                 onComplete={handleOnboardingComplete}
             />
         </div>
