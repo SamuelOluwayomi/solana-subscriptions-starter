@@ -230,13 +230,41 @@ export function useUserProfile() {
             tx.recentBlockhash = blockhash;
 
             const signature = await signAndSendTransaction(tx);
-            console.log("Transaction sent, awaiting confirmation...");
+            console.log("Transaction sent, awaiting confirmation...", signature);
 
-            // Set local flag immediately after signature for rapid UX
+            // Set local flag immediately for optimistic UX
             localStorage.setItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`, 'true');
 
-            // Wait a moment for validator sync
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Try to confirm the signature and poll for PDA existence before returning
+            try {
+                // Attempt RPC confirmation (may fail depending on provider)
+                await connection.confirmTransaction(signature, 'confirmed');
+            } catch (e) {
+                // ignore - some providers (or Lazorkit) may not support this exact call
+            }
+
+            // Poll the on-chain account for up to ~12 seconds
+            const maxAttempts = 12;
+            let found = false;
+            for (let i = 0; i < maxAttempts; i++) {
+                try {
+                    // @ts-ignore
+                    const existing = await program.account.userProfile.fetchNullable(profilePda);
+                    if (existing) {
+                        found = true;
+                        break;
+                    }
+                } catch (e) {
+                    // ignore transient failures and keep polling
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            if (!found) {
+                console.warn('Profile not visible on-chain after waiting; you may need to refresh or check RPC health');
+            }
+
+            // Refresh local cache
             await fetchProfile();
             return signature;
         } catch (err: any) {

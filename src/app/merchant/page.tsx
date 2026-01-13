@@ -623,7 +623,7 @@ export default function MerchantDashboard() {
                                                         </td>
                                                         <td className="py-3 px-1">
                                                             <div className="flex items-center gap-1 relative">
-                                                                <span className="font-mono text-[10px] sm:text-xs text-zinc-400 truncate max-w-[60px] sm:max-w-[100px]">
+                                                                <span className="font-mono text-[10px] sm:text-xs text-zinc-400 truncate max-w-15 sm:max-w-25">
                                                                     {tx.id.slice(0, 4)}...{tx.id.slice(-4)}
                                                                 </span>
                                                                 <button
