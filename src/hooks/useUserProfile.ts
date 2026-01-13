@@ -23,10 +23,10 @@ const IDL: Idl = {
                 { "name": "systemProgram", "writable": false, "signer": false }
             ],
             "args": [
-                { "name": "username", "type": "string" },
-                { "name": "emoji", "type": "string" },
-                { "name": "gender", "type": "string" },
-                { "name": "pin", "type": "string" }
+                { "name": "username", "type": { "array": ["u8", 16] } },
+                { "name": "emoji", "type": { "array": ["u8", 4] } },
+                { "name": "gender", "type": { "array": ["u8", 8] } },
+                { "name": "pin", "type": { "array": ["u8", 4] } }
             ]
         },
         {
@@ -38,10 +38,10 @@ const IDL: Idl = {
                 { "name": "authority", "writable": false, "signer": true }
             ],
             "args": [
-                { "name": "username", "type": "string" },
-                { "name": "emoji", "type": "string" },
-                { "name": "gender", "type": "string" },
-                { "name": "pin", "type": "string" }
+                { "name": "username", "type": { "array": ["u8", 16] } },
+                { "name": "emoji", "type": { "array": ["u8", 4] } },
+                { "name": "gender", "type": { "array": ["u8", 8] } },
+                { "name": "pin", "type": { "array": ["u8", 4] } }
             ]
         }
     ],
@@ -79,15 +79,26 @@ export interface UserProfile {
 export function useUserProfile() {
     // @ts-ignore
     const { smartWalletPubkey, signAndSendTransaction, connection: lazorkitConnection } = useWallet();
-    const [profile, setProfile] = useState<UserProfile | null>(() => {
-        if (typeof window !== 'undefined' && smartWalletPubkey) {
-            const saved = localStorage.getItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`);
-            if (saved === 'true') return { loading: true } as any;
-        }
-        return null;
-    });
-    const [loading, setLoading] = useState(false);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true); // Start as true to prevent flicker
     const [error, setError] = useState<string | null>(null);
+
+    // Initial persistence sync
+    useEffect(() => {
+        if (smartWalletPubkey) {
+            const saved = localStorage.getItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`);
+            if (saved === 'true') {
+                // We strongly suspect a profile exists, stay in loading state until fetch confirms it
+                setLoading(true);
+            } else {
+                // No local record, but we still need to check once
+                setLoading(true);
+            }
+        } else {
+            setLoading(false);
+            setProfile(null);
+        }
+    }, [smartWalletPubkey?.toString()]);
 
     const connection = useMemo(() => {
         if (lazorkitConnection) return lazorkitConnection;
@@ -115,15 +126,24 @@ export function useUserProfile() {
         return new TextDecoder().decode(new Uint8Array(bytes)).replace(/\0/g, '');
     };
 
+    const encodeString = (str: string, length: number) => {
+        const arr = new Uint8Array(length);
+        const bytes = new TextEncoder().encode(str);
+        arr.set(bytes.slice(0, length));
+        return Array.from(arr);
+    };
+
     const checkAndAirdrop = async (address: anchor.web3.PublicKey) => {
         try {
             const balance = await connection.getBalance(address);
             if (balance < 0.02 * anchor.web3.LAMPORTS_PER_SOL) {
+                console.log("Auto-airdrop starting for:", address.toString());
                 const signature = await connection.requestAirdrop(address, 1 * anchor.web3.LAMPORTS_PER_SOL);
                 await connection.confirmTransaction(signature);
+                console.log("Auto-airdrop successful");
             }
         } catch (err) {
-            console.warn("Airdrop skipped", err);
+            console.warn("Airdrop rate limit hit. Please fund manually if needed.");
         }
     };
 
@@ -185,8 +205,14 @@ export function useUserProfile() {
                 } catch (e) { }
             }
 
+            // Convert strings to fixed-size byte arrays for MAXIMUM TRANSCTION COMPRESSION
+            const usernameBytes = encodeString(username, 16);
+            const emojiBytes = encodeString(emoji, 4);
+            const genderBytes = encodeString(gender, 8);
+            const pinBytes = encodeString(pin, 4);
+
             const instruction = await program.methods
-                .initializeUser(username, emoji, gender, pin)
+                .initializeUser(usernameBytes, emojiBytes, genderBytes, pinBytes)
                 .accounts({
                     userProfile: profilePda,
                     user: userPubkey,
@@ -199,9 +225,14 @@ export function useUserProfile() {
             const { blockhash } = await connection.getLatestBlockhash();
             tx.recentBlockhash = blockhash;
 
-            // Paymaster can now be enabled because tx is smaller
             const signature = await signAndSendTransaction(tx);
+            console.log("Transaction sent, awaiting confirmation...");
+
+            // Set local flag immediately after signature for rapid UX
             localStorage.setItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`, 'true');
+
+            // Wait a moment for validator sync
+            await new Promise(resolve => setTimeout(resolve, 2000));
             await fetchProfile();
             return signature;
         } catch (err: any) {
@@ -223,8 +254,13 @@ export function useUserProfile() {
                 new PublicKey(PROGRAM_ID_STR)
             );
 
+            const usernameBytes = encodeString(username, 16);
+            const emojiBytes = encodeString(emoji, 4);
+            const genderBytes = encodeString(gender, 8);
+            const pinBytes = encodeString(pin, 4);
+
             const instruction = await program.methods
-                .updateUser(username, emoji, gender, pin)
+                .updateUser(usernameBytes, emojiBytes, genderBytes, pinBytes)
                 .accounts({
                     userProfile: profilePda,
                     user: userPubkey,
