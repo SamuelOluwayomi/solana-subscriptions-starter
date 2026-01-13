@@ -138,7 +138,7 @@ export function useUserProfile() {
         setLoading(true);
         try {
             const [profilePda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("user-profile"), new PublicKey(smartWalletPubkey.toString()).toBuffer()],
+                [Buffer.from("user-profile-v1"), new PublicKey(smartWalletPubkey.toString()).toBuffer()],
                 new PublicKey(PROGRAM_ID_STR)
             );
 
@@ -183,7 +183,7 @@ export function useUserProfile() {
             await checkAndAirdrop(userPubkey);
 
             const [profilePda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("user-profile"), userPubkey.toBuffer()],
+                [Buffer.from("user-profile-v1"), userPubkey.toBuffer()],
                 new PublicKey(PROGRAM_ID_STR)
             );
 
@@ -243,7 +243,7 @@ export function useUserProfile() {
             await checkAndAirdrop(userPubkey);
 
             const [profilePda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("user-profile"), userPubkey.toBuffer()],
+                [Buffer.from("user-profile-v1"), userPubkey.toBuffer()],
                 new PublicKey(PROGRAM_ID_STR)
             );
 

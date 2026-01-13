@@ -32,7 +32,7 @@ pub struct InitializeUser<'info> {
         init,
         payer = user,
         space = 8 + 32 + 4 + 50 + 4 + 10 + 4 + 10 + 4 + 10, 
-        seeds = [b"user-profile", user.key().as_ref()],
+        seeds = [b"user-profile-v1", user.key().as_ref()],
         bump
     )]
     pub user_profile: Account<'info, UserProfile>,
@@ -45,7 +45,7 @@ pub struct InitializeUser<'info> {
 pub struct UpdateUser<'info> {
     #[account(
         mut,
-        seeds = [b"user-profile", user.key().as_ref()],
+        seeds = [b"user-profile-v1", user.key().as_ref()],
         bump,
         has_one = authority,
     )]
