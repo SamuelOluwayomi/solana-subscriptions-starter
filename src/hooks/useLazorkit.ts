@@ -119,7 +119,7 @@ export function useLazorkit() {
     const [balance, setBalance] = useState<number | null>(null);
 
     // Create connection once
-    const [connection] = useState(() => new Connection('https://api.devnet.solana.com', 'confirmed'));
+    const [connection] = useState(() => new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed'));
 
     const refreshBalance = useCallback(async () => {
         if (!address) return;

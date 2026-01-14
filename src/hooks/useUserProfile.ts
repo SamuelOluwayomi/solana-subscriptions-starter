@@ -7,7 +7,7 @@ import { Program, Idl } from '@coral-xyz/anchor';
 const { Connection, PublicKey, SystemProgram, Transaction } = anchor.web3;
 
 const PROGRAM_ID_STR = "6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz";
-const DEVNET_RPC = 'https://api.devnet.solana.com';
+const DEVNET_RPC = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com';
 
 const IDL: Idl = {
     "version": "0.1.0",

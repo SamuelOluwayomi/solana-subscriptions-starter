@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LightningIcon, CheckCircleIcon, SparkleIcon, ArrowRightIcon, WarningIcon } from '@phosphor-icons/react';
 import { useWallet } from '@lazorkit/wallet';
 import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { createConnectionWithRetry } from '@/utils/rpc';
 
 interface GaslessDemoProps {
     solBalance: number;
@@ -25,7 +26,7 @@ export default function GaslessDemo({ solBalance }: GaslessDemoProps) {
 
         try {
             // Create a demo transaction - transfer 0 SOL to self (just to test gasless)
-            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const connection = await createConnectionWithRetry();
 
             if (!wallet?.smartWallet) {
                 throw new Error('Wallet not connected');

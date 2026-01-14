@@ -108,7 +108,7 @@ export default function MerchantDashboard() {
     // Use custom RPC URL from environment (fallback to public devnet)
 
     const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
-    let rpcUrl = 'https://api.devnet.solana.com';
+    let rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com';
 
     // Use env RPC if it exists and isn't a flaky Helius one
     if (envRpc && !envRpc.includes('helius')) {

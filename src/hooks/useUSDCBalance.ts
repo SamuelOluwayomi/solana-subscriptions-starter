@@ -7,7 +7,7 @@ import { CADPAY_MINT } from '../utils/cadpayToken';
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
-const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
 
 // Manually derive associated token address (for compatibility with older SPL token versions)
 async function findAssociatedTokenAddress(

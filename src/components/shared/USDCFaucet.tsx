@@ -31,7 +31,7 @@ export default function USDCFaucet({ onSuccess, userAddress }: USDCFaucetProps) 
         try {
             // For hackathon demo: Create a 0-lamport transaction to prove wallet works
             // This demonstrates the gasless capability
-            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const connection = await (await import('@/utils/rpc')).createConnectionWithRetry();
             const walletPubkey = new PublicKey(userAddress);
 
             // Create a simple 0-transfer transaction

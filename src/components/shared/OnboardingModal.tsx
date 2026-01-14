@@ -219,7 +219,7 @@ export default function OnboardingModal({ isOpen, isSubmitting, walletAddress, o
                     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                         <div>
                             <label className="block text-sm text-zinc-400 mb-4 font-medium">Choose your avatar</label>
-                            <div className="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
+                            <div className="grid grid-cols-4 gap-3 max-h-75 overflow-y-auto p-1 custom-scrollbar">
                                 {AVATAR_OPTIONS.map((av) => (
                                     <button
                                         key={av}

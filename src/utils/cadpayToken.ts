@@ -20,7 +20,7 @@ const DEMO_MINT_SECRET = Uint8Array.from([123, 193, 13, 207, 96, 242, 30, 107, 1
 export const MINT_KEYPAIR = Keypair.fromSecretKey(DEMO_MINT_SECRET);
 export const CADPAY_MINT = MINT_KEYPAIR.publicKey;
 
-const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
 
 // --- Manual Instruction Helpers (No SPL Token Lib Dep) ---
 

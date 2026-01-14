@@ -412,7 +412,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             if (!address || address === 'Loading...') return;
             try {
                 // Use shared connection if available, else fallback but don't spam
-                const conn = connection || new Connection('https://api.devnet.solana.com');
+                const conn = connection || new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com');
                 const pubkey = new PublicKey(address);
                 const signatures = await conn.getSignaturesForAddress(pubkey, { limit: 10 });
                 setTransactions(prev => {
@@ -662,7 +662,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             // 3.5. Fetch Address Lookup Table for transaction compression
             const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
-            const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+            const connection = await (await import('@/utils/rpc')).createConnectionWithRetry();
             const lookupTableAccount = await connection.getAddressLookupTable(lookupTableAddress)
                 .then((res) => res.value);
 

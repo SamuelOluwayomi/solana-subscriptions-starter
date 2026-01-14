@@ -62,6 +62,20 @@ NEXT_PUBLIC_SOLANA_NETWORK=devnet
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+> Recommended: use a managed RPC endpoint for stability under load. Create a `.env.local` from `.env.local.example` and set:
+
+```env
+# Example managed RPC (QuickNode / Alchemy)
+NEXT_PUBLIC_RPC_URL=https://your-quicknode-endpoint.solana-devnet.quiknode.pro/abcd1234/
+```
+
+Debugging tip: if you want to bypass Lazorkit's Paymaster and send transactions directly (useful when validating on-chain state during development), set:
+
+```env
+# Disable Lazorkit Paymaster for debugging
+NEXT_PUBLIC_DISABLE_PAYMASTER=true
+```
+
 **Note:** Get your Lazorkit credentials from [Lazorkit Dashboard](https://lazorkit.io)
 
 ### 3. Run Development Server

@@ -24,9 +24,9 @@ export function Providers({ children }: { children: ReactNode }) {
                 <MerchantProvider> {/* Added MerchantProvider */}
                     {mounted ? (
                         <LazorkitProvider
-                            rpcUrl="https://api.devnet.solana.com"
+                            rpcUrl={process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com'}
                             portalUrl="https://portal.lazor.sh"
-                            paymasterConfig={paymasterConfig}
+                            paymasterConfig={process.env.NEXT_PUBLIC_DISABLE_PAYMASTER === 'true' ? undefined : paymasterConfig}
                         >
                             {children}
                         </LazorkitProvider>
