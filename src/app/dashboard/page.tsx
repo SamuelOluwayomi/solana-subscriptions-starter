@@ -83,9 +83,18 @@ export default function Dashboard() {
     const handleOnboardingComplete = async (data: { username: string; pin: string; gender: string; avatar: string }) => {
         setIsOnboardingSubmitting(true);
         try {
-            await createProfile(data.username, data.avatar, data.gender, data.pin);
+            const signature = await createProfile(data.username, data.avatar, data.gender, data.pin);
             setShowOnboarding(false);
-            showToast("Profile created on-chain!", "success");
+            if (signature) {
+                showToast(
+                    `Profile created on-chain — tx ${signature.slice(0, 8)}...`,
+                    'success'
+                );
+                // Also log a full link for manual inspection
+                console.log('Profile creation tx:', `https://explorer.solana.com/tx/${signature}?cluster=devnet`);
+            } else {
+                showToast("Profile created on-chain!", "success");
+            }
         } catch (e) {
             console.error("Onboarding failed", e);
             showToast("Failed to create profile. Try again.", "error");

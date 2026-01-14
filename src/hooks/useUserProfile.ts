@@ -243,21 +243,36 @@ export function useUserProfile() {
                 // ignore - some providers (or Lazorkit) may not support this exact call
             }
 
-            // Poll the on-chain account for up to ~12 seconds
-            const maxAttempts = 12;
+            // Poll transaction status + account presence for up to ~30 seconds
+            const maxAttempts = 15;
             let found = false;
             for (let i = 0; i < maxAttempts; i++) {
                 try {
-                    // @ts-ignore
-                    const existing = await program.account.userProfile.fetchNullable(profilePda);
-                    if (existing) {
-                        found = true;
-                        break;
+                    // First, check transaction status/logs
+                    const tx = await connection.getTransaction(signature, { commitment: 'confirmed' });
+                    if (tx) {
+                        if (tx.meta && tx.meta.err) {
+                            // Transaction failed on-chain
+                            throw new Error('Transaction failed: ' + JSON.stringify(tx.meta.err));
+                        }
+                        // If transaction confirmed, check account existence
+                        // @ts-ignore
+                        const existing = await program.account.userProfile.fetchNullable(profilePda);
+                        if (existing) {
+                            found = true;
+                            break;
+                        }
                     }
                 } catch (e) {
-                    // ignore transient failures and keep polling
+                    // if the error was transaction failure, rethrow
+                    if (e && (e.message || '').includes('Transaction failed')) {
+                        console.error('Transaction reported failed on-chain', e);
+                        throw e;
+                    }
+                    // otherwise ignore and continue polling
                 }
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // backoff delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
             if (!found) {
