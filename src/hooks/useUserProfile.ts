@@ -48,7 +48,7 @@ const IDL: Idl = {
     "accounts": [
         {
             "name": "UserProfile",
-            "discriminator": [200, 150, 26, 17, 30, 100, 50, 10]
+            "discriminator": [32, 37, 119, 205, 179, 180, 13, 194]
         }
     ],
     "types": [
@@ -232,48 +232,44 @@ export function useUserProfile() {
             const signature = await signAndSendTransaction(tx);
             console.log("Transaction sent, awaiting confirmation...", signature);
 
+            // OPTIMISTIC UPDATE: Set profile state immediately to hide onboarding modal
+            setProfile({
+                username,
+                emoji,
+                gender,
+                pin,
+                authority: userPubkey
+            });
+
             // Set local flag immediately for optimistic UX
             localStorage.setItem(`cadpay_profile_exists_${smartWalletPubkey.toString()}`, 'true');
 
-            // Try to confirm the signature and poll for PDA existence before returning
+            // Try to confirm the signature quickly
             try {
-                // Attempt RPC confirmation (may fail depending on provider)
-                await connection.confirmTransaction(signature, 'confirmed');
+                const latest = await connection.getLatestBlockhash();
+                await connection.confirmTransaction({
+                    signature,
+                    ...latest
+                }, 'confirmed');
             } catch (e) {
-                // ignore - some providers (or Lazorkit) may not support this exact call
+                // ignore - we will poll for the account instead
             }
 
-            // Poll transaction status + account presence for up to ~30 seconds
-            const maxAttempts = 15;
+            // Poll aggressively for account presence (every 800ms)
+            const maxAttempts = 20;
             let found = false;
             for (let i = 0; i < maxAttempts; i++) {
                 try {
-                    // First, check transaction status/logs
-                    const tx = await connection.getTransaction(signature, { commitment: 'confirmed' });
-                    if (tx) {
-                        if (tx.meta && tx.meta.err) {
-                            // Transaction failed on-chain
-                            throw new Error('Transaction failed: ' + JSON.stringify(tx.meta.err));
-                        }
-                        // If transaction confirmed, check account existence
-                        // @ts-ignore
-                        const existing = await program.account.userProfile.fetchNullable(profilePda);
-                        if (existing) {
-                            found = true;
-                            break;
-                        }
+                    // @ts-ignore
+                    const existing = await program.account.userProfile.fetchNullable(profilePda);
+                    if (existing) {
+                        found = true;
+                        break;
                     }
                 } catch (e) {
-                    // if the error was transaction failure, rethrow
-                    const msg = (e as any)?.message || '';
-                    if (msg.includes('Transaction failed')) {
-                        console.error('Transaction reported failed on-chain', e);
-                        throw e;
-                    }
-                    // otherwise ignore and continue polling
+                    // ignore and backoff
                 }
-                // backoff delay
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                await new Promise(resolve => setTimeout(resolve, 800));
             }
 
             if (!found) {
@@ -284,7 +280,7 @@ export function useUserProfile() {
                     const info = await connection.getAccountInfo(profilePda);
                     console.log('Debug: getAccountInfo(profilePda)=', info);
                     const txDebug = await connection.getTransaction(signature, { commitment: 'confirmed' });
-                    console.log('Debug: getTransaction(signature)=', txDebug?.meta ? {err: txDebug.meta.err, logs: txDebug.meta.logMessages} : txDebug);
+                    console.log('Debug: getTransaction(signature)=', txDebug?.meta ? { err: txDebug.meta.err, logs: txDebug.meta.logMessages } : txDebug);
                 } catch (dbgErr) {
                     console.warn('Debug logging failed', dbgErr);
                 }
