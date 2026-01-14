@@ -136,14 +136,28 @@ export function useUserProfile() {
     const checkAndAirdrop = async (address: anchor.web3.PublicKey) => {
         try {
             const balance = await connection.getBalance(address);
-            if (balance < 0.02 * anchor.web3.LAMPORTS_PER_SOL) {
-                console.log("Auto-airdrop starting for:", address.toString());
-                const signature = await connection.requestAirdrop(address, 1 * anchor.web3.LAMPORTS_PER_SOL);
-                await connection.confirmTransaction(signature, 'confirmed');
-                console.log("Auto-airdrop successful");
+            if (balance < 0.05 * anchor.web3.LAMPORTS_PER_SOL) {
+                console.log("Requesting seed SOL from private treasury for:", address.toString());
+
+                const response = await fetch('/api/faucet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userAddress: address.toString() }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || "Private faucet failed");
+                }
+
+                const data = await response.json();
+                console.log("Private funding successful, tx:", data.signature);
+
+                // Short pause to let the network process the transfer
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
         } catch (err) {
-            console.warn("Airdrop rate limit hit. Please fund manually if needed.");
+            console.warn("Private faucet error:", err);
         }
     };
 
