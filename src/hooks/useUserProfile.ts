@@ -265,7 +265,8 @@ export function useUserProfile() {
                     }
                 } catch (e) {
                     // if the error was transaction failure, rethrow
-                    if (e && (e.message || '').includes('Transaction failed')) {
+                    const msg = (e as any)?.message || '';
+                    if (msg.includes('Transaction failed')) {
                         console.error('Transaction reported failed on-chain', e);
                         throw e;
                     }
