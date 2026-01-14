@@ -14,8 +14,10 @@ export async function POST(req: NextRequest) {
         const connection = new Connection(rpcUrl, "confirmed");
 
         if (!process.env.TREASURY_SECRET_KEY) {
+            console.log("Key loaded check: false");
             throw new Error("Treasury key missing in environment");
         }
+        console.log("Key loaded check: true");
 
         let secretKey: Uint8Array;
         try {
