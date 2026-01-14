@@ -71,10 +71,9 @@ export default function NavBar() {
                         className="fixed inset-0 z-40 bg-black pt-24 px-6 md:hidden"
                     >
                         <div className="flex flex-col gap-6 text-lg font-medium">
-                            <MobileLink href="/jupiter" onClick={() => setIsOpen(false)}>Jupiter Demo</MobileLink>
-                            <MobileLink href="#" onClick={() => setIsOpen(false)}>The Bridge</MobileLink>
+                            <MobileLink href="https://github.com/lazor-kit/lazor-kit" onClick={() => setIsOpen(false)}>The Bridge</MobileLink>
                             <MobileLink href="/merchant-auth" onClick={() => setIsOpen(false)}>Merchant Portal</MobileLink>
-                            <MobileLink href="#" onClick={() => setIsOpen(false)}>Lazorkit Engine</MobileLink>
+                            <MobileLink href="https://docs.lazorkit.com/" onClick={() => setIsOpen(false)}>Lazorkit Engine</MobileLink>
                             <hr className="border-white/10" />
                             <MobileLink href="/signin" onClick={() => setIsOpen(false)}>Log In</MobileLink>
                             <Link

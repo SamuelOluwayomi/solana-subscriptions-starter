@@ -9,7 +9,7 @@ import {
     HouseIcon, UserCircleIcon, CreditCardIcon, PlusIcon, LinkIcon,
     ReceiptIcon, KeyIcon, SignOutIcon, CopyIcon, ArrowRightIcon, WalletIcon,
     CaretRightIcon, ListIcon, XIcon, CurrencyDollarIcon, ArrowUpIcon, ArrowDownIcon,
-    StorefrontIcon
+    StorefrontIcon, CaretDownIcon
 } from '@phosphor-icons/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import Link from 'next/link';
@@ -338,6 +338,66 @@ export default function Dashboard() {
                 walletAddress={walletAddress}
                 onComplete={handleOnboardingComplete}
             />
+        </div>
+    );
+}
+
+// Custom Mobile Dropdown Component
+function MobileDropdown({ options, value, onChange, label }: any) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedOption = options.find((opt: any) => opt.id === value);
+
+    return (
+        <div className="relative md:hidden w-full">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900/50 border border-white/10 rounded-xl text-sm font-bold text-white transition-all hover:bg-white/5 active:scale-[0.98]"
+            >
+                <div className="flex items-center gap-2">
+                    {label && <span className="text-zinc-500 font-medium">{label}:</span>}
+                    <span>{selectedOption?.name || selectedOption?.label}</span>
+                </div>
+                <CaretDownIcon size={16} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsOpen(false)}
+                            className="fixed inset-0 z-40"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute left-0 right-0 top-full mt-2 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 backdrop-blur-xl"
+                        >
+                            <div className="p-1">
+                                {options.map((option: any) => (
+                                    <button
+                                        key={option.id}
+                                        onClick={() => {
+                                            onChange(option.id);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-3 text-sm rounded-lg transition-colors flex items-center justify-between ${value === option.id
+                                            ? 'bg-orange-500 text-white font-bold'
+                                            : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                                            }`}
+                                    >
+                                        {option.name || option.label}
+                                        {value === option.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
@@ -741,9 +801,11 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
     return (
         <div className="space-y-8">
             {/* Header with Tabs */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h2 className="text-3xl font-bold">Subscriptions</h2>
-                <div className="flex flex-wrap gap-2 bg-zinc-900/50 p-1 rounded-xl">
+
+                {/* Desktop Tabs */}
+                <div className="hidden md:flex flex-wrap gap-2 bg-zinc-900/50 p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab('browse')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
@@ -766,6 +828,17 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                         Analytics
                     </button>
                 </div>
+
+                {/* Mobile Dropdown Tab */}
+                <MobileDropdown
+                    options={[
+                        { id: 'browse', name: 'Browse Services' },
+                        { id: 'active', name: `Active Subscriptions (${subscriptions.length})` },
+                        { id: 'analytics', name: 'Spending Analytics' }
+                    ]}
+                    value={activeTab}
+                    onChange={setActiveTab}
+                />
             </div>
 
             {/* Browse Tab */}
@@ -773,13 +846,13 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
                     {/* Left Column: Subscriptions List */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <StorefrontIcon size={24} className="text-orange-500" />
-                                Your Subscriptions
+                                <span className="whitespace-nowrap">Your Subscriptions</span>
                             </h2>
-                            {/* Filter Pills */}
-                            <div className="flex flex-wrap gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
+                            {/* Desktop Filter Pills */}
+                            <div className="hidden sm:flex flex-wrap gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
                                 {CATEGORIES.filter(c => c.count > 0).slice(0, 4).map(cat => (
                                     <button
                                         key={cat.id}
@@ -793,6 +866,14 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Mobile Category Dropdown */}
+                            <MobileDropdown
+                                options={CATEGORIES.filter(c => c.count > 0).slice(0, 4)}
+                                value={categoryFilter}
+                                onChange={setCategoryFilter}
+                                label="Category"
+                            />
                         </div>
 
                         {/* Service Cards Grid - Mobile: 2 cols, Desktop: 2 cols */}
@@ -822,7 +903,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                                 </div>
                             </div>
 
-                            <div className="h-48 w-full">
+                            <div className="h-48 w-full min-h-[192px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={spendingData}>
                                         <XAxis

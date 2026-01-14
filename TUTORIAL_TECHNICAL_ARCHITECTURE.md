@@ -31,6 +31,11 @@ CadPay operates across three distinct layers to provide a seamless Web2-like exp
   }
   ```
 
+### D. Transaction Tagging (SPL Memo)
+- **Context**: Every subscription payment includes an **SPL Memo** instruction.
+- **Role**: This attaches a human-readable string (e.g., `"Subscribed to Netflix: Monthly"`) to the transaction on-chain.
+- **Verification**: Merchants use these memos to verify *what* a user paid for without needing a separate database lookup for every tx.
+
 ## 2. Onboarding Lifecycle
 
 1. **Phase 1: Key Generation**

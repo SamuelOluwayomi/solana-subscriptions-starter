@@ -181,9 +181,13 @@ export async function constructMintTransaction(
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = MINT_AUTHORITY.publicKey; // Mint Authority Pays!
 
-    // Sign with Mint Authority (Payer/Auth) AND Mint Keypair (If initializing)
-    // Safe to sign with both always
-    transaction.sign(MINT_AUTHORITY, MINT_KEYPAIR);
+    // Sign with Mint Authority (Payer/Auth) 
+    // Only sign with Mint Keypair if we are initializing it
+    if (!mintInfo) {
+        transaction.sign(MINT_AUTHORITY, MINT_KEYPAIR);
+    } else {
+        transaction.sign(MINT_AUTHORITY);
+    }
 
     return {
         transaction,
@@ -309,9 +313,10 @@ export async function constructTransferTransaction(
     const { createMemoInstruction } = await import('@solana/spl-memo');
 
     // Simple format: "Netflix - Premium" (merchant displays this directly)
-    const memoMessage = serviceName && planName
+    // Capped at 50 chars to avoid TransactionTooLarge error on mobile
+    const memoMessage = (serviceName && planName
         ? `${serviceName} - ${planName}`
-        : `Subscription Payment`;
+        : `Subscription Payment`).slice(0, 50);
 
     const memoInstruction = createMemoInstruction(memoMessage, [userPubkey]);
 
