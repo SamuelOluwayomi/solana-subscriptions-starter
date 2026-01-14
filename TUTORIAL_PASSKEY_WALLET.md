@@ -83,4 +83,12 @@ This is different from the passkey public key and is deterministically derived.
 
 ---
 
+---
+
+## 🌐 Project Links
+
+- **Live Demo:** [https://cadpay.vercel.app/](https://cadpay.vercel.app/)
+- **GitHub Repository:** [https://github.com/SamuelOluwayomi/solana-subscriptions-starter](https://github.com/SamuelOluwayomi/solana-subscriptions-starter)
+- **Watch the Demo:** [Demo Video Coming Soon]
+
 **Next:** Learn about [Gasless Transactions →](./TUTORIAL_GASLESS_TRANSACTIONS.md)

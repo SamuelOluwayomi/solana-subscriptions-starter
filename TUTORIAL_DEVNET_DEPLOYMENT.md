@@ -199,7 +199,7 @@ After deploying, test the live site:
 
 1. **Wallet Creation**
    ```
-   Visit: https://your-app.vercel.app/create
+   Visit: https://cadpay.vercel.app/create
    - Create wallet with Face ID/Touch ID
    - Verify redirect to dashboard
    ```
@@ -220,7 +220,7 @@ After deploying, test the live site:
 
 4. **Jupiter Integration**
    ```
-   Visit: https://your-app.vercel.app/jupiter
+   Visit: https://cadpay.vercel.app/jupiter
    - Fetch USDC → SOL quote
    - Execute swap
    - Verify on-chain

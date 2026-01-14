@@ -40,7 +40,7 @@ CadPay demonstrates the power of Lazorkit SDK by solving two major crypto UX pro
 ### 1. Clone & Install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/SamuelOluwayomi/solana-subscriptions-starter
 cd solana-subscriptions-starter
 npm install
 ```
@@ -206,6 +206,10 @@ src/
 ## 🎥 Demo Video
 
 [Link to video walkthrough - coming soon]
+
+## 🐦 Connect on X
+
+**Stay updated:** [Follow the project on X](https://x.com/The_devsam/status/2009888166329647558)
 
 ## 🏆 Hackathon Submission
 

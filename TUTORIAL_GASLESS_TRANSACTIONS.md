@@ -182,4 +182,12 @@ try {
 
 ---
 
+---
+
+## 🌐 Project Links
+
+- **Live Demo:** [https://cadpay.vercel.app/](https://cadpay.vercel.app/)
+- **GitHub Repository:** [https://github.com/SamuelOluwayomi/solana-subscriptions-starter](https://github.com/SamuelOluwayomi/solana-subscriptions-starter)
+- **Watch the Demo:** [Demo Video Coming Soon]
+
 **Previous:** [← Passkey Wallet Tutorial](./TUTORIAL_PASSKEY_WALLET.md)

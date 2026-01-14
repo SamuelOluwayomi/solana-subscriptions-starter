@@ -156,4 +156,12 @@ Message: "CadPay: Netflix - Premium Plan"
 
 CadPay demonstrates **protocol integration** by incorporating the **SPL Memo Program** into every subscription payment. This standard Solana protocol adds transaction metadata, enabling transparency and searchability while fulfilling the bounty requirement to interact with existing on-chain programs.
 
-**Result:** Clean, simple, devnet-compatible protocol integration that works perfectly with Lazorkit's gasless transaction sponsorship! 🚀
+---
+
+## 🌐 Project Links
+
+- **Live Demo:** [https://cadpay.vercel.app/](https://cadpay.vercel.app/)
+- **GitHub Repository:** [https://github.com/SamuelOluwayomi/solana-subscriptions-starter](https://github.com/SamuelOluwayomi/solana-subscriptions-starter)
+- **Watch the Demo:** [Demo Video Coming Soon]
+
+**Next:** Learn about [Developing for Devnet →](./TUTORIAL_DEVNET_DEPLOYMENT.md)

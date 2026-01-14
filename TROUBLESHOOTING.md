@@ -43,4 +43,10 @@ If the "Connect Wallet" button doesn't trigger the Passkey prompt:
 ---
 
 > [!TIP]
-> **Pro Demo Tip:** Always have a separate window open with the [Solana Explorer](https://explorer.solana.com/?cluster=devnet) pointing to your Smart Wallet address. Judges love seeing the "Real-time" proof of gasless transactions!
+---
+
+## 🌐 Project Links
+
+- **Live Demo:** [https://cadpay.vercel.app/](https://cadpay.vercel.app/)
+- **GitHub Repository:** [https://github.com/SamuelOluwayomi/solana-subscriptions-starter](https://github.com/SamuelOluwayomi/solana-subscriptions-starter)
+- **Watch the Demo:** [Demo Video Coming Soon]
