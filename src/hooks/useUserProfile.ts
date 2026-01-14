@@ -139,7 +139,7 @@ export function useUserProfile() {
             if (balance < 0.02 * anchor.web3.LAMPORTS_PER_SOL) {
                 console.log("Auto-airdrop starting for:", address.toString());
                 const signature = await connection.requestAirdrop(address, 1 * anchor.web3.LAMPORTS_PER_SOL);
-                await connection.confirmTransaction(signature);
+                await connection.confirmTransaction(signature, 'confirmed');
                 console.log("Auto-airdrop successful");
             }
         } catch (err) {
@@ -226,7 +226,9 @@ export function useUserProfile() {
 
             const tx = new Transaction().add(instruction);
             tx.feePayer = userPubkey;
-            const { blockhash } = await connection.getLatestBlockhash();
+
+            // GET A FRESH BLOCKHASH RIGHT NOW (This fixes the 'Too Old' error)
+            const { blockhash } = await connection.getLatestBlockhash('confirmed');
             tx.recentBlockhash = blockhash;
 
             const signature = await signAndSendTransaction(tx);
@@ -261,7 +263,7 @@ export function useUserProfile() {
             for (let i = 0; i < maxAttempts; i++) {
                 try {
                     // @ts-ignore
-                    const existing = await program.account.userProfile.fetchNullable(profilePda);
+                    const existing = await program.account.userProfile.fetchNullable(profilePda, 'confirmed');
                     if (existing) {
                         found = true;
                         break;
