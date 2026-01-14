@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLazorkit } from '@/hooks/useLazorkit';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     HouseIcon, UserCircleIcon, CreditCardIcon, PlusIcon, LinkIcon,
     ReceiptIcon, KeyIcon, SignOutIcon, CopyIcon, ArrowRightIcon, WalletIcon,
@@ -42,6 +43,7 @@ export default function Dashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
     // Use On-Chain Profile Hook
     const { profile, loading: profileLoading, createProfile, updateProfile } = useUserProfile();
+    const router = useRouter();
 
     // Derived State: Use on-chain profile if available, else fall back to local (for optimistic/legacy)
     // Actually, let's trust the on-chain profile primarily
@@ -94,6 +96,13 @@ export default function Dashboard() {
                 console.log('Profile creation tx:', `https://explorer.solana.com/tx/${signature}?cluster=devnet`);
             } else {
                 showToast("Profile created on-chain!", "success");
+            }
+
+            // Navigate to dashboard root to ensure user is on the dashboard view
+            try {
+                router.push('/dashboard');
+            } catch (err) {
+                // ignore navigation errors
             }
         } catch (e) {
             console.error("Onboarding failed", e);

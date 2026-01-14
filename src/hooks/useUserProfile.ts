@@ -278,6 +278,16 @@ export function useUserProfile() {
 
             if (!found) {
                 console.warn('Profile not visible on-chain after waiting; you may need to refresh or check RPC health');
+                try {
+                    console.log('Debug: smartWalletPubkey=', smartWalletPubkey?.toString());
+                    console.log('Debug: profile PDA=', profilePda.toBase58());
+                    const info = await connection.getAccountInfo(profilePda);
+                    console.log('Debug: getAccountInfo(profilePda)=', info);
+                    const txDebug = await connection.getTransaction(signature, { commitment: 'confirmed' });
+                    console.log('Debug: getTransaction(signature)=', txDebug?.meta ? {err: txDebug.meta.err, logs: txDebug.meta.logMessages} : txDebug);
+                } catch (dbgErr) {
+                    console.warn('Debug logging failed', dbgErr);
+                }
             }
 
             // Refresh local cache
