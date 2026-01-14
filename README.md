@@ -203,10 +203,6 @@ src/
 
 **Deployed URL:** https://cadpay.vercel.app/
 
-## 🎥 Demo Video
-
-[Link to video walkthrough - coming soon]
-
 ## 🐦 Connect on X
 
 **Stay updated:** [Follow the project on X](https://x.com/The_devsam/status/2009888166329647558)
@@ -227,9 +223,6 @@ This project was built for the **Lazorkit Passkey Integration Bounty** by Supert
 
 This is a hackathon submission, but feel free to fork and build upon it!
 
-## 📄 License
-
-MIT
 
 ## 🙏 Acknowledgments
 
