@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup": "cp .env.local.example .env.local && npm install"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",

@@ -158,6 +158,9 @@ export function useUserProfile() {
             }
         } catch (err) {
             console.warn("Private faucet error:", err);
+            if (err instanceof Error && err.message.includes("Treasury key missing")) {
+                console.error("⚠️ Developer Tip: Your private faucet is making things difficult! Add 'TREASURY_SECRET_KEY' to your .env.local to enable reliable automated onboarding.");
+            }
         }
     };
 
