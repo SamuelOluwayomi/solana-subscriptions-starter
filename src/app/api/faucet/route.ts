@@ -13,23 +13,23 @@ export async function POST(req: NextRequest) {
         const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
         const connection = new Connection(rpcUrl, "confirmed");
 
-        if (!process.env.TREASURY_SECRET_KEY) {
-            console.log("Key loaded check: false");
+        const rawKey = process.env.TREASURY_SECRET_KEY;
+        if (!rawKey) {
+            console.log("Key loaded check: false (missing in env)");
             throw new Error("Treasury key missing in environment");
         }
         console.log("Key loaded check: true");
 
         let secretKey: Uint8Array;
         try {
-            // Handle both array string and base58 string formats
-            const rawKey = process.env.TREASURY_SECRET_KEY;
-            if (rawKey.startsWith('[')) {
+            if (rawKey.trim().startsWith('[')) {
                 secretKey = new Uint8Array(JSON.parse(rawKey));
             } else {
                 secretKey = bs58.decode(rawKey);
             }
         } catch (e) {
-            throw new Error("Invalid TREASURY_SECRET_KEY format");
+            console.error("Key format error:", e);
+            throw new Error("Invalid TREASURY_SECRET_KEY format - must be [1,2,3...] or Base58 string");
         }
 
         const treasury = Keypair.fromSecretKey(secretKey);
