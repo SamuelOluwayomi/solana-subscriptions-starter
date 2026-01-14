@@ -34,6 +34,14 @@ Transaction Executed on Solana
 Customer Subscription Activated
 ```
 
+### The "First Transaction" Problem
+On Solana, every new account (like a `UserProfile` or a Token Account) requires a small amount of SOL to be "Rent Exempt". Even if a Paymaster sponsors the transaction fees, someone must pay the **Account Rent**.
+
+**CadPay's Private Faucet** solves this by sending a one-time grant of **0.05 SOL** to every new smart wallet. This is enough to:
+1. Initialize the `UserProfile` account (~0.002 SOL)
+2. Create the USDC Token Account (~0.002 SOL)
+3. Pay for several independent transactions if the Paymaster is ever offline.
+
 ### Gas Cost Breakdown
 On Solana, typical transaction costs are **~0.000005 SOL** ($0.0001 at $20/SOL). CadPay merchants absorb this cost to provide seamless UX.
 
@@ -61,11 +69,10 @@ const totalGasSaved = transactionCount * 0.000005; // SOL
 
 ### Behind the Scenes
 
-1. **Customer initiates subscription payment**
-2. **Lazorkit wallet creates transaction** with customer as signer
-3. **Paymaster/Merchant wallet pays network fee** (~0.000005 SOL)
-4. **Customer only signs**, doesn't pay gas
-5. **Transaction settles instantly** on Solana
+1. **User Creates Wallet**: Private Faucet detects the new address and sends 0.05 SOL.
+2. **User Onboards**: The 0.05 SOL covers the "Rent" for the `UserProfile` data storage.
+3. **Subscribing**: When paying, Lazorkit wraps the instruction. The Paymaster pays the ~0.000005 SOL fee.
+4. **Outcome**: The user never sees a "Insufficient SOL" error.
 
 ## Setting Up Gasless Payments
 

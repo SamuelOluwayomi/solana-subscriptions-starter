@@ -14,15 +14,29 @@ When you create a wallet:
 - Your biometric data authenticates signing operations
 
 ### 2. **Authentication Flow**
-```
-User clicks "Create Wallet" 
-  → Device prompts for biometric (Face ID/Touch ID)
-  → Passkey created and stored in device
-  → Smart wallet PDA derived on Solana
-  → User can immediately transact
+```mermaid
+sequenceDiagram
+    participant User
+    participant Device as Secure Enclave
+    participant Front as Frontend (Lazor Kit)
+    participant BC as Solana Blockchain
+
+    User->>Front: Click "Create Wallet"
+    Front->>Device: Request Passkey Creation
+    Device-->>User: ID/Biometric Prompt
+    User->>Device: Authenticate
+    Device-->>Front: Signed Public Key
+    Front->>BC: Derive Smart Wallet PDA
+    BC-->>Front: Wallet Ready (0 SOL)
 ```
 
-### 3. **Security Benefits**
+### 3. **The Smart Wallet PDA**
+Your actual wallet address is a **Program Derived Address (PDA)**. Unlike traditional wallets where the address is the public key, a smart wallet address is deterministically calculated using:
+- The Lazor Kit Program ID
+- Your Passkey Public Key
+- A "salt" or index
+
+This ensures that even though you use a Passkey, you have a consistent, secure address on-chain.
 ✅ **No seed phrase to lose or forget**  
 ✅ **Phishing resistant** - keys can't be typed or copied  
 ✅ **Hardware-backed security** - keys stored in secure enclave  
@@ -49,14 +63,23 @@ await connect(); // Triggers biometric prompt
 const signature = await signAndSendTransaction(transaction);
 ```
 
-### Smart Wallet PDA
-Your actual wallet address is a **Program Derived Address (PDA)**:
-```typescript
-const smartWalletPDA = smartWalletPubkey.toBase58(); 
-// e.g., "GenHeNGnqhM23wbn54r1zov86gtcp5VXjGYWtWfD4oHG"
-```
+### 1. **On-Chain Initialization** (The "Magic")
+When you first log in, CadPay checks if your `UserProfile` exists on-chain. If not, it triggers the `initializeUser` instruction in our Anchor program.
 
-This is different from the passkey public key and is deterministically derived.
+**What happens during initialization?**
+1. **Space Allocation**: The program allocates bytes on the Solana ledger for your username, avatar, and settings.
+2. **Rent Payment**: To stay on the ledger, an account must be "Rent Exempt" (usually cost ~0.002 SOL). **The Private Faucet sponsors this initially.**
+3. **Data Binding**: Your Smart Wallet address is permanently linked to this `UserProfile` account.
+
+```rust
+// Anchor Program Logic (Simplified)
+pub fn initialize_user(ctx: Context<InitializeUser>, username: String) -> Result<()> {
+    let user_profile = &mut ctx.accounts.user_profile;
+    user_profile.authority = ctx.accounts.signer.key();
+    user_profile.username = username;
+    Ok(())
+}
+```
 
 ## Troubleshooting
 
