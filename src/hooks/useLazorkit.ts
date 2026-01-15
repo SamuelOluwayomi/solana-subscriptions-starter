@@ -334,56 +334,56 @@ export function useLazorkit() {
                 throw new Error('Anchor transaction has no instructions');
             }
 
-            // Extract the instruction from the transaction
-            const instruction = anchorTx.instructions[0];
+            // 7. Convert all Anchor instructions to plain TransactionInstructions for Lazorkit
+            // Account creation may generate multiple instructions (e.g., ATA creation + program call)
+            const plainInstructions = anchorTx.instructions.map((instruction) => {
+                // Recreate all PublicKeys from base58 to avoid internal reference issues
+                const validatedKeys = instruction.keys.map((key) => {
+                    if (!key || !key.pubkey) {
+                        throw new Error('Invalid instruction key');
+                    }
+                    
+                    // Get address string
+                    const pubkeyAddress = key.pubkey instanceof PublicKey 
+                        ? key.pubkey.toBase58() 
+                        : String(key.pubkey);
+                    
+                    // Create fresh PublicKey
+                    return {
+                        pubkey: new PublicKey(pubkeyAddress),
+                        isSigner: key.isSigner || false,
+                        isWritable: key.isWritable || false,
+                    };
+                });
 
-            // 7. Convert Anchor instruction to plain TransactionInstruction for Lazorkit
-            // Recreate all PublicKeys from base58 to avoid internal reference issues
-            const validatedKeys = instruction.keys.map((key) => {
-                if (!key || !key.pubkey) {
-                    throw new Error('Invalid instruction key');
+                // Extract programId safely
+                let programId: PublicKey;
+                if (instruction.programId instanceof PublicKey) {
+                    programId = instruction.programId;
+                } else {
+                    // Handle case where programId might be a different type
+                    const programIdStr = typeof instruction.programId === 'string' 
+                        ? instruction.programId 
+                        : String(instruction.programId);
+                    programId = new PublicKey(programIdStr);
                 }
-                
-                // Get address string
-                const pubkeyAddress = key.pubkey instanceof PublicKey 
-                    ? key.pubkey.toBase58() 
-                    : String(key.pubkey);
-                
-                // Create fresh PublicKey
-                return {
-                    pubkey: new PublicKey(pubkeyAddress),
-                    isSigner: key.isSigner || false,
-                    isWritable: key.isWritable || false,
-                };
-            });
 
-            // Extract programId safely
-            let programId: PublicKey;
-            if (instruction.programId instanceof PublicKey) {
-                programId = instruction.programId;
-            } else {
-                // Handle case where programId might be a different type
-                const programIdStr = typeof instruction.programId === 'string' 
-                    ? instruction.programId 
-                    : String(instruction.programId);
-                programId = new PublicKey(programIdStr);
-            }
+                const data = Buffer.isBuffer(instruction.data)
+                    ? instruction.data
+                    : Buffer.from(instruction.data as any);
 
-            const data = Buffer.isBuffer(instruction.data)
-                ? instruction.data
-                : Buffer.from(instruction.data as any);
-
-            const plainInstruction = new TransactionInstruction({
-                programId: programId,
-                keys: validatedKeys,
-                data: data,
+                return new TransactionInstruction({
+                    programId: programId,
+                    keys: validatedKeys,
+                    data: data,
+                });
             });
 
             // 8. Execute via Lazorkit's instruction-based API (requires user authentication)
             showToast('Creating savings pot... Please authenticate', 'info');
             
             const signature = await signAndSendTransaction({
-                instructions: [plainInstruction],
+                instructions: plainInstructions,
                 transactionOptions: {
                     computeUnitLimit: 400_000, // Sufficient for account creation
                 }
