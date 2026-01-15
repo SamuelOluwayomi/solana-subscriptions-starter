@@ -1,7 +1,7 @@
 // Imports
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, TransactionInstruction } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, TransactionInstruction, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
 // @ts-ignore
 import { useWallet } from '@lazorkit/wallet';
 import { useToast } from '@/context/ToastContext';
@@ -234,28 +234,56 @@ export function useLazorkit() {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
 
         try {
-            // 1. Create instructions for savings pot with storage rent funding
-            const { instructions, savingsPotAddress } = await constructCreateSavingsPotTransaction(
-                address,
-                name,
-                unlockTime,
-                connection
-            );
+            // Import required modules
+            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
+            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const idl = await import('../../anchor/target/idl/cadpay_profiles.json');
 
-            // 2. Create and send transaction
-            const tx = new Transaction().add(...instructions);
+            const userPubkey = new PublicKey(address);
+            const [savingsPotPDA] = deriveSavingsPotPDA(userPubkey, name);
+
+            // Create Anchor provider and program
+            const provider = new AnchorProvider(connection, (wallet as any), {});
+            const program = new Program(idl as any, provider);
+
+            // Derive pot ATA (will be created by Anchor's init constraint)
+            const potAta = await getAssociatedTokenAddress(CADPAY_MINT, savingsPotPDA, true);
+
+            // Create the transaction using Anchor's method builder
+            const tx = await program.methods
+                .createSavingsPot(name, new BN(unlockTime))
+                .accounts({
+                    savingsPot: savingsPotPDA,
+                    potAta: potAta,
+                    mint: CADPAY_MINT,
+                    user: userPubkey,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                    systemProgram: SystemProgram.programId,
+                    rent: SYSVAR_RENT_PUBKEY,
+                })
+                .transaction();
 
             // Set fresh blockhash immediately before signing
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
             tx.recentBlockhash = blockhash;
             tx.lastValidBlockHeight = lastValidBlockHeight;
-            tx.feePayer = new PublicKey(address);
+            tx.feePayer = userPubkey;
 
             // Sign and send using Lazorkit
             const signature = await signAndSendTransaction(tx);
 
-            // 3. Store pot metadata locally for quick lookup
-            const potData = { name, unlockTime, address: savingsPotAddress, createdTx: signature };
+            // Wait for confirmation
+            try {
+                await connection.confirmTransaction(signature, 'confirmed');
+            } catch (confirmError) {
+                // Transaction might still be processing
+                console.log('Transaction confirmation:', confirmError);
+            }
+
+            // Store pot metadata locally for quick lookup
+            const potData = { name, unlockTime, address: savingsPotPDA.toBase58(), createdTx: signature };
             const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
             localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
 
@@ -267,7 +295,7 @@ export function useLazorkit() {
             showToast(`Failed to create savings pot: ${error.message}`, 'error');
             throw error;
         }
-    }, [address, signAndSendTransaction, connection, fetchPots, showToast]);
+    }, [address, signAndSendTransaction, connection, fetchPots, showToast, wallet]);
 
     const withdrawFromPot = useCallback(async (potName: string, recipient: string, amount: number, note: string) => {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
