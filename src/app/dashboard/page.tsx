@@ -106,13 +106,64 @@ export default function Dashboard() {
 
                 console.log(`💰 Depositing ${amount} USDC (${rawAmount} raw) to pot "${pot.name}"`);
 
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:109',message:'Deriving accounts',data:{address,potName:pot.name,potAddress:pot.address},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
                 const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
+                
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:112',message:'PotPDA derived',data:{potPda:potPda?.toBase58(),isValid:!!potPda},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
+                if (!potPda) {
+                    throw new Error(`Failed to derive pot PDA for pot "${pot.name}"`);
+                }
+
                 const userAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true);
+                
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:119',message:'User ATA derived',data:{userAta:userAta?.toBase58(),isValid:!!userAta},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
+                if (!userAta) {
+                    throw new Error(`Failed to derive user ATA`);
+                }
+
                 const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+                
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:127',message:'Pot ATA derived',data:{potAta:potAta?.toBase58(),isValid:!!potAta},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
+                if (!potAta) {
+                    throw new Error(`Failed to derive pot ATA`);
+                }
+
+                // Verify pot account exists on-chain
+                try {
+                    const potAccountInfo = await connection.getAccountInfo(potPda);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:135',message:'Pot account check',data:{potPda:potPda.toBase58(),exists:!!potAccountInfo},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                    
+                    if (!potAccountInfo) {
+                        throw new Error(`Savings pot "${pot.name}" does not exist on-chain. Please create it first.`);
+                    }
+                } catch (accountCheckError: any) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:140',message:'Pot account check failed',data:{error:accountCheckError?.message||String(accountCheckError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                    throw new Error(`Failed to verify pot account: ${accountCheckError?.message || 'Unknown error'}`);
+                }
 
                 // Call Anchor program for deposit
                 const provider = new AnchorProvider(connection, (wallet as any), {});
                 const program = new Program(idl as any, provider);
+
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:148',message:'Anchor provider and program created',data:{hasProvider:!!provider,hasProgram:!!program},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
 
                 // Ensure BN is properly imported and amount is valid
                 // Anchor's BN constructor can accept number or string
@@ -145,13 +196,20 @@ export default function Dashboard() {
                 fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:133',message:'About to create deposit instruction',data:{depositAmount:String(depositAmount),rawAmount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
                 // #endregion
 
+                // Validate all accounts before creating instruction
+                const userPubkey = new PublicKey(address);
+                
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:175',message:'Validating accounts before instruction',data:{potPda:potPda.toBase58(),userPubkey:userPubkey.toBase58(),userAta:userAta.toBase58(),potAta:potAta.toBase58(),depositAmount:String(depositAmount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
                 let depositIx;
                 try {
                     depositIx = await program.methods
                         .depositToPot(depositAmount)
                         .accounts({
                             savingsPot: potPda,
-                            user: new PublicKey(address),
+                            user: userPubkey,
                             userAta: userAta,
                             potAta: potAta,
                             tokenProgram: TOKEN_PROGRAM_ID,
