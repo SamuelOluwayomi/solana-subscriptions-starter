@@ -9,14 +9,14 @@ import {
     HouseIcon, UserCircleIcon, CreditCardIcon, PlusIcon, LinkIcon,
     ReceiptIcon, KeyIcon, SignOutIcon, CopyIcon, ArrowRightIcon, WalletIcon,
     CaretRightIcon, ListIcon, XIcon, CurrencyDollarIcon, ArrowUpIcon, ArrowDownIcon,
-    StorefrontIcon, CaretDownIcon
+    StorefrontIcon, CaretDownIcon, CoinsIcon, PiggyBankIcon
 } from '@phosphor-icons/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import Link from 'next/link';
 import { SiSolana } from 'react-icons/si';
 import LogoField from '@/components/shared/LogoField';
 import AddFundsModal from '@/components/shared/AddFundsModal';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { SERVICES, CATEGORIES, Service, SubscriptionPlan } from '@/data/subscriptions';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import ServiceCard from '@/components/subscriptions/ServiceCard';
@@ -32,9 +32,11 @@ import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
 import CopyButton from '@/components/shared/CopyButton';
 import { useMerchant } from '@/context/MerchantContext';
+import CreateSavingsModal from '@/components/shared/CreateSavingsModal';
+import SavingsPotView from '@/components/shared/SavingsPotView';
 import { useToast } from '@/context/ToastContext';
 
-type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys';
+type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys' | 'savings';
 
 export default function Dashboard() {
     const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
@@ -247,6 +249,12 @@ export default function Dashboard() {
                                         onClick={() => { setActiveSection('wallet'); if (window.innerWidth < 768) setSidebarOpen(false); }}
                                     />
                                     <NavItem
+                                        icon={<PiggyBankIcon size={20} />}
+                                        label="Savings Wallet"
+                                        active={activeSection === 'savings'}
+                                        onClick={() => { setActiveSection('savings'); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                                    />
+                                    <NavItem
                                         icon={<KeyIcon size={20} />}
                                         label="Security"
                                         active={activeSection === 'security'}
@@ -315,6 +323,7 @@ export default function Dashboard() {
                     {activeSection === 'payment-link' && <PaymentLinkSection />}
                     {activeSection === 'invoices' && <InvoicesSection />}
                     {activeSection === 'dev-keys' && <DevKeysSection />}
+                    {activeSection === 'savings' && <SavingsSection />}
                 </div>
             </div>
 
@@ -428,7 +437,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
     const [isFunding, setIsFunding] = useState(false);
 
     // @ts-ignore
-    const { wallet, connection } = useLazorkit();
+    const { wallet, connection, pots, fetchPots, signAndSendTransaction } = useLazorkit();
 
     const handleFundDemo = async () => {
         setIsFunding(true);
@@ -574,10 +583,51 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                     </div>
                 </motion.div>
 
-                {/* Quick Stats */}
+                {/* Quick Stats & Savings */}
                 <div className="space-y-4">
                     <StatCard title="Active Subscriptions" value={subscriptions.length.toString()} color="blue" />
-                    <StatCard title="Pending Invoices" value="0" color="purple" />
+
+                    {/* Quick Transfer to Savings */}
+                    <div className="bg-zinc-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-5">
+                        <p className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
+                            <PiggyBankIcon size={16} className="text-orange-400" />
+                            Quick Save
+                        </p>
+                        <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                            {pots.length === 0 ? (
+                                <p className="text-[10px] text-zinc-600 italic">No pots created yet</p>
+                            ) : (
+                                pots.map((pot: any) => (
+                                    <button
+                                        key={pot.name}
+                                        onClick={async () => {
+                                            if (!address) return;
+                                            try {
+                                                const tx = new Transaction().add(
+                                                    SystemProgram.transfer({
+                                                        fromPubkey: new PublicKey(address),
+                                                        toPubkey: new PublicKey(pot.address),
+                                                        lamports: 0.1 * LAMPORTS_PER_SOL,
+                                                    })
+                                                );
+                                                await signAndSendTransaction(tx);
+                                                fetchPots();
+                                            } catch (e) {
+                                                console.error("Quick transfer failed", e);
+                                            }
+                                        }}
+                                        className="w-full flex items-center justify-between p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-all group"
+                                    >
+                                        <span className="text-xs text-zinc-300 group-hover:text-white transition-colors">{pot.name}</span>
+                                        <div className="flex items-center gap-1">
+                                            <PlusIcon size={12} className="text-orange-400" weight="bold" />
+                                            <span className="text-[10px] font-bold text-orange-400">0.1 SOL</span>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1176,6 +1226,84 @@ function DevKeysSection() {
                     <KeyIcon weight="bold" size={20} /> Generate API Key
                 </button>
             </div>
+        </div>
+    );
+}
+
+// Savings Section
+function SavingsSection() {
+    // @ts-ignore
+    const { pots, createPot, withdrawFromPot, loading, fetchPots } = useLazorkit();
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+
+    const handleCreatePot = async (name: string, durationMonths: number) => {
+        setIsCreating(true);
+        try {
+            // Calculate unlock time
+            const unlockDate = new Date();
+            unlockDate.setMonth(unlockDate.getMonth() + durationMonths);
+            const timestamp = Math.floor(unlockDate.getTime() / 1000);
+
+            await createPot(name, timestamp);
+            setShowCreateModal(false);
+        } catch (e) {
+            console.error("Failed to create pot", e);
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    return (
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-bold tracking-tight">Savings Wallet 🐷</h1>
+                    <p className="text-zinc-400 mt-2">Manage your financial goals with time-locked savings pots.</p>
+                </div>
+                <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg shadow-orange-500/20"
+                >
+                    <PlusIcon weight="bold" /> New Savings Pot
+                </button>
+            </div>
+
+            {pots.length === 0 ? (
+                <div className="bg-zinc-900/40 backdrop-blur-md border border-white/10 rounded-3xl p-12 text-center">
+                    <div className="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center text-orange-500 mx-auto mb-6">
+                        <PiggyBankIcon size={40} weight="duotone" />
+                    </div>
+                    <h2 className="text-xl font-bold mb-2">No savings pots yet</h2>
+                    <p className="text-zinc-500 mb-8 max-w-sm mx-auto">
+                        Create your first pot to start saving for your next big purchase or financial goal.
+                    </p>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-8 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition-all"
+                    >
+                        Create My First Pot
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {pots.map((pot: any) => (
+                        <SavingsPotView
+                            key={pot.name}
+                            pot={pot}
+                            onWithdraw={(recipient, amount, note) => withdrawFromPot(pot.address, recipient, amount, note)}
+                            onRefresh={fetchPots}
+                        />
+                    ))}
+                </div>
+            )}
+
+            <CreateSavingsModal
+                isOpen={showCreateModal}
+                isLoading={isCreating}
+                onClose={() => setShowCreateModal(false)}
+                onCreate={handleCreatePot}
+            />
         </div>
     );
 }

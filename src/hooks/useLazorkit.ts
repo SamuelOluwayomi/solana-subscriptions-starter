@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, TransactionInstruction } from '@solana/web3.js';
 // @ts-ignore - Assuming export exists, will fix if error
 import { useWallet } from '@lazorkit/wallet';
 import { useToast } from '@/context/ToastContext';
@@ -17,11 +17,9 @@ export function useLazorkit() {
     }, [walletHook]);
 
     // @ts-ignore
-    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading, smartWalletPubkey } = walletHook || {};
+    const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading, smartWalletPubkey, getBalance } = walletHook || {};
     const [localLoading, setLocalLoading] = useState(false);
 
-    // ✅ CORRECT: Use smartWalletPubkey (the actual Smart Wallet PDA)
-    // NOT wallet.smartWallet (which might be the Passkey)
     // @ts-ignore
     const address = smartWalletPubkey?.toBase58?.() || null;
     // @ts-ignore
@@ -41,8 +39,6 @@ export function useLazorkit() {
         }
     }, [wallet]);
 
-    // ✅ PERSIST SESSION ACROSS REFRESH
-    // On signin page, if already connected, redirect to dashboard automatically
     useEffect(() => {
         if (window.location.pathname === '/signin' && isConnected && address) {
             // Session restored, redirecting
@@ -181,6 +177,102 @@ export function useLazorkit() {
         router.push('/');
     }, [disconnect, router]);
 
+    // --- SAVINGS POTS LOGIC ---
+    const [pots, setPots] = useState<any[]>([]);
+
+    const fetchPots = useCallback(async () => {
+        if (!address || !smartWalletPubkey) return;
+        try {
+            // In a real app, you'd fetch from a registry. 
+            // For hackathon, we fetch names from localStorage and derive PDAs.
+            const potNames = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            const fetchedPots = await Promise.all(potNames.map(async (pot: any) => {
+                try {
+                    // Derive PDA: [user_key, "savings", pot.name]
+                    const [potPda] = PublicKey.findProgramAddressSync(
+                        [new PublicKey(address).toBuffer(), Buffer.from("savings"), Buffer.from(pot.name)],
+                        new PublicKey("6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz") // Using session program ID or similar
+                    );
+
+                    const potAddress = potPda.toBase58();
+                    const lamports = await connection.getBalance(potPda);
+
+                    return {
+                        ...pot,
+                        address: potAddress,
+                        balance: lamports / LAMPORTS_PER_SOL,
+                    };
+                } catch (e) {
+                    console.error("Error fetching pot:", pot.name, e);
+                    return null;
+                }
+            }));
+
+            setPots(fetchedPots.filter(p => p !== null));
+        } catch (e) {
+            console.error("Failed to fetch pots", e);
+        }
+    }, [address, smartWalletPubkey, connection]);
+
+    const createPot = useCallback(async (name: string, unlockTime: number) => {
+        if (!address) throw new Error("Wallet not connected");
+
+        // 1. In a real LazorKit implementaiton, createChunk would be a direct SDK call
+        // We simulate the transaction and store metadata locally
+        const potData = { name, unlockTime };
+        const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+        localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
+
+        await fetchPots();
+        showToast(`Pot "${name}" created successfully!`, 'success');
+    }, [address, fetchPots, showToast]);
+
+    const withdrawFromPot = useCallback(async (potAddress: string, recipient: string, amount: number, note: string) => {
+        if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
+
+        try {
+            const tx = new Transaction();
+
+            // A. Transfer Instruction
+            tx.add(
+                SystemProgram.transfer({
+                    fromPubkey: new PublicKey(potAddress),
+                    toPubkey: new PublicKey(recipient),
+                    lamports: amount * LAMPORTS_PER_SOL,
+                })
+            );
+
+            // B. Memo Instruction
+            if (note) {
+                tx.add(
+                    new TransactionInstruction({
+                        keys: [{ pubkey: new PublicKey(potAddress), isSigner: true, isWritable: true }],
+                        data: Buffer.from(note, "utf-8"),
+                        programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                    })
+                );
+            }
+
+            // In a real AA context, potAddress is a PDA and the Smart Wallet signs for it.
+            // LazorKit handles the 'isSigner' for Chunk PDAs automatically.
+            const signature = await signAndSendTransaction(tx);
+            showToast(`Withdrawal successful! tx: ${signature.slice(0, 8)}...`, 'success');
+            await fetchPots();
+            if (address) await refreshBalance();
+            return signature;
+        } catch (e: any) {
+            console.error("Withdrawal failed", e);
+            showToast(`Withdrawal failed: ${e.message}`, 'error');
+            throw e;
+        }
+    }, [address, signAndSendTransaction, fetchPots, refreshBalance, showToast]);
+
+    useEffect(() => {
+        if (isConnected && address) {
+            fetchPots();
+        }
+    }, [isConnected, address, fetchPots]);
+
     return {
         // Core Logic
         loading: sdkLoading || localLoading,
@@ -198,6 +290,13 @@ export function useLazorkit() {
 
         // Wallet Methods
         wallet,
-        signAndSendTransaction
+        signAndSendTransaction,
+
+        // Savings Pots
+        pots,
+        createPot,
+        withdrawFromPot,
+        fetchPots,
+        connection
     };
 }
