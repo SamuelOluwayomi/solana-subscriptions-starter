@@ -68,7 +68,7 @@ export default function Dashboard() {
         }
     }, [address]);
 
-    const handleUnifiedSend = async (recipient: string, amount: number, isSavings: boolean) => {
+    const handleUnifiedSend = async (recipient: string, amount: number, isSavings: boolean, memo?: string) => {
         if (!address || !signAndSendTransaction) {
             showToast("Wallet not connected", "error");
             return;
@@ -217,20 +217,48 @@ export default function Dashboard() {
                     }
                     tx.add(depositIx);
                 }
+
+                // Add memo instruction if provided (but only if it won't exceed transaction size)
+                // Memo adds ~50-100 bytes, so we only add it if memo is short enough
+                if (memo && memo.trim().length > 0 && memo.length <= 50) {
+                    try {
+                        const { createMemoInstruction } = await import('@solana/spl-memo');
+                        const memoIx = createMemoInstruction(memo.trim(), [userPubkey]);
+                        tx.add(memoIx);
+                    } catch (memoError: any) {
+                        // If memo fails, log but don't fail the transaction
+                        console.warn('Failed to add memo instruction:', memoError);
+                    }
+                }
             } else {
-                const instructions = await constructTransferTransaction(address, amount * 1_000_000, recipient);
-                tx.add(...instructions);
+                const transferInstructions = await constructTransferTransaction(address, amount * 1_000_000, recipient);
+                tx.add(...transferInstructions);
+                
+                // Add memo for external transfers if provided (with size limit)
+                if (memo && memo.trim().length > 0 && memo.length <= 50) {
+                    try {
+                        const { createMemoInstruction } = await import('@solana/spl-memo');
+                        const memoIx = createMemoInstruction(memo.trim(), [new PublicKey(address)]);
+                        tx.add(memoIx);
+                    } catch (memoError: any) {
+                        console.warn('Failed to add memo instruction:', memoError);
+                    }
+                }
             }
 
-            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
-            // Setting it here can cause "TransactionTooOld" errors if there's any delay
-            // Lazorkit will fetch a fresh blockhash when signing
+            // OPTIMIZATION: Use Lazorkit's instruction-based API to reduce transaction size
+            // Extract instructions from transaction and pass directly (avoids extra serialization overhead)
+            // This is critical for smart wallets which add wrapper instructions
+            const allInstructions = tx.instructions;
             
-            // Set fee payer
-            tx.feePayer = new PublicKey(address);
-
-            // Sign and send the transaction using Lazorkit (it will handle blockhash internally)
-            const signature = await signAndSendTransaction(tx);
+            // Sign and send using instruction-based API (more efficient for smart wallets)
+            // This reduces transaction size by avoiding Transaction object serialization overhead
+            const signature = await signAndSendTransaction({
+                instructions: allInstructions,
+                transactionOptions: {
+                    computeUnitLimit: 400_000,
+                }
+            });
 
             showToast(`USDC ${isSavings ? 'saved' : 'sent'} successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
 

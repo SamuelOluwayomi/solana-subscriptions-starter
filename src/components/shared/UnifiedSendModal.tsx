@@ -11,7 +11,7 @@ import { PublicKey } from '@solana/web3.js';
 interface UnifiedSendModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSend: (recipient: string, amount: number, isSavings: boolean) => Promise<void>;
+    onSend: (recipient: string, amount: number, isSavings: boolean, memo?: string) => Promise<void>;
     pots: any[];
     balance: number;
     usdcBalance?: number; // Add USDC balance prop
@@ -48,11 +48,13 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
 
         setIsSubmitting(true);
         try {
-            await onSend(targetRecipient, numAmount, mode === 'savings');
+            const memoText = memo.trim().slice(0, MAX_MEMO_LENGTH); // Enforce limit
+            await onSend(targetRecipient, numAmount, mode === 'savings', memoText || undefined);
             onClose();
             // Reset state
             setRecipient('');
             setAmount('');
+            setMemo('');
             setSelectedPot(null);
         } catch (e: any) {
             setError(e.message || 'Transaction failed');
@@ -173,6 +175,32 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                     <p className="text-[10px] text-zinc-500 mt-2 text-right uppercase tracking-widest">
                                         Balance: <span className="text-zinc-300 font-bold">{availableBalance.toFixed(2)} USDC</span>
                                     </p>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest">Memo (Optional)</label>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                            memo.length > MAX_MEMO_LENGTH * 0.8 
+                                                ? 'text-orange-400' 
+                                                : 'text-zinc-500'
+                                        }`}>
+                                            {memo.length}/{MAX_MEMO_LENGTH}
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Add a note (e.g., Monthly savings)"
+                                        maxLength={MAX_MEMO_LENGTH}
+                                        className="w-full bg-zinc-900/60 border border-white/10 p-4 rounded-2xl text-white text-sm focus:outline-none focus:border-orange-500/50 transition-all"
+                                        value={memo}
+                                        onChange={(e) => setMemo(e.target.value.slice(0, MAX_MEMO_LENGTH))}
+                                    />
+                                    {memo.length > MAX_MEMO_LENGTH * 0.8 && (
+                                        <p className="text-[10px] text-orange-400 mt-1">
+                                            ⚠️ Approaching limit. Long memos may cause transaction size errors.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {error && (
