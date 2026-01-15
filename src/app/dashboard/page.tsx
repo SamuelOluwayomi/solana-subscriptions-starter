@@ -110,144 +110,113 @@ export default function Dashboard() {
                 fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:109',message:'Deriving accounts',data:{address,potName:pot.name,potAddress:pot.address},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
                 // #endregion
 
-                const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
+                // Check if this is a wallet-based pot
+                const isWalletBased = pot.isWalletBased === true;
                 
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:112',message:'PotPDA derived',data:{potPda:potPda?.toBase58(),isValid:!!potPda},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
-
-                if (!potPda) {
-                    throw new Error(`Failed to derive pot PDA for pot "${pot.name}"`);
+                // For wallet-based pots, use the address directly; for PDA-based, derive PDA
+                let potAddress: PublicKey;
+                if (isWalletBased && pot.address) {
+                    // Wallet-based: use the stored address directly
+                    potAddress = new PublicKey(pot.address);
+                } else {
+                    // PDA-based: derive the PDA
+                    const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
+                    if (!potPda) {
+                        throw new Error(`Failed to derive pot PDA for pot "${pot.name}"`);
+                    }
+                    potAddress = potPda;
                 }
 
                 const userAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true);
-                
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:119',message:'User ATA derived',data:{userAta:userAta?.toBase58(),isValid:!!userAta},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
-
                 if (!userAta) {
                     throw new Error(`Failed to derive user ATA`);
                 }
 
-                const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
-                
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:127',message:'Pot ATA derived',data:{potAta:potAta?.toBase58(),isValid:!!potAta},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
-
+                const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potAddress, true);
                 if (!potAta) {
                     throw new Error(`Failed to derive pot ATA`);
                 }
 
-                // Verify pot account exists on-chain, create if missing
-                try {
-                    const potAccountInfo = await connection.getAccountInfo(potPda);
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:135',message:'Pot account check',data:{potPda:potPda.toBase58(),exists:!!potAccountInfo},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                    
-                    if (!potAccountInfo) {
-                        // Pot doesn't exist on-chain, try to create it automatically
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:139',message:'Pot does not exist, attempting auto-create',data:{potName:pot.name,potAddress:pot.address,unlockTime:pot.unlockTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                        // #endregion
-                        
-                        // Use unlockTime from pot metadata, or default to 1 year from now
-                        const unlockTime = pot.unlockTime || Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
-                        
-                        try {
-                            showToast(`Creating savings pot "${pot.name}" on-chain...`, 'info');
-                            await createPot(pot.name, unlockTime);
-                            showToast(`Savings pot "${pot.name}" created! You can now deposit.`, 'success');
-                            // Wait a moment for the account to be available
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                            // Re-check the account
-                            const recheckInfo = await connection.getAccountInfo(potPda);
-                            if (!recheckInfo) {
-                                throw new Error(`Pot was created but account is not yet available. Please try again in a few seconds.`);
+                // For wallet-based pots, skip PDA verification (they're just regular wallet addresses)
+                if (!isWalletBased) {
+                    // Only verify PDA-based pots exist on-chain
+                    try {
+                        const potAccountInfo = await connection.getAccountInfo(potAddress);
+                        if (!potAccountInfo) {
+                            // PDA pot doesn't exist on-chain, try to create it automatically
+                            const unlockTime = pot.unlockTime || Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+                            try {
+                                showToast(`Creating savings pot "${pot.name}" on-chain...`, 'info');
+                                await createPot(pot.name, unlockTime);
+                                showToast(`Savings pot "${pot.name}" created! You can now deposit.`, 'success');
+                                // Wait a moment for the account to be available
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                                // Re-check the account
+                                const recheckInfo = await connection.getAccountInfo(potAddress);
+                                if (!recheckInfo) {
+                                    throw new Error(`Pot was created but account is not yet available. Please try again in a few seconds.`);
+                                }
+                            } catch (createError: any) {
+                                throw new Error(`Savings pot "${pot.name}" does not exist on-chain and failed to create: ${createError?.message || 'Unknown error'}. Please create it manually first.`);
                             }
-                        } catch (createError: any) {
-                            throw new Error(`Savings pot "${pot.name}" does not exist on-chain and failed to create: ${createError?.message || 'Unknown error'}. Please create it manually first.`);
                         }
+                    } catch (accountCheckError: any) {
+                        throw new Error(`Failed to verify pot account: ${accountCheckError?.message || 'Unknown error'}`);
                     }
-                } catch (accountCheckError: any) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:152',message:'Pot account check failed',data:{error:accountCheckError?.message||String(accountCheckError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                    throw new Error(`Failed to verify pot account: ${accountCheckError?.message || 'Unknown error'}`);
+                } else {
+                    // For wallet-based pots, just verify the wallet exists (it should, since we funded it)
+                    const walletInfo = await connection.getAccountInfo(potAddress);
+                    if (!walletInfo) {
+                        throw new Error(`Savings pot wallet "${pot.name}" not found. Please create the pot first.`);
+                    }
                 }
 
-                // Call Anchor program for deposit
-                const provider = new AnchorProvider(connection, (wallet as any), {});
-                const program = new Program(idl as any, provider);
-
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:148',message:'Anchor provider and program created',data:{hasProvider:!!provider,hasProgram:!!program},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
-
-                // Ensure BN is properly imported and amount is valid
-                // Anchor's BN constructor can accept number or string
-                // Use number directly for better compatibility
-                let depositAmount;
-                try {
-                    // Try creating BN with number first (more reliable)
-                    depositAmount = new BN(rawAmount);
-                    
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:117',message:'BN created with number',data:{rawAmount,hasBn:!!depositAmount?._bn,depositAmountType:typeof depositAmount,depositAmountString:String(depositAmount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                    
-                    // Verify BN is valid
-                    if (!depositAmount || (depositAmount as any)._bn === undefined) {
-                        // Fallback: try with string
-                        depositAmount = new BN(rawAmount.toString());
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:123',message:'BN created with string fallback',data:{rawAmount,hasBn:!!depositAmount?._bn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                        // #endregion
-                    }
-                } catch (bnError: any) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:128',message:'BN creation failed',data:{rawAmount,error:bnError?.message||String(bnError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                    throw new Error(`Failed to create BN: ${bnError?.message || 'Unknown error'}`);
-                }
-
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:133',message:'About to create deposit instruction',data:{depositAmount:String(depositAmount),rawAmount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
-
-                // Validate all accounts before creating instruction
+                // For wallet-based pots, use simple token transfer; for PDA-based, use Anchor program
                 const userPubkey = new PublicKey(address);
                 
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:175',message:'Validating accounts before instruction',data:{potPda:potPda.toBase58(),userPubkey:userPubkey.toBase58(),userAta:userAta.toBase58(),potAta:potAta.toBase58(),depositAmount:String(depositAmount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                // #endregion
+                if (isWalletBased) {
+                    // Wallet-based: Simple token transfer (no Anchor program needed)
+                    const { createTransferInstruction } = await import('@solana/spl-token');
+                    const transferIx = createTransferInstruction(
+                        userAta,
+                        potAta,
+                        userPubkey,
+                        rawAmount
+                    );
+                    tx.add(transferIx);
+                } else {
+                    // PDA-based: Use Anchor program for deposit
+                    const provider = new AnchorProvider(connection, (wallet as any), {});
+                    const program = new Program(idl as any, provider);
 
-                let depositIx;
-                try {
-                    depositIx = await program.methods
-                        .depositToPot(depositAmount)
-                        .accounts({
-                            savingsPot: potPda,
-                            user: userPubkey,
-                            userAta: userAta,
-                            potAta: potAta,
-                            tokenProgram: TOKEN_PROGRAM_ID,
-                        })
-                        .instruction();
-                    
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:145',message:'Deposit instruction created successfully',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                } catch (ixError: any) {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:149',message:'Deposit instruction creation failed',data:{error:ixError?.message||String(ixError),errorStack:ixError?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
-                    // #endregion
-                    throw new Error(`Failed to create deposit instruction: ${ixError?.message || 'Unknown error'}`);
+                    // Ensure BN is properly imported and amount is valid
+                    let depositAmount;
+                    try {
+                        depositAmount = new BN(rawAmount);
+                        if (!depositAmount || (depositAmount as any)._bn === undefined) {
+                            depositAmount = new BN(rawAmount.toString());
+                        }
+                    } catch (bnError: any) {
+                        throw new Error(`Failed to create BN: ${bnError?.message || 'Unknown error'}`);
+                    }
+
+                    let depositIx;
+                    try {
+                        depositIx = await program.methods
+                            .depositToPot(depositAmount)
+                            .accounts({
+                                savingsPot: potAddress,
+                                user: userPubkey,
+                                userAta: userAta,
+                                potAta: potAta,
+                                tokenProgram: TOKEN_PROGRAM_ID,
+                            })
+                            .instruction();
+                    } catch (ixError: any) {
+                        throw new Error(`Failed to create deposit instruction: ${ixError?.message || 'Unknown error'}`);
+                    }
+                    tx.add(depositIx);
                 }
-
-                tx.add(depositIx);
             } else {
                 const instructions = await constructTransferTransaction(address, amount * 1_000_000, recipient);
                 tx.add(...instructions);
