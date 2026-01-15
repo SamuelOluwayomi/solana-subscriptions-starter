@@ -41,9 +41,10 @@ import { useToast } from '@/context/ToastContext';
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys' | 'savings';
 
 export default function Dashboard() {
-    const { address, loading, balance, requestAirdrop, logout } = useLazorkit();
+    const { address, loading, balance, requestAirdrop, logout, signAndSendTransaction, connection, pots, fetchPots, refreshBalance } = useLazorkit();
     const { showToast } = useToast(); // Use toast context
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
+    const [showSendModal, setShowSendModal] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
     // Use On-Chain Profile Hook
     const { profile, loading: profileLoading, createProfile, updateProfile } = useUserProfile();
@@ -69,6 +70,44 @@ export default function Dashboard() {
             console.log("SMART WALLET ADDRESS:", address);
         }
     }, [address]);
+
+    const handleUnifiedSend = async (recipient: string, amount: number, isSavings: boolean) => {
+        if (!address || !signAndSendTransaction) {
+            showToast("Wallet not connected", "error");
+            return;
+        }
+
+        try {
+            // Create transfer instruction
+            const transferInstruction = SystemProgram.transfer({
+                fromPubkey: new PublicKey(address),
+                toPubkey: new PublicKey(recipient),
+                lamports: amount * LAMPORTS_PER_SOL,
+            });
+
+            // Create transaction with proper configuration
+            const tx = new Transaction();
+            tx.add(transferInstruction);
+
+            // Set recent blockhash for transaction
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
+            tx.feePayer = new PublicKey(address);
+
+            // Sign and send the transaction using Lazorkit
+            const signature = await signAndSendTransaction(tx);
+
+            showToast(`Funds sent successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
+
+            // Refresh UI
+            await fetchPots();
+            await refreshBalance();
+        } catch (e: any) {
+            showToast(`Send failed: ${e.message || 'Unknown error'}`, 'error');
+            throw e;
+        }
+    };
 
     // Use Real On-Chain Balance
     const { balance: usdcBalance, refetch: refetchUsdc } = useUSDCBalance(address);
@@ -313,6 +352,7 @@ export default function Dashboard() {
                             refetchUsdc={refetchUsdc}   // <-- Refetch Function
                             loading={loading}
                             copyToClipboard={copyToClipboard}
+                            onOpenSend={() => setShowSendModal(true)}
                         />
                     )}
 
@@ -348,6 +388,14 @@ export default function Dashboard() {
                 isSubmitting={isOnboardingSubmitting}
                 walletAddress={walletAddress}
                 onComplete={handleOnboardingComplete}
+            />
+
+            <UnifiedSendModal
+                isOpen={showSendModal}
+                onClose={() => setShowSendModal(false)}
+                onSend={handleUnifiedSend}
+                pots={pots}
+                balance={balance || 0}
             />
         </div>
     );
@@ -431,7 +479,7 @@ function NavItem({ icon, label, active, onClick }: any) {
 }
 
 // Overview Section
-function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc, loading, copyToClipboard }: any) {
+function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc, loading, copyToClipboard, onOpenSend }: any) {
     const [showUSD, setShowUSD] = useState(true);
     const [solPrice, setSolPrice] = useState<number | null>(null);
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -441,46 +489,6 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
 
     // @ts-ignore
     const { wallet, connection, pots, fetchPots, signAndSendTransaction, refreshBalance } = useLazorkit();
-    const [showSendModal, setShowSendModal] = useState(false);
-
-    const handleUnifiedSend = async (recipient: string, amount: number, isSavings: boolean) => {
-        if (!address || !signAndSendTransaction) {
-            showToast("Wallet not connected", "error");
-            return;
-        }
-
-        try {
-            // Create transfer instruction
-            const transferInstruction = SystemProgram.transfer({
-                fromPubkey: new PublicKey(address),
-                toPubkey: new PublicKey(recipient),
-                lamports: amount * LAMPORTS_PER_SOL,
-            });
-
-            // Create transaction with proper configuration
-            const tx = new Transaction();
-            tx.add(transferInstruction);
-
-            // Set recent blockhash for transaction
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
-            tx.feePayer = new PublicKey(address);
-
-            // Sign and send the transaction using Lazorkit
-            const signature = await signAndSendTransaction(tx);
-
-            showToast(`Funds sent successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
-
-            // Refresh UI
-            await fetchPots();
-            await refreshBalance();
-        } catch (e: any) {
-            console.error("Send failed", e);
-            showToast(`Send failed: ${e.message || 'Unknown error'}`, 'error');
-            throw e;
-        }
-    };
 
     const handleFundDemo = async () => {
         setIsFunding(true);
@@ -562,7 +570,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
         return () => clearInterval(interval);
     }, [address, connection]);
 
-    const balanceValue = parseFloat(balance);
+    const balanceValue = parseFloat(balance || '0');
     const usdValue = solPrice ? (balanceValue * solPrice).toFixed(2) : '0.00';
 
     return (
@@ -624,7 +632,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                             </button>
 
                             <button
-                                onClick={() => setShowSendModal(true)}
+                                onClick={onOpenSend}
                                 className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white border border-orange-400/30 rounded-xl font-bold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg shadow-orange-500/20"
                             >
                                 <PaperPlaneTiltIcon weight="bold" /> Send Funds
@@ -721,19 +729,12 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                     <span className="font-mono text-sm text-zinc-200 truncate flex-1">{address}</span>
                     <CopyButton text={address} />
                 </div>
-                <UnifiedSendModal
-                    isOpen={showSendModal}
-                    onClose={() => setShowSendModal(false)}
-                    onSend={handleUnifiedSend}
-                    pots={pots}
-                    balance={balanceValue}
-                />
             </div>
         </div>
     );
 }
 
-function StatCard({title, value, color}: {title: string; value: string; color: 'blue' | 'purple' }) {
+function StatCard({ title, value, color }: { title: string; value: string; color: 'blue' | 'purple' }) {
     const colors = {
         blue: 'from-blue-500/20 to-blue-600/10 border-blue-500/30 text-blue-400',
         purple: 'from-purple-500/20 to-purple-600/10 border-purple-500/30 text-purple-400',
@@ -747,7 +748,7 @@ function StatCard({title, value, color}: {title: string; value: string; color: '
 }
 
 // Subscriptions Section
-function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, refetchUsdc: () => void }) {
+function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: number, refetchUsdc: () => void }) {
     const [activeTab, setActiveTab] = useState<'browse' | 'active' | 'analytics'>('browse');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -755,12 +756,12 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
     const [solPrice, setSolPrice] = useState<number | null>(null);
 
     // Toast notifications
-    const {showToast} = useToast();
+    const { showToast } = useToast();
 
     // @ts-ignore
-    const {balance, signAndSendTransaction, address} = useLazorkit();
-    const {subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData} = useSubscriptions();
-    const {services: dynamicServices, merchants } = useMerchant();
+    const { balance, signAndSendTransaction, address } = useLazorkit();
+    const { subscriptions, addSubscription, removeSubscription, getMonthlyTotal, getHistoricalData } = useSubscriptions();
+    const { services: dynamicServices, merchants } = useMerchant();
 
     // Merge Static + Dynamic Services (Filter out duplicates)
     const staticServiceNames = SERVICES.map(s => s.name.toLowerCase());
@@ -786,12 +787,12 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
     ];
 
     const spendingData = [
-        {name: 'Jan', amount: 45 },
-        {name: 'Feb', amount: 52 },
-        {name: 'Mar', amount: 48 },
-        {name: 'Apr', amount: 70 },
-        {name: 'May', amount: 65 },
-        {name: 'Jun', amount: 85 },
+        { name: 'Jan', amount: 45 },
+        { name: 'Feb', amount: 52 },
+        { name: 'Mar', amount: 48 },
+        { name: 'Apr', amount: 70 },
+        { name: 'May', amount: 65 },
+        { name: 'Jun', amount: 85 },
     ];
 
     // Fetch SOL price
@@ -826,8 +827,8 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
             const dynamicService = dynamicServices.find(s => s.id === serviceId);
             if (dynamicService) {
                 const merchant = merchants.find(m => m.id === dynamicService.merchantId);
-            if (merchant) {
-                targetMerchantAddress = merchant.walletPublicKey;
+                if (merchant) {
+                    targetMerchantAddress = merchant.walletPublicKey;
                     // Found dynamic merchant
                 }
             }
@@ -839,11 +840,11 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
 
             // 3. Construct the transfer and memo instructions
             const instructions = await constructTransferTransaction(
-            address,
-            price * 1_000_000,
-            targetMerchantAddress,
-            selectedService?.name || 'Unknown Service',
-            plan.name
+                address,
+                price * 1_000_000,
+                targetMerchantAddress,
+                selectedService?.name || 'Unknown Service',
+                plan.name
             );
 
             // 3.5. Fetch Address Lookup Table for transaction compression
@@ -855,9 +856,9 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
             // 4. User signs and sends transaction using Lazorkit's instruction-based API with ALT
             const signature = await signAndSendTransaction({
                 instructions: instructions, // Now includes both memo and transfer
-            transactionOptions: {
-                computeUnitLimit: 400_000, // Increased from 200k to handle larger transactions
-            addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
+                transactionOptions: {
+                    computeUnitLimit: 400_000, // Increased from 200k to handle larger transactions
+                    addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
             // Transaction completed
@@ -869,12 +870,12 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
             addSubscription({
                 serviceId,
                 serviceName: actualService ? actualService.name : serviceId,
-            plan: plan.name,
-            price,
-            email,
-            color: actualService ? actualService.color : '#FF6B35',
-            icon: (actualService ? actualService.icon : StorefrontIcon) as any,
-            transactionSignature: signature // Store transaction ID
+                plan: plan.name,
+                price,
+                email,
+                color: actualService ? actualService.color : '#FF6B35',
+                icon: (actualService ? actualService.icon : StorefrontIcon) as any,
+                transactionSignature: signature // Store transaction ID
             });
 
             // 5. Refetch Balances
@@ -885,7 +886,7 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
 
             setShowSubscribeModal(false);
         } catch (error: any) {
-                console.error("Subscription failed:", error);
+            console.error("Subscription failed:", error);
 
             // Check for TransactionTooOld error
             if (error?.message?.includes('0x1783') || error?.message?.includes('TransactionTooOld')) {
@@ -903,344 +904,344 @@ function SubscriptionsSection({usdcBalance, refetchUsdc}: {usdcBalance: number, 
 
     const filteredServices = allServices.filter(s => {
         if (categoryFilter === 'all') return true;
-            return s.category === categoryFilter;
+        return s.category === categoryFilter;
     });
 
-            return (
-            <div className="space-y-8">
-                {/* Header with Tabs */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <h2 className="text-3xl font-bold">Subscriptions</h2>
+    return (
+        <div className="space-y-8">
+            {/* Header with Tabs */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-3xl font-bold">Subscriptions</h2>
 
-                    {/* Desktop Tabs */}
-                    <div className="hidden md:flex flex-wrap gap-2 bg-zinc-900/50 p-1 rounded-xl">
-                        <button
-                            onClick={() => setActiveTab('browse')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
-                                }`}
-                        >
-                            Browse
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('active')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'active' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
-                                }`}
-                        >
-                            Active ({subscriptions.length})
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('analytics')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
-                                }`}
-                        >
-                            Analytics
-                        </button>
-                    </div>
-
-                    {/* Mobile Dropdown Tab */}
-                    <MobileDropdown
-                        options={[
-                            { id: 'browse', name: 'Browse Services' },
-                            { id: 'active', name: `Active Subscriptions (${subscriptions.length})` },
-                            { id: 'analytics', name: 'Spending Analytics' }
-                        ]}
-                        value={activeTab}
-                        onChange={setActiveTab}
-                    />
+                {/* Desktop Tabs */}
+                <div className="hidden md:flex flex-wrap gap-2 bg-zinc-900/50 p-1 rounded-xl">
+                    <button
+                        onClick={() => setActiveTab('browse')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'browse' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Browse
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('active')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'active' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Active ({subscriptions.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('analytics')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analytics' ? 'bg-orange-500 text-white' : 'text-zinc-400 hover:text-white'
+                            }`}
+                    >
+                        Analytics
+                    </button>
                 </div>
 
-                {/* Browse Tab */}
-                {activeTab === 'browse' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-                        {/* Left Column: Subscriptions List */}
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    <StorefrontIcon size={24} className="text-orange-500" />
-                                    <span className="whitespace-nowrap">Your Subscriptions</span>
-                                </h2>
-                                {/* Desktop Filter Pills */}
-                                <div className="hidden sm:flex flex-wrap gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
-                                    {CATEGORIES.filter(c => c.count > 0).slice(0, 4).map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => setCategoryFilter(cat.id)}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${categoryFilter === cat.id
-                                                ? 'bg-white text-black shadow-lg'
-                                                : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                                                }`}
-                                        >
-                                            {cat.name}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {/* Mobile Category Dropdown */}
-                                <MobileDropdown
-                                    options={CATEGORIES.filter(c => c.count > 0).slice(0, 4)}
-                                    value={categoryFilter}
-                                    onChange={setCategoryFilter}
-                                    label="Category"
-                                />
-                            </div>
-
-                            {/* Service Cards Grid - Mobile: 2 cols, Desktop: 2 cols */}
-                            <div className="grid grid-cols-2 gap-3 md:gap-4">
-                                {filteredServices.map(service => (
-                                    <ServiceCard
-                                        key={service.id}
-                                        service={service}
-                                        onClick={() => handleServiceClick(service)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Right Column: Stats & Analytics */}
-                        <div className="space-y-6">
-                            {/* Spending Analytics Chart */}
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div>
-                                        <h3 className="font-bold text-white">Spending Activity</h3>
-                                        <p className="text-xs text-zinc-400">Past 6 Months</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-2xl font-black text-white">$365</p>
-                                        <p className="text-xs text-green-400 font-bold">+12% vs last mo</p>
-                                    </div>
-                                </div>
-
-                                <div className="h-48 w-full min-h-48">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={spendingData}>
-                                            <XAxis
-                                                dataKey="name"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#71717a', fontSize: 10 }}
-                                                dy={10}
-                                            />
-                                            <RechartsTooltip
-                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
-                                                labelStyle={{ color: '#a1a1aa' }}
-                                            />
-                                            <Bar dataKey="amount" radius={[4, 4, 4, 4]}>
-                                                {spendingData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={index === 5 ? '#f97316' : '#27272a'} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl sticky top-8">
-                                <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                                    <WalletIcon size={20} className="text-blue-500" />
-                                    Monthly Overview
-                                </h3>
-
-                                <div className="space-y-4">
-                                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center">
-                                        <div>
-                                            <p className="text-zinc-500 text-xs font-bold uppercase">Total Budget</p>
-                                            <p className="text-lg font-bold text-white">$250.00</p>
-                                        </div>
-                                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-                                            <span className="text-xs font-bold text-zinc-400">75%</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
-                                        <div className="flex justify-between items-end mb-2">
-                                            <p className="text-zinc-500 text-xs font-bold uppercase">Estimated Gas Saved</p>
-                                            <p className="text-lg font-bold text-green-400">0.024 SOL</p>
-                                        </div>
-                                        <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                                            <div className="bg-green-500 h-full w-[85%]" />
-                                        </div>
-                                        <p className="text-[10px] text-zinc-500 mt-2 text-right">Lazorkit covers 100% of network fees</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Active Subscriptions Tab */}
-                {activeTab === 'active' && (
-                    <div>
-                        {subscriptions.length === 0 ? (
-                            <div className="text-center py-20">
-                                <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <ReceiptIcon size={40} className="text-zinc-600" />
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-2">No Active Subscriptions</h3>
-                                <p className="text-zinc-400 mb-6">Browse services and subscribe to get started</p>
-                                <button
-                                    onClick={() => setActiveTab('browse')}
-                                    className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all"
-                                >
-                                    Browse Services
-                                </button>
-                            </div>
-                        ) : (
-                            <div>
-                                <div className="bg-linear-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-xl p-6 mb-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-orange-200/60 mb-1">Monthly Spending</p>
-                                            <p className="text-4xl font-bold text-white">${getMonthlyTotal().toFixed(2)}</p>
-                                            {solPrice && (
-                                                <p className="text-sm text-orange-200/40 mt-1">
-                                                    ≈ {(getMonthlyTotal() / solPrice).toFixed(4)} SOL
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-orange-200/60 mb-1">Active Services</p>
-                                            <p className="text-4xl font-bold text-white">{subscriptions.length}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <AnimatePresence>
-                                        {subscriptions.map((sub) => (
-                                            <ActiveSubscriptionCard
-                                                key={sub.id}
-                                                subscription={sub}
-                                                onUnsubscribe={removeSubscription}
-                                            />
-                                        ))}
-                                    </AnimatePresence>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Analytics Tab */}
-                {activeTab === 'analytics' && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                            {/* Monthly Spending Chart */}
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-4">Monthly Spending Trend</h3>
-                                <div className="space-y-3">
-                                    {(() => {
-                                        const historicalData = getHistoricalData();
-                                        const maxAmount = Math.max(...historicalData.map(d => d.amount));
-                                        return historicalData.map((item, idx) => (
-                                            <div key={idx}>
-                                                <div className="flex items-center justify-between text-sm mb-1">
-                                                    <span className="text-zinc-400">{item.month}</span>
-                                                    <span className="text-white font-medium">${item.amount.toFixed(2)}</span>
-                                                </div>
-                                                <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-linear-to-r from-orange-500 to-orange-600 rounded-full"
-                                                        style={{ width: `${(item.amount / maxAmount) * 100}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ));
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Breakdown by Service */}
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-4">Spending Breakdown</h3>
-                                {subscriptions.length === 0 ? (
-                                    <p className="text-zinc-500 text-sm text-center py-8">No active subscriptions to analyze</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {subscriptions.map((sub) => (
-                                            <div key={sub.id} className="flex items-center gap-3">
-                                                <div className="text-2xl" style={{ color: sub.color }}>
-                                                    {typeof sub.icon === 'function' ? (
-                                                        <sub.icon size={24} />
-                                                    ) : (
-                                                        <StorefrontIcon size={24} />
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
-                                                    <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold text-white">${sub.price}</p>
-                                                    <p className="text-xs text-zinc-500">
-                                                        {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Summary Cards */}
-                        <div className="grid sm:grid-cols-3 gap-4">
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
-                                <p className="text-xs text-zinc-500 mb-1">Average per Service</p>
-                                <p className="text-2xl font-bold text-white">
-                                    ${subscriptions.length > 0 ? (getMonthlyTotal() / subscriptions.length).toFixed(2) : '0.00'}
-                                </p>
-                            </div>
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
-                                <p className="text-xs text-zinc-500 mb-1">Yearly Projection</p>
-                                <p className="text-2xl font-bold text-orange-400">${(getMonthlyTotal() * 12).toFixed(2)}</p>
-                            </div>
-                            <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
-                                <p className="text-xs text-zinc-500 mb-1">Most Expensive</p>
-                                <p className="text-2xl font-bold text-white">
-                                    {subscriptions.length > 0
-                                        ? `$${Math.max(...subscriptions.map(s => s.price)).toFixed(2)}`
-                                        : '$0.00'
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Subscribe Modal */}
-                <SubscribeModal
-                    isOpen={showSubscribeModal}
-                    onClose={() => setShowSubscribeModal(false)}
-                    service={selectedService}
-                    onSubscribe={handleSubscribe}
-                    balance={balance || 0}
-                    usdcBalance={usdcBalance}
-                    solPrice={solPrice}
-                    existingSubscriptions={subscriptions}
+                {/* Mobile Dropdown Tab */}
+                <MobileDropdown
+                    options={[
+                        { id: 'browse', name: 'Browse Services' },
+                        { id: 'active', name: `Active Subscriptions (${subscriptions.length})` },
+                        { id: 'analytics', name: 'Spending Analytics' }
+                    ]}
+                    value={activeTab}
+                    onChange={setActiveTab}
                 />
             </div>
-            );
+
+            {/* Browse Tab */}
+            {activeTab === 'browse' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+                    {/* Left Column: Subscriptions List */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <StorefrontIcon size={24} className="text-orange-500" />
+                                <span className="whitespace-nowrap">Your Subscriptions</span>
+                            </h2>
+                            {/* Desktop Filter Pills */}
+                            <div className="hidden sm:flex flex-wrap gap-2 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
+                                {CATEGORIES.filter(c => c.count > 0).slice(0, 4).map(cat => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => setCategoryFilter(cat.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${categoryFilter === cat.id
+                                            ? 'bg-white text-black shadow-lg'
+                                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Mobile Category Dropdown */}
+                            <MobileDropdown
+                                options={CATEGORIES.filter(c => c.count > 0).slice(0, 4)}
+                                value={categoryFilter}
+                                onChange={setCategoryFilter}
+                                label="Category"
+                            />
+                        </div>
+
+                        {/* Service Cards Grid - Mobile: 2 cols, Desktop: 2 cols */}
+                        <div className="grid grid-cols-2 gap-3 md:gap-4">
+                            {filteredServices.map(service => (
+                                <ServiceCard
+                                    key={service.id}
+                                    service={service}
+                                    onClick={() => handleServiceClick(service)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Right Column: Stats & Analytics */}
+                    <div className="space-y-6">
+                        {/* Spending Analytics Chart */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="font-bold text-white">Spending Activity</h3>
+                                    <p className="text-xs text-zinc-400">Past 6 Months</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black text-white">$365</p>
+                                    <p className="text-xs text-green-400 font-bold">+12% vs last mo</p>
+                                </div>
+                            </div>
+
+                            <div className="h-48 w-full min-h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={spendingData}>
+                                        <XAxis
+                                            dataKey="name"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: '#71717a', fontSize: 10 }}
+                                            dy={10}
+                                        />
+                                        <RechartsTooltip
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                                            labelStyle={{ color: '#a1a1aa' }}
+                                        />
+                                        <Bar dataKey="amount" radius={[4, 4, 4, 4]}>
+                                            {spendingData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={index === 5 ? '#f97316' : '#27272a'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-3xl p-6 backdrop-blur-xl sticky top-8">
+                            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                                <WalletIcon size={20} className="text-blue-500" />
+                                Monthly Overview
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-zinc-500 text-xs font-bold uppercase">Total Budget</p>
+                                        <p className="text-lg font-bold text-white">$250.00</p>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                                        <span className="text-xs font-bold text-zinc-400">75%</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <p className="text-zinc-500 text-xs font-bold uppercase">Estimated Gas Saved</p>
+                                        <p className="text-lg font-bold text-green-400">0.024 SOL</p>
+                                    </div>
+                                    <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                        <div className="bg-green-500 h-full w-[85%]" />
+                                    </div>
+                                    <p className="text-[10px] text-zinc-500 mt-2 text-right">Lazorkit covers 100% of network fees</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Active Subscriptions Tab */}
+            {activeTab === 'active' && (
+                <div>
+                    {subscriptions.length === 0 ? (
+                        <div className="text-center py-20">
+                            <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <ReceiptIcon size={40} className="text-zinc-600" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">No Active Subscriptions</h3>
+                            <p className="text-zinc-400 mb-6">Browse services and subscribe to get started</p>
+                            <button
+                                onClick={() => setActiveTab('browse')}
+                                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all"
+                            >
+                                Browse Services
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="bg-linear-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-xl p-6 mb-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-orange-200/60 mb-1">Monthly Spending</p>
+                                        <p className="text-4xl font-bold text-white">${getMonthlyTotal().toFixed(2)}</p>
+                                        {solPrice && (
+                                            <p className="text-sm text-orange-200/40 mt-1">
+                                                ≈ {(getMonthlyTotal() / solPrice).toFixed(4)} SOL
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-orange-200/60 mb-1">Active Services</p>
+                                        <p className="text-4xl font-bold text-white">{subscriptions.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <AnimatePresence>
+                                    {subscriptions.map((sub) => (
+                                        <ActiveSubscriptionCard
+                                            key={sub.id}
+                                            subscription={sub}
+                                            onUnsubscribe={removeSubscription}
+                                        />
+                                    ))}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Analytics Tab */}
+            {activeTab === 'analytics' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        {/* Monthly Spending Chart */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-4">Monthly Spending Trend</h3>
+                            <div className="space-y-3">
+                                {(() => {
+                                    const historicalData = getHistoricalData();
+                                    const maxAmount = Math.max(...historicalData.map(d => d.amount));
+                                    return historicalData.map((item, idx) => (
+                                        <div key={idx}>
+                                            <div className="flex items-center justify-between text-sm mb-1">
+                                                <span className="text-zinc-400">{item.month}</span>
+                                                <span className="text-white font-medium">${item.amount.toFixed(2)}</span>
+                                            </div>
+                                            <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-linear-to-r from-orange-500 to-orange-600 rounded-full"
+                                                    style={{ width: `${(item.amount / maxAmount) * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+
+                        {/* Breakdown by Service */}
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-4">Spending Breakdown</h3>
+                            {subscriptions.length === 0 ? (
+                                <p className="text-zinc-500 text-sm text-center py-8">No active subscriptions to analyze</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {subscriptions.map((sub) => (
+                                        <div key={sub.id} className="flex items-center gap-3">
+                                            <div className="text-2xl" style={{ color: sub.color }}>
+                                                {typeof sub.icon === 'function' ? (
+                                                    <sub.icon size={24} />
+                                                ) : (
+                                                    <StorefrontIcon size={24} />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">{sub.serviceName}</p>
+                                                <p className="text-xs text-zinc-500">{sub.plan} Plan</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-white">${sub.price}</p>
+                                                <p className="text-xs text-zinc-500">
+                                                    {((sub.price / getMonthlyTotal()) * 100).toFixed(0)}%
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="grid sm:grid-cols-3 gap-4">
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Average per Service</p>
+                            <p className="text-2xl font-bold text-white">
+                                ${subscriptions.length > 0 ? (getMonthlyTotal() / subscriptions.length).toFixed(2) : '0.00'}
+                            </p>
+                        </div>
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Yearly Projection</p>
+                            <p className="text-2xl font-bold text-orange-400">${(getMonthlyTotal() * 12).toFixed(2)}</p>
+                        </div>
+                        <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5">
+                            <p className="text-xs text-zinc-500 mb-1">Most Expensive</p>
+                            <p className="text-2xl font-bold text-white">
+                                {subscriptions.length > 0
+                                    ? `$${Math.max(...subscriptions.map(s => s.price)).toFixed(2)}`
+                                    : '$0.00'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Subscribe Modal */}
+            <SubscribeModal
+                isOpen={showSubscribeModal}
+                onClose={() => setShowSubscribeModal(false)}
+                service={selectedService}
+                onSubscribe={handleSubscribe}
+                balance={balance || 0}
+                usdcBalance={usdcBalance}
+                solPrice={solPrice}
+                existingSubscriptions={subscriptions}
+            />
+        </div>
+    );
 }
 
 // Wallet Section
-function WalletSection({balance, address, copyToClipboard}: any) {
+function WalletSection({ balance, address, copyToClipboard }: any) {
     return (
         <div className="space-y-6">
             <h1 className="text-4xl font-bold">Wallet & Cards</h1>
             <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-linear-to-br from-zinc-900/80 to-black/60 backdrop-blur-md border border-white/10 rounded-3xl p-8">
                     <h3 className="text-lg font-bold mb-6">Main Wallet</h3>
-                        <p className="text-4xl font-bold mb-6">{balance} SOL</p>
-                        <div className="flex items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 text-sm">
-                            <span className="font-mono text-zinc-300 truncate">{address}</span>
-                            <button onClick={copyToClipboard} className="text-orange-500 ml-3">
-                                <CopyIcon size={18} />
-                            </button>
-                        </div>
+                    <p className="text-4xl font-bold mb-6">{balance} SOL</p>
+                    <div className="flex items-center justify-between bg-black/30 p-3 rounded-xl border border-white/5 text-sm">
+                        <span className="font-mono text-zinc-300 truncate">{address}</span>
+                        <button onClick={copyToClipboard} className="text-orange-500 ml-3">
+                            <CopyIcon size={18} />
+                        </button>
                     </div>
                 </div>
+            </div>
         </div>
     );
 }
@@ -1291,7 +1292,7 @@ function DevKeysSection() {
 // Savings Section
 function SavingsSection() {
     // @ts-ignore
-    const {pots, createPot, withdrawFromPot, loading, fetchPots} = useLazorkit();
+    const { pots, createPot, withdrawFromPot, loading, fetchPots } = useLazorkit();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
 

@@ -4,10 +4,10 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, Tr
 // @ts-ignore - Assuming export exists, will fix if error
 import { useWallet } from '@lazorkit/wallet';
 import { useToast } from '@/context/ToastContext';
-import { 
-    deriveSavingsPotPDA, 
+import {
+    deriveSavingsPotPDA,
     constructCreateSavingsPotTransaction,
-    fetchUserSavingsPots 
+    fetchUserSavingsPots
 } from '@/utils/savingsAccounts';
 
 export function useLazorkit() {
@@ -246,7 +246,13 @@ export function useLazorkit() {
 
             // 2. Create and send transaction
             const tx = new Transaction().add(...instructions);
-            
+
+            // Set fresh blockhash immediately before signing
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
+            tx.feePayer = new PublicKey(address);
+
             // Sign and send using Lazorkit
             const signature = await signAndSendTransaction(tx);
 
@@ -290,6 +296,12 @@ export function useLazorkit() {
                     })
                 );
             }
+
+            // Set fresh blockhash immediately before signing
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
+            tx.feePayer = new PublicKey(address);
 
             // In a real AA context, potAddress is a PDA and the Smart Wallet signs for it.
             // LazorKit handles the 'isSigner' for Chunk PDAs automatically.
@@ -338,6 +350,7 @@ export function useLazorkit() {
         createPot,
         withdrawFromPot,
         fetchPots,
-        connection
+        connection,
+        refreshBalance
     };
 }
