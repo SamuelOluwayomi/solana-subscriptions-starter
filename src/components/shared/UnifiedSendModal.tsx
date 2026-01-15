@@ -14,15 +14,19 @@ interface UnifiedSendModalProps {
     onSend: (recipient: string, amount: number, isSavings: boolean) => Promise<void>;
     pots: any[];
     balance: number;
+    usdcBalance?: number; // Add USDC balance prop
 }
 
-export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balance }: UnifiedSendModalProps) {
+export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balance, usdcBalance }: UnifiedSendModalProps) {
     const [mode, setMode] = useState<'external' | 'savings'>('external');
     const [recipient, setRecipient] = useState('');
     const [selectedPot, setSelectedPot] = useState<any>(null);
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Use USDC balance for validation (not SOL balance)
+    const availableBalance = usdcBalance !== undefined ? usdcBalance : balance;
 
     const handleSend = async () => {
         setError(null);
@@ -37,8 +41,8 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
             setError('Please enter a valid amount');
             return;
         }
-        if (numAmount > balance) {
-            setError('Insufficient balance');
+        if (numAmount > availableBalance) {
+            setError(`Insufficient balance. You have ${availableBalance.toFixed(2)} USDC but need ${numAmount.toFixed(2)} USDC.`);
             return;
         }
 
@@ -160,14 +164,14 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                             onChange={(e) => setAmount(e.target.value)}
                                         />
                                         <button
-                                            onClick={() => setAmount(balance.toString())}
+                                            onClick={() => setAmount(availableBalance.toString())}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-wider transition-all"
                                         >
                                             Max
                                         </button>
                                     </div>
                                     <p className="text-[10px] text-zinc-500 mt-2 text-right uppercase tracking-widest">
-                                        Balance: <span className="text-zinc-300 font-bold">{balance.toFixed(2)} USDC</span>
+                                        Balance: <span className="text-zinc-300 font-bold">{availableBalance.toFixed(2)} USDC</span>
                                     </p>
                                 </div>
 

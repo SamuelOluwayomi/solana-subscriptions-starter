@@ -65,14 +65,15 @@ async function findAssociatedTokenAddress(
     walletAddress: PublicKey,
     tokenMintAddress: PublicKey
 ): Promise<PublicKey> {
-    return (await PublicKey.findProgramAddress(
-        [
-            walletAddress.toBuffer(),
-            TOKEN_PROGRAM_ID.toBuffer(),
-            tokenMintAddress.toBuffer(),
-        ],
+    // Use SPL Token library for consistency with balance fetching (supports off-curve addresses)
+    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+    return await getAssociatedTokenAddress(
+        tokenMintAddress,
+        walletAddress,
+        true, // allowOwnerOffCurve - CRITICAL for smart wallets/PDAs
+        TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
-    ))[0];
+    );
 }
 
 function createAssociatedTokenAccountInstruction(
@@ -104,17 +105,21 @@ export async function constructMintTransaction(
     const userPubkey = new PublicKey(userAddress);
     const transaction = new Transaction();
 
+    // Use retry mechanism for RPC calls
+    const { createConnectionWithRetry } = await import('./rpc');
+    const conn = await createConnectionWithRetry();
+
     // 0. Check if Mint exists and Initialize if needed
-    const mintInfo = await connection.getAccountInfo(CADPAY_MINT);
+    const mintInfo = await conn.getAccountInfo(CADPAY_MINT);
     if (!mintInfo) {
 
         // A. Check Mint Authority Balance - It needs SOL to pay for the Mint Account
-        const authBalance = await connection.getBalance(MINT_AUTHORITY.publicKey);
+        const authBalance = await conn.getBalance(MINT_AUTHORITY.publicKey);
         if (authBalance < 0.05 * 1000000000) { // If less than 0.05 SOL
             try {
-                const sig = await connection.requestAirdrop(MINT_AUTHORITY.publicKey, 1 * 1000000000); // 1 SOL
-                const latest = await connection.getLatestBlockhash();
-                await connection.confirmTransaction({ signature: sig, ...latest });
+                const sig = await conn.requestAirdrop(MINT_AUTHORITY.publicKey, 1 * 1000000000); // 1 SOL
+                const latest = await conn.getLatestBlockhash();
+                await conn.confirmTransaction({ signature: sig, ...latest });
             } catch (e) {
                 console.error("Failed to fund Mint Authority:", e);
                 // Proceed anyway, maybe it has just enough
@@ -122,7 +127,7 @@ export async function constructMintTransaction(
         }
 
         // Calculate rent for Mint account
-        const lamports = await connection.getMinimumBalanceForRentExemption(82); // MINT_SIZE = 82
+        const lamports = await conn.getMinimumBalanceForRentExemption(82); // MINT_SIZE = 82
 
         transaction.add(
             SystemProgram.createAccount({
@@ -153,11 +158,12 @@ export async function constructMintTransaction(
         // Mint Account found
     }
 
-    // 1. Get User's ATA
+    // 1. Get User's ATA (using same method as balance fetching for consistency)
     const userATA = await findAssociatedTokenAddress(userPubkey, CADPAY_MINT);
+    console.log(`🔍 User ATA for mint: ${userATA.toBase58()}`);
 
     // 2. Check if ATA exists (via RPC)
-    const accountInfo = await connection.getAccountInfo(userATA);
+    const accountInfo = await conn.getAccountInfo(userATA);
 
     if (!accountInfo) {
         // Create ATA
@@ -184,7 +190,7 @@ export async function constructMintTransaction(
     );
 
     // FETCH BLOCKHASH & SET FEE PAYER
-    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    const { blockhash } = await conn.getLatestBlockhash('confirmed');
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = MINT_AUTHORITY.publicKey; // Mint Authority Pays!
 
@@ -196,10 +202,18 @@ export async function constructMintTransaction(
         transaction.sign(MINT_AUTHORITY);
     }
 
+    console.log(`💰 Mint transaction prepared:`, {
+        amount: amount / 1_000_000,
+        userATA: userATA.toBase58(),
+        mint: CADPAY_MINT.toBase58()
+    });
+
     return {
         transaction,
         sendTransaction: async () => {
-            return await connection.sendRawTransaction(transaction.serialize());
+            const signature = await conn.sendRawTransaction(transaction.serialize());
+            console.log(`📤 Mint transaction sent: ${signature}`);
+            return signature;
         }
     };
 }

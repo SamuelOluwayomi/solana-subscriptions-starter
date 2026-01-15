@@ -433,6 +433,7 @@ export default function Dashboard() {
                 onSend={handleUnifiedSend}
                 pots={pots}
                 balance={balance || 0}
+                usdcBalance={usdcBalance}
             />
         </div>
     );
@@ -533,28 +534,49 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             if (!address) return;
 
             // 1. Construct REAL Mint Transaction (Signed by Authority)
-            const { sendTransaction } = await constructMintTransaction(address);
+            // Explicitly mint 50 USDC (50 * 1_000_000 with 6 decimals)
+            const mintAmount = 50 * 1_000_000; // 50 USDC
+            console.log(`💰 Minting ${mintAmount / 1_000_000} USDC to ${address}`);
+            const { sendTransaction } = await constructMintTransaction(address, mintAmount);
 
             // 2. Send directly (User does not need to sign!)
             const signature = await sendTransaction();
+            console.log(`✅ Mint transaction sent: ${signature}`);
 
-            // Mint success
-
-            // 3. Update UI immediately and after confirmation
-            await refetchUsdc();
-            
-            // Wait for transaction confirmation
+            // 3. Wait for confirmation and update UI
             try {
                 const conn = await (await import('@/utils/rpc')).createConnectionWithRetry();
                 await conn.confirmTransaction(signature, 'confirmed');
+                console.log(`✅ Mint transaction confirmed: ${signature}`);
             } catch (confirmError) {
                 console.log('Transaction confirmation:', confirmError);
             }
             
-            // Refresh again after confirmation for real-time update
+            // Immediate refresh
+            await refetchUsdc();
+            
+            // Additional refresh after delay to ensure balance is updated
             setTimeout(async () => {
                 await refetchUsdc();
-            }, 1000);
+                console.log('💰 Balance refreshed after mint - checking on-chain balance...');
+                
+                // Verify the balance on-chain
+                try {
+                    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+                    const { CADPAY_MINT, TOKEN_PROGRAM_ID } = await import('@/utils/cadpayToken');
+                    const conn = await (await import('@/utils/rpc')).createConnectionWithRetry();
+                    const ata = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true, TOKEN_PROGRAM_ID);
+                    const balanceResponse = await conn.getTokenAccountBalance(ata);
+                    console.log(`💰 On-chain balance verification:`, {
+                        uiAmount: balanceResponse.value.uiAmount,
+                        rawAmount: balanceResponse.value.amount,
+                        decimals: balanceResponse.value.decimals,
+                        expected: 50
+                    });
+                } catch (verifyError) {
+                    console.error('Balance verification failed:', verifyError);
+                }
+            }, 3000);
 
             // Add REAL transaction to history
             const newTx = {
