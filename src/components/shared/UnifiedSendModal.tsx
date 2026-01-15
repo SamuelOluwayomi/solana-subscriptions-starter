@@ -48,8 +48,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
 
         setIsSubmitting(true);
         try {
-            const memoText = memo.trim().slice(0, MAX_MEMO_LENGTH); // Enforce limit
-            await onSend(targetRecipient, numAmount, mode === 'savings', memoText || undefined);
+            await onSend(targetRecipient, numAmount, mode === 'savings');
             onClose();
             // Reset state
             setRecipient('');
@@ -177,32 +176,6 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                     </p>
                                 </div>
 
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest">Memo (Optional)</label>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                                            memo.length > MAX_MEMO_LENGTH * 0.8 
-                                                ? 'text-orange-400' 
-                                                : 'text-zinc-500'
-                                        }`}>
-                                            {memo.length}/{MAX_MEMO_LENGTH}
-                                        </span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Add a note (e.g., Monthly savings)"
-                                        maxLength={MAX_MEMO_LENGTH}
-                                        className="w-full bg-zinc-900/60 border border-white/10 p-4 rounded-2xl text-white text-sm focus:outline-none focus:border-orange-500/50 transition-all"
-                                        value={memo}
-                                        onChange={(e) => setMemo(e.target.value.slice(0, MAX_MEMO_LENGTH))}
-                                    />
-                                    {memo.length > MAX_MEMO_LENGTH * 0.8 && (
-                                        <p className="text-[10px] text-orange-400 mt-1">
-                                            ⚠️ Approaching limit. Long memos may cause transaction size errors.
-                                        </p>
-                                    )}
-                                </div>
-
                                 {error && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
@@ -239,3 +212,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
         </AnimatePresence>
     );
 }
+function setMemo(arg0: string) {
+    throw new Error('Function not implemented.');
+}
+
