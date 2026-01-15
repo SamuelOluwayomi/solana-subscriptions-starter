@@ -340,7 +340,7 @@ export function useLazorkit() {
                 potPda: potPda?.toBase58(),
                 userPubKey: userPubKey?.toBase58(),
                 potAta: potAta?.toBase58(),
-                MINT_ADDRESS: MINT_ADDRESS?.toBase58(),
+                CADPAY_MINT: CADPAY_MINT?.toBase58(),
             });
 
             const anchorTx = await program.methods
@@ -350,7 +350,7 @@ export function useLazorkit() {
                     user: userPubKey,
                     systemProgram: SystemProgram.programId,
                     potAta: potAta,
-                    mint: MINT_ADDRESS,
+                    mint: CADPAY_MINT,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
                     rent: SYSVAR_RENT_PUBKEY,
