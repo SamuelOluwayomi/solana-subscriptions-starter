@@ -367,25 +367,31 @@ export function useLazorkit() {
                 throw new Error(`Invalid pot name: "${name}". Must be a non-empty string up to 32 characters.`);
             }
 
-            // Create BN for unlockTime - convert to string first for reliability
+            // Create BN for unlockTime using the BN imported from Anchor above (line 266)
             let unlockTimeBN;
             try {
-                // Use number directly - Anchor BN constructor accepts number
-                unlockTimeBN = new BN(unlockTimeInt);
+                // Convert to string first for maximum compatibility
+                const unlockTimeStr = unlockTimeInt.toString();
+                unlockTimeBN = new BN(unlockTimeStr);
                 
-                // Verify BN is valid by checking if it has the _bn property
+                // Verify BN is valid
                 if (!unlockTimeBN) {
                     throw new Error(`BN is null or undefined`);
                 }
                 
-                // Check if _bn exists (this is what Anchor uses internally)
-                const hasBn = (unlockTimeBN as any)._bn !== undefined;
-                if (!hasBn) {
-                    // Try creating with string as fallback
-                    unlockTimeBN = new BN(unlockTimeInt.toString());
+                // Verify it has the _bn property that Anchor uses internally
+                if ((unlockTimeBN as any)._bn === undefined) {
+                    // Try with number as fallback
+                    unlockTimeBN = new BN(unlockTimeInt);
                     if (!unlockTimeBN || (unlockTimeBN as any)._bn === undefined) {
-                        throw new Error(`Failed to create valid BN from unlockTime: ${unlockTimeInt}`);
+                        throw new Error(`Failed to create valid Anchor BN from unlockTime: ${unlockTimeInt}`);
                     }
+                }
+                
+                // Final validation - ensure BN can be converted to string
+                const testStr = unlockTimeBN.toString();
+                if (!testStr || testStr === 'NaN') {
+                    throw new Error(`BN created but invalid: ${testStr}`);
                 }
             } catch (bnError: any) {
                 throw new Error(`Failed to create BN for unlockTime: ${bnError?.message || 'Unknown error'}. unlockTimeInt=${unlockTimeInt}, type=${typeof unlockTimeInt}`);
@@ -447,10 +453,44 @@ export function useLazorkit() {
                 throw new Error('SYSVAR_RENT_PUBKEY is not a valid PublicKey');
             }
 
-            // Create the transaction using Anchor's method builder
-            // Build transaction manually to avoid Anchor's internal serialization issues
-            let tx = new Transaction();
-            let instruction;
+            // Step 1: Fund rent from treasury (if needed)
+            // Check if the PDA account already exists or needs rent
+            const potAccountInfo = await connection.getAccountInfo(savingsPotPDA);
+            const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(
+                8 + 32 + (4 + 32) + 8 + 8 + 8 + 1 // SavingsPot account size
+            );
+
+            if (!potAccountInfo || potAccountInfo.lamports < rentExemptAmount) {
+                showToast('Funding rent for savings pot from treasury...', 'info');
+                try {
+                    // Call API to fund rent from treasury
+                    const fundRentResponse = await fetch('/api/fund-rent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            accountAddress: savingsPotPDA.toBase58(),
+                            rentAmount: rentExemptAmount,
+                        }),
+                    });
+
+                    if (!fundRentResponse.ok) {
+                        const errorData = await fundRentResponse.json();
+                        throw new Error(`Failed to fund rent: ${errorData.error || 'Unknown error'}`);
+                    }
+
+                    const fundData = await fundRentResponse.json();
+                    console.log('Rent funded:', fundData.signature);
+                    
+                    // Wait a moment for the rent transfer to confirm
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } catch (fundError: any) {
+                    console.warn('Failed to fund rent from treasury, proceeding anyway:', fundError.message);
+                    // Continue - Anchor's init constraint will handle rent if needed
+                }
+            }
+
+            // Step 2: Create instruction using Anchor
+            let instruction: TransactionInstruction;
             
             try {
                 // Final validation - ensure every account is a valid PublicKey before passing to Anchor
@@ -476,76 +516,72 @@ export function useLazorkit() {
                 }
 
                 // Log accounts before calling Anchor
-                console.log('Creating pot with validated accounts:', {
+                console.log('Creating savings pot with Lazorkit:', {
                     savingsPot: savingsPotPDA.toBase58(),
                     user: userPubkey.toBase58(),
                     potAta: potAta.toBase58(),
                     mint: mintPubkey.toBase58(),
                     name,
                     unlockTimeBN: unlockTimeBN.toString(),
-                    unlockTimeBNType: unlockTimeBN?.constructor?.name,
                 });
 
-                // Create instruction first (this is where the error might occur)
-                // The IDL shows only 3 accounts, but Anchor should auto-resolve others from constraints
-                // Try passing only IDL accounts first, then add others if needed
-                instruction = await program.methods
-                    .createSavingsPot(name, unlockTimeBN)
-                    .accounts({
-                        savingsPot: savingsPotPDA,
-                        user: userPubkey,
-                        systemProgram: SystemProgram.programId,
-                        // These should be auto-resolved by Anchor from constraints, but include them explicitly
-                        potAta: potAta,
-                        mint: mintPubkey,
-                        tokenProgram: TOKEN_PROGRAM_ID,
-                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                        rent: SYSVAR_RENT_PUBKEY,
-                    } as any) // Use 'as any' to bypass TypeScript checking since IDL might be incomplete
-                    .instruction();
-                
-                // Add instruction to transaction
-                tx.add(instruction);
+                // Create instruction using Anchor's method builder
+                try {
+                    instruction = await program.methods
+                        .createSavingsPot(name, unlockTimeBN)
+                        .accounts({
+                            savingsPot: savingsPotPDA,
+                            user: userPubkey,
+                            systemProgram: SystemProgram.programId,
+                            potAta: potAta,
+                            mint: mintPubkey,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                            rent: SYSVAR_RENT_PUBKEY,
+                        } as any)
+                        .instruction();
+                } catch (anchorError: any) {
+                    // If Anchor fails due to IDL mismatch, try using .transaction() which might handle it better
+                    console.warn('Anchor .instruction() failed, trying .transaction() instead:', anchorError.message);
+                    const anchorTx = await program.methods
+                        .createSavingsPot(name, unlockTimeBN)
+                        .accounts({
+                            savingsPot: savingsPotPDA,
+                            user: userPubkey,
+                            systemProgram: SystemProgram.programId,
+                            potAta: potAta,
+                            mint: mintPubkey,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                            rent: SYSVAR_RENT_PUBKEY,
+                        } as any)
+                        .transaction();
+                    
+                    if (anchorTx.instructions.length === 0) {
+                        throw new Error('Anchor transaction has no instructions');
+                    }
+                    instruction = anchorTx.instructions[0];
+                }
             } catch (methodError: any) {
-                // More detailed error for debugging
                 console.error('Anchor method call failed:', {
                     name,
-                    nameType: typeof name,
-                    nameLength: name?.length,
                     unlockTimeBN: unlockTimeBN?.toString(),
-                    unlockTimeInt,
-                    unlockTimeBNType: typeof unlockTimeBN,
-                    unlockTimeBNHasBn: (unlockTimeBN as any)?._bn !== undefined,
-                    unlockTimeBNConstructor: unlockTimeBN?.constructor?.name,
-                    accountTypes: {
-                        savingsPot: savingsPotPDA?.constructor?.name,
-                        potAta: potAta?.constructor?.name,
-                        mint: mintPubkey?.constructor?.name,
-                        user: userPubkey?.constructor?.name,
-                    },
-                    accounts: {
-                        savingsPot: savingsPotPDA?.toBase58(),
-                        potAta: potAta?.toBase58(),
-                        mint: mintPubkey?.toBase58(),
-                        user: userPubkey?.toBase58(),
-                        systemProgram: SystemProgram.programId?.toBase58(),
-                    },
-                    error: methodError,
-                    errorMessage: methodError?.message,
+                    error: methodError?.message,
                     errorStack: methodError?.stack
                 });
-                throw new Error(`Failed to create instruction: ${methodError?.message || 'Unknown error'}. Check that all accounts are valid PublicKey instances.`);
+                throw new Error(`Failed to create instruction: ${methodError?.message || 'Unknown error'}`);
             }
 
-            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
-            // Setting it here can cause "TransactionTooOld" errors if there's any delay
-            // Lazorkit will fetch a fresh blockhash when signing
+            // Step 3: Use Lazorkit's instruction-based API to create the account
+            // This requires user authentication via Lazorkit
+            showToast('Creating savings pot... Please authenticate', 'info');
             
-            // Set fee payer
-            tx.feePayer = userPubkey;
-
-            // Sign and send using Lazorkit (it will handle blockhash internally)
-            const signature = await signAndSendTransaction(tx);
+            const signature = await signAndSendTransaction({
+                instructions: [instruction],
+                transactionOptions: {
+                    computeUnitLimit: 400_000, // Sufficient for account creation
+                }
+            });
 
             // Wait for confirmation
             try {
