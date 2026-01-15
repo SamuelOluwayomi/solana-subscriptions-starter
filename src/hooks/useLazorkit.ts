@@ -231,7 +231,7 @@ export function useLazorkit() {
     }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
-        // Validate wallet connection first
+        // Validate wallet connection first with detailed error messages
         if (!address) {
             throw new Error("Wallet address is not available. Please connect your wallet.");
         }
@@ -239,7 +239,16 @@ export function useLazorkit() {
             throw new Error("Wallet signer is not available. Please connect your wallet.");
         }
         if (!wallet) {
+            console.error("DEBUG: Wallet object is undefined. Available from useLazorkit:", {
+                address: !!address,
+                signAndSendTransaction: !!signAndSendTransaction,
+                wallet: !!wallet,
+                connection: !!connection,
+            });
             throw new Error("Wallet object is not available. Please connect your wallet.");
+        }
+        if (!connection) {
+            throw new Error("Connection is not available.");
         }
 
         // Validate name
@@ -567,58 +576,205 @@ export function useLazorkit() {
             // Step 3: Convert Anchor instruction to plain TransactionInstruction for Lazorkit
             // Lazorkit needs a plain TransactionInstruction, not Anchor's internal instruction format
             // Validate all keys are valid PublicKeys before conversion
+            
+            // Debug: Log instruction details before conversion
+            console.log('Instruction before conversion:', {
+                programId: instruction.programId?.toBase58(),
+                keysCount: instruction.keys?.length,
+                dataLength: instruction.data?.length,
+                keys: instruction.keys?.map((k, i) => ({
+                    index: i,
+                    pubkey: k.pubkey?.toBase58(),
+                    isSigner: k.isSigner,
+                    isWritable: k.isWritable,
+                    pubkeyType: k.pubkey?.constructor?.name,
+                }))
+            });
+
+            // Validate instruction structure
+            if (!instruction) {
+                throw new Error('Instruction is undefined');
+            }
+
+            if (!instruction.keys || !Array.isArray(instruction.keys)) {
+                throw new Error('Instruction keys is not an array');
+            }
+
+            if (instruction.keys.length === 0) {
+                throw new Error('Instruction has no keys');
+            }
+
+            // Validate and convert each key
+            // IMPORTANT: Recreate all PublicKeys from base58 strings to avoid internal reference issues
             const validatedKeys = instruction.keys.map((key, index) => {
-                if (!key.pubkey || !(key.pubkey instanceof PublicKey)) {
-                    throw new Error(`Invalid pubkey at index ${index} in instruction keys`);
+                if (!key) {
+                    throw new Error(`Key at index ${index} is undefined`);
                 }
+                
+                if (!key.pubkey) {
+                    throw new Error(`Key at index ${index} has undefined pubkey`);
+                }
+
+                // Always recreate PublicKey from base58 string to ensure clean object
+                // This avoids issues with internal references that Lazorkit can't serialize
+                let pubkeyAddress: string;
+                try {
+                    if (key.pubkey instanceof PublicKey) {
+                        pubkeyAddress = key.pubkey.toBase58();
+                    } else if (typeof key.pubkey === 'string') {
+                        pubkeyAddress = key.pubkey;
+                    } else {
+                        throw new Error(`Invalid pubkey type: ${typeof key.pubkey}`);
+                    }
+                } catch (e: any) {
+                    throw new Error(`Key at index ${index} cannot be converted to address: ${e.message}`);
+                }
+
+                // Create a fresh PublicKey from the address string
+                let pubkey: PublicKey;
+                try {
+                    pubkey = new PublicKey(pubkeyAddress);
+                } catch (e: any) {
+                    throw new Error(`Key at index ${index} has invalid pubkey address: ${pubkeyAddress}. Error: ${e.message}`);
+                }
+
+                // Verify the PublicKey is valid
+                try {
+                    const address = pubkey.toBase58();
+                    if (!address || address.length === 0) {
+                        throw new Error(`Key at index ${index} has empty address`);
+                    }
+                } catch (e: any) {
+                    throw new Error(`Key at index ${index} is not a valid PublicKey: ${e.message}`);
+                }
+
                 return {
-                    pubkey: key.pubkey,
+                    pubkey: pubkey,
                     isSigner: key.isSigner || false,
                     isWritable: key.isWritable || false,
                 };
             });
 
-            if (!instruction.programId || !(instruction.programId instanceof PublicKey)) {
-                throw new Error('Invalid programId in instruction');
+            // Validate programId - Always recreate from base58 to ensure clean object
+            if (!instruction.programId) {
+                throw new Error('Instruction programId is undefined');
             }
 
-            if (!instruction.data || !Buffer.isBuffer(instruction.data)) {
-                throw new Error('Invalid data in instruction');
+            let programIdAddress: string;
+            try {
+                if (instruction.programId instanceof PublicKey) {
+                    programIdAddress = instruction.programId.toBase58();
+                } else if (typeof instruction.programId === 'string') {
+                    programIdAddress = instruction.programId;
+                } else {
+                    throw new Error(`Invalid programId type: ${typeof instruction.programId}`);
+                }
+            } catch (e: any) {
+                throw new Error(`Cannot convert programId to address: ${e.message}`);
             }
 
+            let programId: PublicKey;
+            try {
+                programId = new PublicKey(programIdAddress);
+            } catch (e: any) {
+                throw new Error(`Invalid programId address: ${programIdAddress}. Error: ${e.message}`);
+            }
+
+            // Validate data
+            if (!instruction.data) {
+                throw new Error('Instruction data is undefined');
+            }
+
+            let data: Buffer;
+            if (Buffer.isBuffer(instruction.data)) {
+                data = instruction.data;
+            } else if (instruction.data instanceof Uint8Array) {
+                data = Buffer.from(instruction.data);
+            } else {
+                throw new Error(`Invalid instruction data type: ${typeof instruction.data}`);
+            }
+
+            // Create plain instruction
             const plainInstruction = new TransactionInstruction({
-                programId: instruction.programId,
+                programId: programId,
                 keys: validatedKeys,
-                data: instruction.data,
+                data: data,
             });
+
+            // Final validation of the plain instruction
+            console.log('Plain instruction created:', {
+                programId: plainInstruction.programId.toBase58(),
+                keysCount: plainInstruction.keys.length,
+                dataLength: plainInstruction.data.length,
+                allKeysValid: plainInstruction.keys.every(k => k.pubkey instanceof PublicKey),
+            });
+
+            // Double-check: Ensure no undefined values in the instruction
+            if (!plainInstruction.programId || !(plainInstruction.programId instanceof PublicKey)) {
+                throw new Error('Plain instruction has invalid programId');
+            }
+            
+            for (let i = 0; i < plainInstruction.keys.length; i++) {
+                const key = plainInstruction.keys[i];
+                if (!key || !key.pubkey || !(key.pubkey instanceof PublicKey)) {
+                    throw new Error(`Plain instruction key at index ${i} is invalid`);
+                }
+                // Ensure the PublicKey is fully constructed
+                try {
+                    key.pubkey.toBase58();
+                } catch (e: any) {
+                    throw new Error(`Plain instruction key at index ${i} has invalid PublicKey: ${e.message}`);
+                }
+            }
 
             // Step 4: Use Lazorkit's instruction-based API to create the account
             // This requires user authentication via Lazorkit
             showToast('Creating savings pot... Please authenticate', 'info');
             
-            const signature = await signAndSendTransaction({
-                instructions: [plainInstruction],
-                transactionOptions: {
-                    computeUnitLimit: 400_000, // Sufficient for account creation
-                }
-            });
-
-            // Wait for confirmation
             try {
-                await connection.confirmTransaction(signature, 'confirmed');
-            } catch (confirmError) {
-                // Transaction might still be processing
-                console.log('Transaction confirmation:', confirmError);
+                const signature = await signAndSendTransaction({
+                    instructions: [plainInstruction],
+                    transactionOptions: {
+                        computeUnitLimit: 400_000, // Sufficient for account creation
+                    }
+                });
+                return signature;
+            } catch (lazorkitError: any) {
+                // Enhanced error logging for Lazorkit errors
+                console.error('Lazorkit signAndSendTransaction failed:', {
+                    error: lazorkitError,
+                    message: lazorkitError?.message,
+                    stack: lazorkitError?.stack,
+                    instruction: {
+                        programId: plainInstruction.programId.toBase58(),
+                        keysCount: plainInstruction.keys.length,
+                        keys: plainInstruction.keys.map((k, i) => ({
+                            index: i,
+                            pubkey: k.pubkey.toBase58(),
+                            isSigner: k.isSigner,
+                            isWritable: k.isWritable,
+                        })),
+                    }
+                });
+                throw new Error(`Lazorkit transaction failed: ${lazorkitError?.message || 'Unknown error'}`);
             }
 
-            // Store pot metadata locally for quick lookup
-            const potData = { name, unlockTime, address: savingsPotPDA.toBase58(), createdTx: signature };
-            const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-            localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
+                // Wait for confirmation
+                try {
+                    await connection.confirmTransaction(signature, 'confirmed');
+                } catch (confirmError) {
+                    // Transaction might still be processing
+                    console.log('Transaction confirmation:', confirmError);
+                }
 
-            await fetchPots();
-            showToast(`Savings pot "${name}" created successfully!`, 'success');
-            return signature;
+                // Store pot metadata locally for quick lookup
+                const potData = { name, unlockTime, address: savingsPotPDA.toBase58(), createdTx: signature };
+                const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+                localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
+
+                await fetchPots();
+                showToast(`Savings pot "${name}" created successfully!`, 'success');
+                return signature;
         } catch (error: any) {
             console.error("Failed to create pot:", error);
             showToast(`Failed to create savings pot: ${error.message}`, 'error');
