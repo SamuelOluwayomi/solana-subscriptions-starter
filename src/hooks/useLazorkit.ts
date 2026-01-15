@@ -234,6 +234,17 @@ export function useLazorkit() {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
 
         try {
+            // Validate and convert unlockTime to a valid number
+            if (!unlockTime || isNaN(unlockTime) || unlockTime <= 0) {
+                throw new Error(`Invalid unlock time: ${unlockTime}. Must be a positive Unix timestamp.`);
+            }
+
+            // Ensure unlockTime is an integer
+            const unlockTimeInt = Math.floor(Number(unlockTime));
+            if (!Number.isFinite(unlockTimeInt) || unlockTimeInt <= 0) {
+                throw new Error(`Invalid unlock time conversion: ${unlockTime} -> ${unlockTimeInt}`);
+            }
+
             // Import required modules
             const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
             const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
@@ -250,9 +261,21 @@ export function useLazorkit() {
             // Derive pot ATA (will be created by Anchor's init constraint)
             const potAta = await getAssociatedTokenAddress(CADPAY_MINT, savingsPotPDA, true);
 
+            // Create BN for unlockTime - convert to string first for reliability
+            let unlockTimeBN;
+            try {
+                unlockTimeBN = new BN(unlockTimeInt.toString());
+                // Verify BN is valid
+                if (!unlockTimeBN || (unlockTimeBN as any)._bn === undefined) {
+                    throw new Error(`Failed to create valid BN from unlockTime: ${unlockTimeInt}`);
+                }
+            } catch (bnError: any) {
+                throw new Error(`Failed to create BN for unlockTime: ${bnError?.message || 'Unknown error'}`);
+            }
+
             // Create the transaction using Anchor's method builder
             const tx = await program.methods
-                .createSavingsPot(name, new BN(unlockTime))
+                .createSavingsPot(name, unlockTimeBN)
                 .accounts({
                     savingsPot: savingsPotPDA,
                     potAta: potAta,

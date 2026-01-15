@@ -41,7 +41,7 @@ import { useToast } from '@/context/ToastContext';
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys' | 'savings';
 
 export default function Dashboard() {
-    const { address, wallet, loading, balance, requestAirdrop, logout, signAndSendTransaction, connection, pots, fetchPots, refreshBalance } = useLazorkit();
+    const { address, wallet, loading, balance, requestAirdrop, logout, signAndSendTransaction, connection, pots, fetchPots, refreshBalance, createPot } = useLazorkit();
     const { showToast } = useToast();
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [showSendModal, setShowSendModal] = useState(false);
@@ -140,7 +140,7 @@ export default function Dashboard() {
                     throw new Error(`Failed to derive pot ATA`);
                 }
 
-                // Verify pot account exists on-chain
+                // Verify pot account exists on-chain, create if missing
                 try {
                     const potAccountInfo = await connection.getAccountInfo(potPda);
                     // #region agent log
@@ -148,11 +148,32 @@ export default function Dashboard() {
                     // #endregion
                     
                     if (!potAccountInfo) {
-                        throw new Error(`Savings pot "${pot.name}" does not exist on-chain. Please create it first.`);
+                        // Pot doesn't exist on-chain, try to create it automatically
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:139',message:'Pot does not exist, attempting auto-create',data:{potName:pot.name,potAddress:pot.address,unlockTime:pot.unlockTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                        // #endregion
+                        
+                        // Use unlockTime from pot metadata, or default to 1 year from now
+                        const unlockTime = pot.unlockTime || Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+                        
+                        try {
+                            showToast(`Creating savings pot "${pot.name}" on-chain...`, 'info');
+                            await createPot(pot.name, unlockTime);
+                            showToast(`Savings pot "${pot.name}" created! You can now deposit.`, 'success');
+                            // Wait a moment for the account to be available
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            // Re-check the account
+                            const recheckInfo = await connection.getAccountInfo(potPda);
+                            if (!recheckInfo) {
+                                throw new Error(`Pot was created but account is not yet available. Please try again in a few seconds.`);
+                            }
+                        } catch (createError: any) {
+                            throw new Error(`Savings pot "${pot.name}" does not exist on-chain and failed to create: ${createError?.message || 'Unknown error'}. Please create it manually first.`);
+                        }
                     }
                 } catch (accountCheckError: any) {
                     // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:140',message:'Pot account check failed',data:{error:accountCheckError?.message||String(accountCheckError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:152',message:'Pot account check failed',data:{error:accountCheckError?.message||String(accountCheckError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
                     // #endregion
                     throw new Error(`Failed to verify pot account: ${accountCheckError?.message || 'Unknown error'}`);
                 }
