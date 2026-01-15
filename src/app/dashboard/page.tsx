@@ -74,6 +74,10 @@ export default function Dashboard() {
             return;
         }
 
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:77',message:'handleUnifiedSend entry',data:{recipient,amount,amountType:typeof amount,isSavings,isNaN:isNaN(amount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+        // #endregion
+        
         try {
             const { constructTransferTransaction } = await import('@/utils/cadpayToken');
             const { depositToPotInstruction, deriveSavingsPotPDA } = await import('@/utils/savingsAccounts');
@@ -89,6 +93,19 @@ export default function Dashboard() {
                 const pot = pots.find(p => p.address === recipient);
                 if (!pot) throw new Error("Saving pot not found");
 
+                // Validate amount
+                if (!amount || isNaN(amount) || amount <= 0) {
+                    throw new Error(`Invalid amount: ${amount}. Please enter a valid positive number.`);
+                }
+
+                // Convert to raw amount (6 decimals for USDC)
+                const rawAmount = Math.floor(amount * 1_000_000);
+                if (rawAmount <= 0 || !Number.isFinite(rawAmount)) {
+                    throw new Error(`Invalid amount calculation: ${amount} * 1_000_000 = ${rawAmount}`);
+                }
+
+                console.log(`💰 Depositing ${amount} USDC (${rawAmount} raw) to pot "${pot.name}"`);
+
                 const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
                 const userAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true);
                 const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
@@ -97,16 +114,59 @@ export default function Dashboard() {
                 const provider = new AnchorProvider(connection, (wallet as any), {});
                 const program = new Program(idl as any, provider);
 
-                const depositIx = await program.methods
-                    .depositToPot(new BN(amount * 1_000_000))
-                    .accounts({
-                        savingsPot: potPda,
-                        user: new PublicKey(address),
-                        userAta: userAta,
-                        potAta: potAta,
-                        tokenProgram: TOKEN_PROGRAM_ID,
-                    })
-                    .instruction();
+                // Ensure BN is properly imported and amount is valid
+                // Anchor's BN constructor can accept number or string
+                // Use number directly for better compatibility
+                let depositAmount: BN;
+                try {
+                    // Try creating BN with number first (more reliable)
+                    depositAmount = new BN(rawAmount);
+                    
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:117',message:'BN created with number',data:{rawAmount,hasBn:!!depositAmount?._bn,depositAmountType:typeof depositAmount,depositAmountString:String(depositAmount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                    
+                    // Verify BN is valid
+                    if (!depositAmount || (depositAmount as any)._bn === undefined) {
+                        // Fallback: try with string
+                        depositAmount = new BN(rawAmount.toString());
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:123',message:'BN created with string fallback',data:{rawAmount,hasBn:!!depositAmount?._bn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                        // #endregion
+                    }
+                } catch (bnError: any) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:128',message:'BN creation failed',data:{rawAmount,error:bnError?.message||String(bnError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                    throw new Error(`Failed to create BN: ${bnError?.message || 'Unknown error'}`);
+                }
+
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:133',message:'About to create deposit instruction',data:{depositAmount:String(depositAmount),rawAmount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                // #endregion
+
+                let depositIx;
+                try {
+                    depositIx = await program.methods
+                        .depositToPot(depositAmount)
+                        .accounts({
+                            savingsPot: potPda,
+                            user: new PublicKey(address),
+                            userAta: userAta,
+                            potAta: potAta,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                        })
+                        .instruction();
+                    
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:145',message:'Deposit instruction created successfully',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                } catch (ixError: any) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:149',message:'Deposit instruction creation failed',data:{error:ixError?.message||String(ixError),errorStack:ixError?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                    // #endregion
+                    throw new Error(`Failed to create deposit instruction: ${ixError?.message || 'Unknown error'}`);
+                }
 
                 tx.add(depositIx);
             } else {
@@ -744,8 +804,12 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                                 const provider = new AnchorProvider(connection, (wallet as any), {});
                                                 const program = new Program(idl as any, provider);
 
+                                                // Quick save 1 USDC - ensure BN is created properly
+                                                const quickSaveAmount = 1 * 1_000_000; // 1 USDC in raw units
+                                                const quickSaveBN = new BN(quickSaveAmount.toString());
+                                                
                                                 const tx = await program.methods
-                                                    .depositToPot(new BN(1 * 1_000_000)) // Quick save 1 USDC
+                                                    .depositToPot(quickSaveBN)
                                                     .accounts({
                                                         savingsPot: potPda,
                                                         user: new PublicKey(address),
