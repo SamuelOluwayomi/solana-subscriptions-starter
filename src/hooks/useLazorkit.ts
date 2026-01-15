@@ -231,7 +231,7 @@ export function useLazorkit() {
     }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
-        // Basic validation
+        // 1. Safety Checks (Prevention of the '_bn' error)
         if (!address) {
             throw new Error("Wallet address is not available. Please connect your wallet.");
         }
@@ -254,26 +254,173 @@ export function useLazorkit() {
         }
 
         // Validate unlockTime
-        if (unlockTime === undefined || unlockTime === null || isNaN(unlockTime) || unlockTime <= 0) {
+        const unlockTimeInt = Math.floor(Number(unlockTime));
+        if (unlockTime === undefined || unlockTime === null || isNaN(unlockTime) || unlockTimeInt <= 0) {
             throw new Error(`Invalid unlock time: ${unlockTime}. Must be a positive Unix timestamp.`);
         }
 
         try {
-            // TODO: Implement savings pot creation using Lazorkit
-            // Requirements:
-            // 1. Use Lazorkit's instruction-based API (signAndSendTransaction with instructions array)
-            // 2. Fund rent from treasury via /api/fund-rent if needed
-            // 3. User must authenticate via Lazorkit (passkey)
-            // 4. Keep the "savings" label in the UI
+            setLocalLoading(true);
+            showToast('Preparing savings pot creation...', 'info');
+
+            // 2. Import required modules
+            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
+            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const idl = await import('../../anchor/target/idl/cadpay_profiles.json');
+
+            // 3. Derive PDA and ATA for the Pot
+            const userPubKey = new PublicKey(address);
+            const [potPda] = deriveSavingsPotPDA(userPubKey, name);
+            const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+
+            // 4. Fund Rent from Treasury (if needed)
+            const potAccountInfo = await connection.getAccountInfo(potPda);
+            const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(
+                8 + 32 + (4 + 32) + 8 + 8 + 8 + 1 // SavingsPot account size from Rust
+            );
+
+            if (!potAccountInfo || potAccountInfo.lamports < rentExemptAmount) {
+                showToast('Funding rent for savings pot from treasury...', 'info');
+                try {
+                    const fundRentResponse = await fetch('/api/fund-rent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            accountAddress: potPda.toBase58(),
+                            rentAmount: rentExemptAmount,
+                        }),
+                    });
+
+                    if (!fundRentResponse.ok) {
+                        const errorData = await fundRentResponse.json();
+                        console.warn(`Failed to fund rent: ${errorData.error || 'Unknown error'}`);
+                        // Continue anyway - Anchor's init constraint will handle rent
+                    } else {
+                        const fundData = await fundRentResponse.json();
+                        console.log('Rent funded from treasury:', fundData.signature);
+                        // Wait a moment for the rent transfer to confirm
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                } catch (fundError: any) {
+                    console.warn('Treasury funding skipped or failed, proceeding with user funds:', fundError.message);
+                    // Continue - Anchor's init constraint will handle rent if needed
+                }
+            }
+
+            // 5. Setup Anchor Provider (with proper wallet casting to prevent _bn error)
+            const provider = new AnchorProvider(connection, (wallet as any), {
+                commitment: 'confirmed',
+            });
+            const program = new Program(idl as any, provider);
+
+            // 6. Build the Instruction using Anchor's .transaction() method
+            // This auto-resolves all accounts including potAta, mint, tokenProgram, etc.
+            const anchorTx = await program.methods
+                .createSavingsPot(name, new BN(unlockTimeInt))
+                .accounts({
+                    savingsPot: potPda,
+                    user: userPubKey,
+                    systemProgram: SystemProgram.programId,
+                    potAta: potAta,
+                    mint: CADPAY_MINT,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                    rent: SYSVAR_RENT_PUBKEY,
+                } as any)
+                .transaction();
+
+            if (anchorTx.instructions.length === 0) {
+                throw new Error('Anchor transaction has no instructions');
+            }
+
+            // Extract the instruction from the transaction
+            const instruction = anchorTx.instructions[0];
+
+            // 7. Convert Anchor instruction to plain TransactionInstruction for Lazorkit
+            // Recreate all PublicKeys from base58 to avoid internal reference issues
+            const validatedKeys = instruction.keys.map((key) => {
+                if (!key || !key.pubkey) {
+                    throw new Error('Invalid instruction key');
+                }
+                
+                // Get address string
+                const pubkeyAddress = key.pubkey instanceof PublicKey 
+                    ? key.pubkey.toBase58() 
+                    : String(key.pubkey);
+                
+                // Create fresh PublicKey
+                return {
+                    pubkey: new PublicKey(pubkeyAddress),
+                    isSigner: key.isSigner || false,
+                    isWritable: key.isWritable || false,
+                };
+            });
+
+            // Extract programId safely
+            let programId: PublicKey;
+            if (instruction.programId instanceof PublicKey) {
+                programId = instruction.programId;
+            } else {
+                // Handle case where programId might be a different type
+                const programIdStr = typeof instruction.programId === 'string' 
+                    ? instruction.programId 
+                    : String(instruction.programId);
+                programId = new PublicKey(programIdStr);
+            }
+
+            const data = Buffer.isBuffer(instruction.data)
+                ? instruction.data
+                : Buffer.from(instruction.data as any);
+
+            const plainInstruction = new TransactionInstruction({
+                programId: programId,
+                keys: validatedKeys,
+                data: data,
+            });
+
+            // 8. Execute via Lazorkit's instruction-based API (requires user authentication)
+            showToast('Creating savings pot... Please authenticate', 'info');
             
-            showToast('Savings pot creation not yet implemented', 'info');
-            throw new Error('Savings pot creation is being rebuilt');
+            const signature = await signAndSendTransaction({
+                instructions: [plainInstruction],
+                transactionOptions: {
+                    computeUnitLimit: 400_000, // Sufficient for account creation
+                }
+            });
+
+            // 9. Wait for confirmation
+            try {
+                await connection.confirmTransaction(signature, 'confirmed');
+            } catch (confirmError) {
+                // Transaction might still be processing
+                console.log('Transaction confirmation:', confirmError);
+            }
+
+            // 10. Update Local Storage for metadata
+            const potData = { 
+                name, 
+                unlockTime: unlockTimeInt, 
+                address: potPda.toBase58(), 
+                createdTx: signature 
+            };
+            const existingMeta = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            const updatedMeta = [...existingMeta.filter((p: any) => p.name !== name), potData];
+            localStorage.setItem(`savings_pots_${address}`, JSON.stringify(updatedMeta));
+
+            // 11. Refresh pots and show success
+            await fetchPots();
+            showToast(`Savings pot "${name}" created successfully!`, 'success');
+            return signature;
+
         } catch (error: any) {
             console.error("Failed to create pot:", error);
             showToast(`Failed to create savings pot: ${error.message}`, 'error');
             throw error;
+        } finally {
+            setLocalLoading(false);
         }
-    }, [address, signAndSendTransaction, connection, fetchPots, showToast, wallet]);
+    }, [address, wallet, signAndSendTransaction, connection, fetchPots, showToast]);
 
     const withdrawFromPot = useCallback(async (potName: string, recipient: string, amount: number, note: string) => {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
