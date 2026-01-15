@@ -336,6 +336,13 @@ export function useLazorkit() {
 
             // 6. Build the Instruction using Anchor's .transaction() method
             // This auto-resolves all accounts including potAta, mint, tokenProgram, etc.
+            console.log('🔍 CRITICAL CHECK before program.methods:', {
+                potPda: potPda?.toBase58(),
+                userPubKey: userPubKey?.toBase58(),
+                potAta: potAta?.toBase58(),
+                MINT_ADDRESS: MINT_ADDRESS?.toBase58(),
+            });
+
             const anchorTx = await program.methods
                 .createSavingsPot(name, new BN(unlockTimeInt))
                 .accounts({
@@ -343,7 +350,7 @@ export function useLazorkit() {
                     user: userPubKey,
                     systemProgram: SystemProgram.programId,
                     potAta: potAta,
-                    mint: CADPAY_MINT,
+                    mint: MINT_ADDRESS,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
                     rent: SYSVAR_RENT_PUBKEY,
