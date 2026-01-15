@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, TransactionInstruction } from '@solana/web3.js';
 // @ts-ignore - Assuming export exists, will fix if error
@@ -20,8 +20,21 @@ export function useLazorkit() {
     const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading, smartWalletPubkey, getBalance } = walletHook || {};
     const [localLoading, setLocalLoading] = useState(false);
 
+    // ✅ Stabilize the address and public key to prevent infinite loops
+    // address is a string (primitive), so it's a stable dependency
     // @ts-ignore
-    const address = smartWalletPubkey?.toBase58?.() || null;
+    const address = useMemo(() => smartWalletPubkey?.toBase58?.() || null, [smartWalletPubkey]);
+
+    // Create a stable PublicKey object from the address string
+    const stableSmartWalletPubkey = useMemo(() => {
+        if (!address) return null;
+        try {
+            return new PublicKey(address);
+        } catch (e) {
+            return null;
+        }
+    }, [address]);
+
     // @ts-ignore
     const isAuthenticated = isConnected;
 
@@ -181,7 +194,7 @@ export function useLazorkit() {
     const [pots, setPots] = useState<any[]>([]);
 
     const fetchPots = useCallback(async () => {
-        if (!address || !smartWalletPubkey) return;
+        if (!address || !stableSmartWalletPubkey) return;
         try {
             // In a real app, you'd fetch from a registry. 
             // For hackathon, we fetch names from localStorage and derive PDAs.
@@ -190,7 +203,7 @@ export function useLazorkit() {
                 try {
                     // Derive PDA: [user_key, "savings", pot.name]
                     const [potPda] = PublicKey.findProgramAddressSync(
-                        [new PublicKey(address).toBuffer(), Buffer.from("savings"), Buffer.from(pot.name)],
+                        [stableSmartWalletPubkey.toBuffer(), Buffer.from("savings"), Buffer.from(pot.name)],
                         new PublicKey("6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz") // Using session program ID or similar
                     );
 
@@ -212,7 +225,7 @@ export function useLazorkit() {
         } catch (e) {
             console.error("Failed to fetch pots", e);
         }
-    }, [address, smartWalletPubkey, connection]);
+    }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
         if (!address) throw new Error("Wallet not connected");
@@ -270,8 +283,11 @@ export function useLazorkit() {
     useEffect(() => {
         if (isConnected && address) {
             fetchPots();
+            // Polling for pot balances every 10s (reduced frequency)
+            const interval = setInterval(fetchPots, 10000);
+            return () => clearInterval(interval);
         }
-    }, [isConnected, address, fetchPots]);
+    }, [isConnected, address]); // Removed fetchPots from deps to be extra safe
 
     return {
         // Core Logic
