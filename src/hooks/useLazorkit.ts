@@ -267,7 +267,25 @@ export function useLazorkit() {
             const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
             const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
             const { CADPAY_MINT } = await import('@/utils/cadpayToken');
-            const idl = await import('../../anchor/target/idl/cadpay_profiles.json');
+            const idlModule = await import('../../anchor/target/idl/cadpay_profiles.json');
+
+            // 2.1. Validate CADPAY_MINT (critical to prevent _bn error)
+            if (!CADPAY_MINT || !(CADPAY_MINT instanceof PublicKey)) {
+                throw new Error('CADPAY_MINT is invalid or undefined. Please check cadpayToken.ts');
+            }
+
+            // 2.2. Program ID (from Rust declare_id! macro)
+            const PROGRAM_ID = new PublicKey('6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz');
+
+            // 2.3. Extract IDL from default export and add program address if missing (prevents _bn error)
+            const idl = (idlModule.default || idlModule) as any;
+            const idlWithAddress = {
+                ...idl,
+                metadata: {
+                    ...(idl.metadata || {}),
+                    address: PROGRAM_ID.toBase58(),
+                },
+            };
 
             // 3. Derive PDA and ATA for the Pot
             const userPubKey = new PublicKey(address);
@@ -312,7 +330,9 @@ export function useLazorkit() {
             const provider = new AnchorProvider(connection, (wallet as any), {
                 commitment: 'confirmed',
             });
-            const program = new Program(idl as any, provider);
+            
+            // 5.1. Create Program - IDL now has metadata.address set, so it works correctly
+            const program = new Program(idlWithAddress as any, provider);
 
             // 6. Build the Instruction using Anchor's .transaction() method
             // This auto-resolves all accounts including potAta, mint, tokenProgram, etc.
