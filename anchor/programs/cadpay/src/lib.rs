@@ -42,8 +42,9 @@ pub mod cadpay_profiles {
         pot_name: String,
         unlock_time: u64,
     ) -> Result<()> {
-        require!(pot_name.len() > 0 && pot_name.len() <= 32, InvalidPotName);
-        require!(unlock_time > 0, InvalidUnlockTime);
+        // Use full scope for errors
+        require!(pot_name.len() > 0 && pot_name.len() <= 32, CadpayError::InvalidPotName);
+        require!(unlock_time > 0, CadpayError::InvalidUnlockTime);
 
         let savings_pot = &mut ctx.accounts.savings_pot;
         savings_pot.authority = ctx.accounts.user.key();
@@ -51,7 +52,7 @@ pub mod cadpay_profiles {
         savings_pot.unlock_time = unlock_time;
         savings_pot.balance = 0;
         savings_pot.created_at = Clock::get()?.unix_timestamp as u64;
-        savings_pot.bump = *ctx.bumps.get("savings_pot").unwrap();
+        savings_pot.bump = ctx.bumps.savings_pot; // Updated syntax for clarity
         Ok(())
     }
 
@@ -59,7 +60,7 @@ pub mod cadpay_profiles {
         ctx: Context<DepositToPot>,
         amount: u64,
     ) -> Result<()> {
-        require!(amount > 0, InvalidAmount);
+        require!(amount > 0, CadpayError::InvalidAmount);
 
         let savings_pot = &mut ctx.accounts.savings_pot;
         
@@ -78,7 +79,7 @@ pub mod cadpay_profiles {
             ],
         )?;
 
-        savings_pot.balance = savings_pot.balance.checked_add(amount).ok_or(BalanceOverflow)?;
+        savings_pot.balance = savings_pot.balance.checked_add(amount).ok_or(CadpayError::BalanceOverflow)?;
         Ok(())
     }
 
@@ -88,19 +89,16 @@ pub mod cadpay_profiles {
     ) -> Result<()> {
         let savings_pot = &mut ctx.accounts.savings_pot;
         
-        // Check unlock time
         let current_time = Clock::get()?.unix_timestamp as u64;
-        require!(current_time >= savings_pot.unlock_time, PotLocked);
-        require!(amount > 0 && amount <= savings_pot.balance, InvalidWithdrawalAmount);
+        require!(current_time >= savings_pot.unlock_time, CadpayError::PotLocked);
+        require!(amount > 0 && amount <= savings_pot.balance, CadpayError::InvalidWithdrawalAmount);
 
-        // Withdraw SOL from pot to recipient
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &savings_pot.key(),
             &ctx.accounts.recipient.key(),
             amount,
         );
 
-        // PDA signs the transaction
         let seeds = &[
             b"savings-pot-v1",
             savings_pot.authority.as_ref(),
@@ -119,7 +117,7 @@ pub mod cadpay_profiles {
             signer_seeds,
         )?;
 
-        savings_pot.balance = savings_pot.balance.checked_sub(amount).ok_or(BalanceUnderflow)?;
+        savings_pot.balance = savings_pot.balance.checked_sub(amount).ok_or(CadpayError::BalanceUnderflow)?;
         Ok(())
     }
 
@@ -128,7 +126,6 @@ pub mod cadpay_profiles {
     ) -> Result<()> {
         let savings_pot = &mut ctx.accounts.savings_pot;
         
-        // Withdraw remaining balance to authority
         if savings_pot.balance > 0 {
             let ix = anchor_lang::solana_program::system_instruction::transfer(
                 &savings_pot.key(),
@@ -188,11 +185,13 @@ pub struct UpdateUser<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(pot_name: String)]
 pub struct CreateSavingsPot<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 1,
+        // Calculation: Discriminator(8) + Auth(32) + String(4 + 32) + Unlock(8) + Bal(8) + Created(8) + Bump(1)
+        space = 8 + 32 + (4 + 32) + 8 + 8 + 8 + 1,
         seeds = [b"savings-pot-v1", user.key().as_ref(), pot_name.as_bytes()],
         bump
     )]
@@ -200,7 +199,6 @@ pub struct CreateSavingsPot<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
-    pub pot_name: String,
 }
 
 #[derive(Accounts)]
@@ -226,7 +224,7 @@ pub struct WithdrawFromPot<'info> {
     )]
     pub savings_pot: Account<'info, SavingsPot>,
     pub authority: Signer<'info>,
-    /// CHECK: Recipient can be any account
+    /// CHECK: Target for withdrawal
     pub recipient: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
@@ -269,22 +267,16 @@ pub struct SavingsPot {
 pub enum CadpayError {
     #[msg("Invalid pot name")]
     InvalidPotName,
-    
     #[msg("Invalid unlock time")]
     InvalidUnlockTime,
-    
     #[msg("Invalid amount")]
     InvalidAmount,
-    
     #[msg("Invalid withdrawal amount")]
     InvalidWithdrawalAmount,
-    
     #[msg("Pot is still locked")]
     PotLocked,
-    
     #[msg("Balance overflow")]
     BalanceOverflow,
-    
     #[msg("Balance underflow")]
     BalanceUnderflow,
 }
