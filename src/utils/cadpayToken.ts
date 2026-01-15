@@ -20,7 +20,14 @@ const DEMO_MINT_SECRET = Uint8Array.from([123, 193, 13, 207, 96, 242, 30, 107, 1
 export const MINT_KEYPAIR = Keypair.fromSecretKey(DEMO_MINT_SECRET);
 export const CADPAY_MINT = MINT_KEYPAIR.publicKey;
 
-const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+// #region agent log
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com';
+fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:23',message:'Creating connection',data:{rpcUrl,envVar:process.env.NEXT_PUBLIC_RPC_URL||'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+// #endregion
+
+// Create connection - will be replaced with retry-enabled connection in functions that need it
+// For backward compatibility, keep the module-level connection but functions will use retry mechanism
+const connection = new Connection(rpcUrl, 'confirmed');
 
 // --- Manual Instruction Helpers (No SPL Token Lib Dep) ---
 
@@ -201,27 +208,71 @@ export const DEMO_MERCHANT_WALLET = new PublicKey("CqUmZNET15kK6qjNPrtPZdE3VUMem
 
 // Helper to ensure Merchant has an ATA (Paid by Mint Auth)
 export async function ensureMerchantHasATA(merchantAddress: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:203',message:'ensureMerchantHasATA called',data:{merchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     const merchantPubkey = new PublicKey(merchantAddress);
     const merchantATA = await findAssociatedTokenAddress(merchantPubkey, CADPAY_MINT);
-    const accountInfo = await connection.getAccountInfo(merchantATA);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:207',message:'Checking merchant ATA existence',data:{merchantATA:merchantATA.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    // Use retry mechanism for RPC calls
+    const { createConnectionWithRetry } = await import('./rpc');
+    const conn = await createConnectionWithRetry();
+    
+    let accountInfo;
+    try {
+        accountInfo = await conn.getAccountInfo(merchantATA);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:211',message:'Merchant ATA check result',data:{merchantATA:merchantATA.toBase58(),exists:!!accountInfo},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+    } catch (rpcError: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:215',message:'Merchant ATA check RPC failed',data:{merchantATA:merchantATA.toBase58(),error:rpcError?.message||String(rpcError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        // Re-throw with more context
+        throw new Error(`Failed to check merchant ATA: ${rpcError?.message || 'RPC connection failed'}. Please check your network connection and RPC endpoint.`);
+    }
 
     if (!accountInfo) {
-        const transaction = new Transaction().add(
-            createAssociatedTokenAccountInstruction(
-                MINT_AUTHORITY.publicKey, // System Payer
-                merchantATA,
-                merchantPubkey,
-                CADPAY_MINT
-            )
-        );
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:220',message:'Creating merchant ATA',data:{merchantATA:merchantATA.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        try {
+            const transaction = new Transaction().add(
+                createAssociatedTokenAccountInstruction(
+                    MINT_AUTHORITY.publicKey, // System Payer
+                    merchantATA,
+                    merchantPubkey,
+                    CADPAY_MINT
+                )
+            );
 
-        const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = MINT_AUTHORITY.publicKey;
-        transaction.sign(MINT_AUTHORITY);
+            const { blockhash } = await conn.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = MINT_AUTHORITY.publicKey;
+            transaction.sign(MINT_AUTHORITY);
 
-        const signature = await connection.sendRawTransaction(transaction.serialize());
-        await connection.confirmTransaction({ signature, ...await connection.getLatestBlockhash() });
+            const signature = await conn.sendRawTransaction(transaction.serialize());
+            const latestBlockhash = await conn.getLatestBlockhash();
+            await conn.confirmTransaction({ signature, ...latestBlockhash });
+            
+            // Verify the ATA was created
+            const verifyInfo = await conn.getAccountInfo(merchantATA);
+            if (!verifyInfo) {
+                throw new Error('Merchant ATA creation transaction completed but account not found. Transaction may have failed.');
+            }
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:225',message:'Merchant ATA created successfully',data:{merchantATA:merchantATA.toBase58(),signature},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+        } catch (createError: any) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:240',message:'Merchant ATA creation failed',data:{merchantATA:merchantATA.toBase58(),error:createError?.message||String(createError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            throw new Error(`Failed to create merchant ATA: ${createError?.message || 'Unknown error'}. Please try again.`);
+        }
     }
 }
 
@@ -242,8 +293,12 @@ export async function constructTransferTransaction(
     const userPubkey = new PublicKey(userAddress);
     const merchantPubkey = new PublicKey(merchantAddress);
 
+    // Use retry mechanism for all RPC calls
+    const { createConnectionWithRetry } = await import('./rpc');
+    const conn = await createConnectionWithRetry();
+
     // 🔍 DIAGNOSTIC: Log the address being used (ownership check temporarily disabled)
-    const userAccountOwner = await connection.getAccountInfo(userPubkey);
+    const userAccountOwner = await conn.getAccountInfo(userPubkey);
     const SYSTEM_PROGRAM = new PublicKey('11111111111111111111111111111111');
 
 
@@ -278,7 +333,7 @@ export async function constructTransferTransaction(
 
 
     // 1a. Verify User Checks (Account Exists & Sufficient Funds)
-    const userAccountInfo = await connection.getAccountInfo(userATA);
+    const userAccountInfo = await conn.getAccountInfo(userATA);
     if (!userAccountInfo) {
         throw new Error("ERROR_NO_ACCOUNT: You don't have a USDC account. Please use the Faucet first.");
     }
@@ -291,22 +346,55 @@ export async function constructTransferTransaction(
 
     // 1b. Verify Balance
     try {
-        const balanceResponse = await connection.getTokenAccountBalance(userATA);
+        const balanceResponse = await conn.getTokenAccountBalance(userATA);
         const balance = balanceResponse.value.uiAmount || 0;
         // Check user balance
 
         if (balance < (amount / 1_000_000)) {
             throw new Error(`ERROR_INSUFFICIENT_FUNDS: You have ${balance} USDC but need ${amount / 1_000_000}.`);
         }
-    } catch (e) {
+    } catch (e: any) {
         console.error("Failed to check balance:", e);
+        // If it's an RPC error, provide more context
+        if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+            throw new Error(`ERROR_RPC_FAILURE: Unable to check balance due to network error. Please check your connection and try again.`);
+        }
+        throw e;
     }
 
     // 1c. Verify Merchant ATA Exists
-    const merchantAccountInfo = await connection.getAccountInfo(merchantATA);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:305',message:'Checking merchant ATA before RPC call',data:{merchantATA:merchantATA.toBase58(),merchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    let merchantAccountInfo;
+    try {
+        merchantAccountInfo = await conn.getAccountInfo(merchantATA);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:310',message:'Merchant ATA RPC call result',data:{merchantATA:merchantATA.toBase58(),exists:!!merchantAccountInfo,error:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+    } catch (rpcError: any) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:315',message:'Merchant ATA RPC call failed',data:{merchantATA:merchantATA.toBase58(),error:rpcError?.message||String(rpcError),errorType:rpcError?.name||'Unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        throw new Error(`ERROR_RPC_FAILURE: ${rpcError?.message || 'RPC call failed'}. Please check your network connection.`);
+    }
     if (!merchantAccountInfo) {
         console.error(`CRITICAL: Merchant ATA ${merchantATA.toBase58()} does not exist on-chain!`);
-        throw new Error("ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. Please try again.");
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'cadpayToken.ts:320',message:'Merchant ATA does not exist',data:{merchantATA:merchantATA.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        // Try to create it automatically before throwing error
+        try {
+            await ensureMerchantHasATA(merchantAddress);
+            // Re-check after creation
+            merchantAccountInfo = await conn.getAccountInfo(merchantATA);
+            if (!merchantAccountInfo) {
+                throw new Error("ERROR_MERCHANT_SETUP: Failed to create merchant ATA. Please try again.");
+            }
+        } catch (ensureError: any) {
+            throw new Error(`ERROR_MERCHANT_SETUP: Merchant wallet is not initialized. ${ensureError.message}`);
+        }
     }
 
     // 2. Create Memo Instruction (SPL Memo Protocol Integration)

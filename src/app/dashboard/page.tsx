@@ -125,10 +125,24 @@ export default function Dashboard() {
 
             showToast(`USDC ${isSavings ? 'saved' : 'sent'} successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
 
-            // Refresh UI
+            // Wait for transaction confirmation before refreshing balance
+            try {
+                await connection.confirmTransaction(signature, 'confirmed');
+            } catch (confirmError) {
+                // Transaction might still be processing, continue anyway
+                console.log('Transaction confirmation:', confirmError);
+            }
+
+            // Refresh UI immediately and then again after a short delay for real-time updates
             await fetchPots();
             await refreshBalance();
             await refetchUsdc();
+            
+            // Additional refresh after 2 seconds to catch any delayed updates
+            setTimeout(async () => {
+                await refetchUsdc();
+                await refreshBalance();
+            }, 2000);
         } catch (e: any) {
             showToast(`Transfer failed: ${e.message || 'Unknown error'}`, 'error');
             throw e;
@@ -526,11 +540,21 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
 
             // Mint success
 
-            // 3. Update UI
-            // Wait a few seconds for confirmation then refetch
-            setTimeout(() => {
-                refetchUsdc();
-            }, 2000);
+            // 3. Update UI immediately and after confirmation
+            await refetchUsdc();
+            
+            // Wait for transaction confirmation
+            try {
+                const conn = await (await import('@/utils/rpc')).createConnectionWithRetry();
+                await conn.confirmTransaction(signature, 'confirmed');
+            } catch (confirmError) {
+                console.log('Transaction confirmation:', confirmError);
+            }
+            
+            // Refresh again after confirmation for real-time update
+            setTimeout(async () => {
+                await refetchUsdc();
+            }, 1000);
 
             // Add REAL transaction to history
             const newTx = {
@@ -883,9 +907,25 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             // Processing subscription
 
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
-            await ensureMerchantHasATA(targetMerchantAddress);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:886',message:'About to call ensureMerchantHasATA',data:{targetMerchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            try {
+                await ensureMerchantHasATA(targetMerchantAddress);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:890',message:'ensureMerchantHasATA completed',data:{targetMerchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+            } catch (ensureError: any) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:893',message:'ensureMerchantHasATA failed',data:{targetMerchantAddress,error:ensureError?.message||String(ensureError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+                throw ensureError;
+            }
 
             // 3. Construct the transfer and memo instructions
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:889',message:'About to construct transfer transaction',data:{address,targetMerchantAddress,amount:price*1_000_000},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             const instructions = await constructTransferTransaction(
                 address,
                 price * 1_000_000,
@@ -893,6 +933,9 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 selectedService?.name || 'Unknown Service',
                 plan.name
             );
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:896',message:'Transfer transaction constructed',data:{instructionCount:instructions.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
 
             // 3.5. Fetch Address Lookup Table for transaction compression
             const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
