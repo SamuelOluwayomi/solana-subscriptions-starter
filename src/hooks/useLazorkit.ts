@@ -266,12 +266,31 @@ export function useLazorkit() {
             // 2. Import required modules
             const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
             const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
-            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const { Keypair } = await import('@solana/web3.js');
             const idlModule = await import('../../anchor/target/idl/cadpay_profiles.json');
 
-            // 2.1. Validate CADPAY_MINT (critical to prevent _bn error)
+            // 2.1. Get CADPAY_MINT with fallback (critical to prevent _bn error)
+            let CADPAY_MINT: PublicKey;
+            try {
+                const cadpayTokenModule = await import('@/utils/cadpayToken');
+                if (cadpayTokenModule.CADPAY_MINT && cadpayTokenModule.CADPAY_MINT instanceof PublicKey) {
+                    CADPAY_MINT = cadpayTokenModule.CADPAY_MINT;
+                    console.log('✅ CADPAY_MINT imported:', CADPAY_MINT.toBase58());
+                } else {
+                    throw new Error('CADPAY_MINT is not a PublicKey');
+                }
+            } catch (e) {
+                // FALLBACK: Create from hardcoded secret
+                console.warn('⚠️ CADPAY_MINT import failed, using fallback');
+                const DEMO_MINT_SECRET = Uint8Array.from([123, 193, 13, 207, 96, 242, 30, 107, 150, 74, 0, 79, 34, 192, 8, 200, 226, 9, 25, 31, 5, 226, 254, 242, 67, 146, 26, 111, 192, 44, 200, 104, 61, 70, 49, 248, 129, 212, 154, 58, 25, 167, 92, 220, 81, 47, 21, 140, 65, 182, 52, 176, 134, 155, 239, 23, 247, 80, 127, 242, 82, 143, 23, 166]);
+                const MINT_KEYPAIR = Keypair.fromSecretKey(DEMO_MINT_SECRET);
+                CADPAY_MINT = MINT_KEYPAIR.publicKey;
+                console.log('✅ CADPAY_MINT from fallback:', CADPAY_MINT.toBase58());
+            }
+
+            // 2.2. Final validation
             if (!CADPAY_MINT || !(CADPAY_MINT instanceof PublicKey)) {
-                throw new Error('CADPAY_MINT is invalid or undefined. Please check cadpayToken.ts');
+                throw new Error('CADPAY_MINT is invalid after fallback');
             }
 
             // 2.2. Program ID (from Rust declare_id! macro)
@@ -334,8 +353,8 @@ export function useLazorkit() {
             // 5.1. Create Program - IDL now has metadata.address set, so it works correctly
             const program = new Program(idlWithAddress as any, provider);
 
-            // 6. Build the Instruction using Anchor's .transaction() method
-            // This auto-resolves all accounts including potAta, mint, tokenProgram, etc.
+            // 6. SIMPLIFIED APPROACH: Use .instruction() and pass directly to Lazorkit
+            // This avoids the complex conversion that causes _bn errors
             console.log('🔍 CRITICAL CHECK before program.methods:', {
                 potPda: potPda?.toBase58(),
                 userPubKey: userPubKey?.toBase58(),
@@ -343,7 +362,8 @@ export function useLazorkit() {
                 CADPAY_MINT: CADPAY_MINT?.toBase58(),
             });
 
-            const anchorTx = await program.methods
+            // Build the main instruction
+            const createPotInstruction = await program.methods
                 .createSavingsPot(name, new BN(unlockTimeInt))
                 .accounts({
                     savingsPot: potPda,
@@ -355,62 +375,13 @@ export function useLazorkit() {
                     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
                     rent: SYSVAR_RENT_PUBKEY,
                 } as any)
-                .transaction();
+                .instruction();
 
-            if (anchorTx.instructions.length === 0) {
-                throw new Error('Anchor transaction has no instructions');
-            }
-
-            // 7. Convert all Anchor instructions to plain TransactionInstructions for Lazorkit
-            // Account creation may generate multiple instructions (e.g., ATA creation + program call)
-            const plainInstructions = anchorTx.instructions.map((instruction) => {
-                // Recreate all PublicKeys from base58 to avoid internal reference issues
-                const validatedKeys = instruction.keys.map((key) => {
-                    if (!key || !key.pubkey) {
-                        throw new Error('Invalid instruction key');
-                    }
-                    
-                    // Get address string
-                    const pubkeyAddress = key.pubkey instanceof PublicKey 
-                        ? key.pubkey.toBase58() 
-                        : String(key.pubkey);
-                    
-                    // Create fresh PublicKey
-                    return {
-                        pubkey: new PublicKey(pubkeyAddress),
-                        isSigner: key.isSigner || false,
-                        isWritable: key.isWritable || false,
-                    };
-                });
-
-                // Extract programId safely
-                let programId: PublicKey;
-                if (instruction.programId instanceof PublicKey) {
-                    programId = instruction.programId;
-                } else {
-                    // Handle case where programId might be a different type
-                    const programIdStr = typeof instruction.programId === 'string' 
-                        ? instruction.programId 
-                        : String(instruction.programId);
-                    programId = new PublicKey(programIdStr);
-                }
-
-                const data = Buffer.isBuffer(instruction.data)
-                    ? instruction.data
-                    : Buffer.from(instruction.data as any);
-
-                return new TransactionInstruction({
-                    programId: programId,
-                    keys: validatedKeys,
-                    data: data,
-                });
-            });
-
-            // 8. Execute via Lazorkit's instruction-based API (requires user authentication)
+            // 7. Execute via Lazorkit - pass instruction directly (no conversion needed)
             showToast('Creating savings pot... Please authenticate', 'info');
             
             const signature = await signAndSendTransaction({
-                instructions: plainInstructions,
+                instructions: [createPotInstruction],
                 transactionOptions: {
                     computeUnitLimit: 400_000, // Sufficient for account creation
                 }
