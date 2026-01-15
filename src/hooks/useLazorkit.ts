@@ -537,13 +537,14 @@ export function useLazorkit() {
                 throw new Error(`Failed to create instruction: ${methodError?.message || 'Unknown error'}. Check that all accounts are valid PublicKey instances.`);
             }
 
-            // Set fresh blockhash immediately before signing
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
+            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+            // Setting it here can cause "TransactionTooOld" errors if there's any delay
+            // Lazorkit will fetch a fresh blockhash when signing
+            
+            // Set fee payer
             tx.feePayer = userPubkey;
 
-            // Sign and send using Lazorkit
+            // Sign and send using Lazorkit (it will handle blockhash internally)
             const signature = await signAndSendTransaction(tx);
 
             // Wait for confirmation
@@ -603,12 +604,14 @@ export function useLazorkit() {
                 tx.add(createMemoInstruction(note, [new PublicKey(address)]));
             }
 
-            // Set fresh blockhash immediately before signing
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
+            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+            // Setting it here can cause "TransactionTooOld" errors if there's any delay
+            // Lazorkit will fetch a fresh blockhash when signing
+            
+            // Set fee payer
             tx.feePayer = new PublicKey(address);
 
+            // Sign and send using Lazorkit (it will handle blockhash internally)
             const signature = await signAndSendTransaction(tx);
             showToast(`Withdrawal successful! tx: ${signature.slice(0, 8)}...`, 'success');
             await fetchPots();

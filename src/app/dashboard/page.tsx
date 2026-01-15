@@ -253,13 +253,14 @@ export default function Dashboard() {
                 tx.add(...instructions);
             }
 
-            // Set recent blockhash for transaction
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
-            tx.recentBlockhash = blockhash;
-            tx.lastValidBlockHeight = lastValidBlockHeight;
+            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+            // Setting it here can cause "TransactionTooOld" errors if there's any delay
+            // Lazorkit will fetch a fresh blockhash when signing
+            
+            // Set fee payer
             tx.feePayer = new PublicKey(address);
 
-            // Sign and send the transaction using Lazorkit
+            // Sign and send the transaction using Lazorkit (it will handle blockhash internally)
             const signature = await signAndSendTransaction(tx);
 
             showToast(`USDC ${isSavings ? 'saved' : 'sent'} successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
@@ -898,8 +899,10 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                                     })
                                                     .transaction();
 
-                                                const { blockhash } = await connection.getLatestBlockhash();
-                                                tx.recentBlockhash = blockhash;
+                                                // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+                                                // Setting it here can cause "TransactionTooOld" errors if there's any delay
+                                                // Lazorkit will fetch a fresh blockhash when signing
+                                                
                                                 tx.feePayer = new PublicKey(address);
 
                                                 await signAndSendTransaction(tx);

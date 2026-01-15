@@ -244,9 +244,9 @@ export function useUserProfile() {
             const tx = new Transaction().add(instruction);
             tx.feePayer = userPubkey;
 
-            // GET A FRESH BLOCKHASH RIGHT NOW (This fixes the 'Too Old' error)
-            const { blockhash } = await connection.getLatestBlockhash('confirmed');
-            tx.recentBlockhash = blockhash;
+            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+            // Setting it here can cause "TransactionTooOld" errors if there's any delay
+            // Lazorkit will fetch a fresh blockhash when signing
 
             const signature = await signAndSendTransaction(tx);
             console.log("Transaction sent, awaiting confirmation...", signature);
@@ -343,8 +343,10 @@ export function useUserProfile() {
 
             const tx = new Transaction().add(instruction);
             tx.feePayer = userPubkey;
-            const { blockhash } = await connection.getLatestBlockhash();
-            tx.recentBlockhash = blockhash;
+            
+            // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
+            // Setting it here can cause "TransactionTooOld" errors if there's any delay
+            // Lazorkit will fetch a fresh blockhash when signing
 
             await signAndSendTransaction(tx);
             await fetchProfile();
