@@ -4,6 +4,11 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, Tr
 // @ts-ignore - Assuming export exists, will fix if error
 import { useWallet } from '@lazorkit/wallet';
 import { useToast } from '@/context/ToastContext';
+import { 
+    deriveSavingsPotPDA, 
+    constructCreateSavingsPotTransaction,
+    fetchUserSavingsPots 
+} from '@/utils/savingsAccounts';
 
 export function useLazorkit() {
     const router = useRouter();
@@ -228,17 +233,37 @@ export function useLazorkit() {
     }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
-        if (!address) throw new Error("Wallet not connected");
+        if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
 
-        // 1. In a real LazorKit implementaiton, createChunk would be a direct SDK call
-        // We simulate the transaction and store metadata locally
-        const potData = { name, unlockTime };
-        const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-        localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
+        try {
+            // 1. Create instructions for savings pot with storage rent funding
+            const { instructions, savingsPotAddress } = await constructCreateSavingsPotTransaction(
+                address,
+                name,
+                unlockTime,
+                connection
+            );
 
-        await fetchPots();
-        showToast(`Pot "${name}" created successfully!`, 'success');
-    }, [address, fetchPots, showToast]);
+            // 2. Create and send transaction
+            const tx = new Transaction().add(...instructions);
+            
+            // Sign and send using Lazorkit
+            const signature = await signAndSendTransaction(tx);
+
+            // 3. Store pot metadata locally for quick lookup
+            const potData = { name, unlockTime, address: savingsPotAddress, createdTx: signature };
+            const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
+
+            await fetchPots();
+            showToast(`Savings pot "${name}" created successfully! Rent funded via Paymaster pattern.`, 'success');
+            return signature;
+        } catch (error: any) {
+            console.error("Failed to create pot:", error);
+            showToast(`Failed to create savings pot: ${error.message}`, 'error');
+            throw error;
+        }
+    }, [address, signAndSendTransaction, connection, fetchPots, showToast]);
 
     const withdrawFromPot = useCallback(async (potAddress: string, recipient: string, amount: number, note: string) => {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");

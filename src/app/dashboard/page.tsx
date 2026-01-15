@@ -437,28 +437,47 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
     const [transactions, setTransactions] = useState<any[]>([]);
     const { subscriptions } = useSubscriptions();
     const [isFunding, setIsFunding] = useState(false);
+    const { showToast } = useToast();
 
     // @ts-ignore
     const { wallet, connection, pots, fetchPots, signAndSendTransaction, refreshBalance } = useLazorkit();
     const [showSendModal, setShowSendModal] = useState(false);
 
     const handleUnifiedSend = async (recipient: string, amount: number, isSavings: boolean) => {
-        if (!address || !signAndSendTransaction) return;
+        if (!address || !signAndSendTransaction) {
+            showToast("Wallet not connected", "error");
+            return;
+        }
 
         try {
-            const tx = new Transaction().add(
-                SystemProgram.transfer({
-                    fromPubkey: new PublicKey(address),
-                    toPubkey: new PublicKey(recipient),
-                    lamports: amount * LAMPORTS_PER_SOL,
-                })
-            );
+            // Create transfer instruction
+            const transferInstruction = SystemProgram.transfer({
+                fromPubkey: new PublicKey(address),
+                toPubkey: new PublicKey(recipient),
+                lamports: amount * LAMPORTS_PER_SOL,
+            });
 
-            await signAndSendTransaction(tx);
+            // Create transaction with proper configuration
+            const tx = new Transaction();
+            tx.add(transferInstruction);
+
+            // Set recent blockhash for transaction
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+            tx.recentBlockhash = blockhash;
+            tx.lastValidBlockHeight = lastValidBlockHeight;
+            tx.feePayer = new PublicKey(address);
+
+            // Sign and send the transaction using Lazorkit
+            const signature = await signAndSendTransaction(tx);
+
+            showToast(`Funds sent successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
+
+            // Refresh UI
             await fetchPots();
             await refreshBalance();
         } catch (e: any) {
             console.error("Send failed", e);
+            showToast(`Send failed: ${e.message || 'Unknown error'}`, 'error');
             throw e;
         }
     };
