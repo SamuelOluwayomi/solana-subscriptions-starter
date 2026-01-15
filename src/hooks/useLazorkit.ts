@@ -515,34 +515,10 @@ export function useLazorkit() {
                     }
                 }
 
-                // Log accounts before calling Anchor
-                console.log('Creating savings pot with Lazorkit:', {
-                    savingsPot: savingsPotPDA.toBase58(),
-                    user: userPubkey.toBase58(),
-                    potAta: potAta.toBase58(),
-                    mint: mintPubkey.toBase58(),
-                    name,
-                    unlockTimeBN: unlockTimeBN.toString(),
-                });
-
                 // Create instruction using Anchor's method builder
+                // Use .transaction() first to let Anchor handle all account resolution
                 try {
-                    instruction = await program.methods
-                        .createSavingsPot(name, unlockTimeBN)
-                        .accounts({
-                            savingsPot: savingsPotPDA,
-                            user: userPubkey,
-                            systemProgram: SystemProgram.programId,
-                            potAta: potAta,
-                            mint: mintPubkey,
-                            tokenProgram: TOKEN_PROGRAM_ID,
-                            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                            rent: SYSVAR_RENT_PUBKEY,
-                        } as any)
-                        .instruction();
-                } catch (anchorError: any) {
-                    // If Anchor fails due to IDL mismatch, try using .transaction() which might handle it better
-                    console.warn('Anchor .instruction() failed, trying .transaction() instead:', anchorError.message);
+                    // Try .transaction() first as it handles account resolution better
                     const anchorTx = await program.methods
                         .createSavingsPot(name, unlockTimeBN)
                         .accounts({
@@ -561,6 +537,22 @@ export function useLazorkit() {
                         throw new Error('Anchor transaction has no instructions');
                     }
                     instruction = anchorTx.instructions[0];
+                } catch (txError: any) {
+                    // Fallback to .instruction() if .transaction() fails
+                    console.warn('Anchor .transaction() failed, trying .instruction() instead:', txError.message);
+                    instruction = await program.methods
+                        .createSavingsPot(name, unlockTimeBN)
+                        .accounts({
+                            savingsPot: savingsPotPDA,
+                            user: userPubkey,
+                            systemProgram: SystemProgram.programId,
+                            potAta: potAta,
+                            mint: mintPubkey,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                            rent: SYSVAR_RENT_PUBKEY,
+                        } as any)
+                        .instruction();
                 }
             } catch (methodError: any) {
                 console.error('Anchor method call failed:', {
@@ -572,12 +564,40 @@ export function useLazorkit() {
                 throw new Error(`Failed to create instruction: ${methodError?.message || 'Unknown error'}`);
             }
 
-            // Step 3: Use Lazorkit's instruction-based API to create the account
+            // Step 3: Convert Anchor instruction to plain TransactionInstruction for Lazorkit
+            // Lazorkit needs a plain TransactionInstruction, not Anchor's internal instruction format
+            // Validate all keys are valid PublicKeys before conversion
+            const validatedKeys = instruction.keys.map((key, index) => {
+                if (!key.pubkey || !(key.pubkey instanceof PublicKey)) {
+                    throw new Error(`Invalid pubkey at index ${index} in instruction keys`);
+                }
+                return {
+                    pubkey: key.pubkey,
+                    isSigner: key.isSigner || false,
+                    isWritable: key.isWritable || false,
+                };
+            });
+
+            if (!instruction.programId || !(instruction.programId instanceof PublicKey)) {
+                throw new Error('Invalid programId in instruction');
+            }
+
+            if (!instruction.data || !Buffer.isBuffer(instruction.data)) {
+                throw new Error('Invalid data in instruction');
+            }
+
+            const plainInstruction = new TransactionInstruction({
+                programId: instruction.programId,
+                keys: validatedKeys,
+                data: instruction.data,
+            });
+
+            // Step 4: Use Lazorkit's instruction-based API to create the account
             // This requires user authentication via Lazorkit
             showToast('Creating savings pot... Please authenticate', 'info');
             
             const signature = await signAndSendTransaction({
-                instructions: [instruction],
+                instructions: [plainInstruction],
                 transactionOptions: {
                     computeUnitLimit: 400_000, // Sufficient for account creation
                 }

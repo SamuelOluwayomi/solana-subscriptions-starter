@@ -61,13 +61,7 @@ export function useUSDCBalance(walletAddress: string | null) {
                 // #region agent log
                 fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:57',message:'Balance fetched',data:{usdcBalance,rawAmount:balanceResponse.value.amount,decimals:balanceResponse.value.decimals,uiAmountString:balanceResponse.value.uiAmountString,ata:ata.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
                 // #endregion
-                console.log(`💰 USDC Balance for ${walletAddress}:`, {
-                    uiAmount: usdcBalance,
-                    rawAmount: balanceResponse.value.amount,
-                    decimals: balanceResponse.value.decimals,
-                    uiAmountString: balanceResponse.value.uiAmountString,
-                    ata: ata.toBase58()
-                });
+                // Removed console.log for cleaner console output
                 setBalance(usdcBalance);
             } catch (e: any) {
                 // Account doesn't exist or error fetching
