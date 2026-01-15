@@ -231,11 +231,28 @@ export function useLazorkit() {
     }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
-        if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
+        // Validate wallet connection first
+        if (!address) {
+            throw new Error("Wallet address is not available. Please connect your wallet.");
+        }
+        if (!signAndSendTransaction) {
+            throw new Error("Wallet signer is not available. Please connect your wallet.");
+        }
+        if (!wallet) {
+            throw new Error("Wallet object is not available. Please connect your wallet.");
+        }
+
+        // Validate name
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            throw new Error(`Invalid pot name: "${name}". Must be a non-empty string.`);
+        }
+        if (name.length > 32) {
+            throw new Error(`Pot name "${name}" is too long. Maximum 32 characters.`);
+        }
 
         try {
             // Validate and convert unlockTime to a valid number
-            if (!unlockTime || isNaN(unlockTime) || unlockTime <= 0) {
+            if (unlockTime === undefined || unlockTime === null || isNaN(unlockTime) || unlockTime <= 0) {
                 throw new Error(`Invalid unlock time: ${unlockTime}. Must be a positive Unix timestamp.`);
             }
 
@@ -248,45 +265,277 @@ export function useLazorkit() {
             // Import required modules
             const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
             const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
-            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const cadpayTokenModule = await import('@/utils/cadpayToken');
             const idl = await import('../../anchor/target/idl/cadpay_profiles.json');
 
-            const userPubkey = new PublicKey(address);
-            const [savingsPotPDA] = deriveSavingsPotPDA(userPubkey, name);
+            // Validate address is a valid string before creating PublicKey
+            if (!address || typeof address !== 'string' || address.length === 0) {
+                throw new Error(`Invalid wallet address: ${address}`);
+            }
+
+            // Create user PublicKey with validation
+            let userPubkey: PublicKey;
+            try {
+                userPubkey = new PublicKey(address);
+            } catch (e: any) {
+                throw new Error(`Invalid wallet address format: ${address}. Error: ${e.message}`);
+            }
+
+            // Ensure CADPAY_MINT is a PublicKey instance
+            const CADPAY_MINT = cadpayTokenModule.CADPAY_MINT;
+            if (!CADPAY_MINT) {
+                throw new Error('CADPAY_MINT is not defined in cadpayToken module');
+            }
+            
+            let mintPubkey: PublicKey;
+            try {
+                mintPubkey = CADPAY_MINT instanceof PublicKey ? CADPAY_MINT : new PublicKey(CADPAY_MINT);
+            } catch (e: any) {
+                throw new Error(`Invalid CADPAY_MINT: ${CADPAY_MINT}. Error: ${e.message}`);
+            }
+
+            // Derive PDA with validated inputs
+            if (!name || name.trim().length === 0) {
+                throw new Error('Pot name cannot be empty for PDA derivation');
+            }
+            
+            let savingsPotPDA: PublicKey;
+            let bump: number;
+            try {
+                [savingsPotPDA, bump] = deriveSavingsPotPDA(userPubkey, name);
+                if (!savingsPotPDA) {
+                    throw new Error('Failed to derive savings pot PDA - result is undefined');
+                }
+            } catch (e: any) {
+                throw new Error(`Failed to derive savings pot PDA for name "${name}": ${e.message}`);
+            }
+
+            // Validate connection
+            if (!connection) {
+                throw new Error('Solana connection is not available');
+            }
 
             // Create Anchor provider and program
-            const provider = new AnchorProvider(connection, (wallet as any), {});
+            if (!wallet) {
+                throw new Error('Wallet object is required for Anchor provider');
+            }
+
+            // Create a wallet adapter that Anchor expects
+            // Anchor expects wallet with publicKey and signTransaction methods
+            const anchorWallet = {
+                publicKey: userPubkey,
+                signTransaction: async (tx: Transaction) => {
+                    // Use Lazorkit's signAndSendTransaction but we need to sign without sending
+                    // For now, we'll use the wallet's signTransaction if available
+                    if (wallet && typeof (wallet as any).signTransaction === 'function') {
+                        return await (wallet as any).signTransaction(tx);
+                    }
+                    // Fallback: return the transaction as-is (Lazorkit will handle signing)
+                    return tx;
+                },
+                signAllTransactions: async (txs: Transaction[]) => {
+                    if (wallet && typeof (wallet as any).signAllTransactions === 'function') {
+                        return await (wallet as any).signAllTransactions(txs);
+                    }
+                    return txs;
+                }
+            };
+            
+            const provider = new AnchorProvider(connection, anchorWallet as any, {});
+            if (!provider) {
+                throw new Error('Failed to create Anchor provider');
+            }
+
             const program = new Program(idl as any, provider);
+            if (!program) {
+                throw new Error('Failed to create Anchor program');
+            }
 
             // Derive pot ATA (will be created by Anchor's init constraint)
-            const potAta = await getAssociatedTokenAddress(CADPAY_MINT, savingsPotPDA, true);
+            let potAta: PublicKey;
+            try {
+                potAta = await getAssociatedTokenAddress(mintPubkey, savingsPotPDA, true);
+                if (!potAta) {
+                    throw new Error('getAssociatedTokenAddress returned undefined');
+                }
+            } catch (e: any) {
+                throw new Error(`Failed to derive pot ATA: ${e.message}`);
+            }
+
+            // Validate name
+            if (!name || typeof name !== 'string' || name.length === 0 || name.length > 32) {
+                throw new Error(`Invalid pot name: "${name}". Must be a non-empty string up to 32 characters.`);
+            }
 
             // Create BN for unlockTime - convert to string first for reliability
             let unlockTimeBN;
             try {
-                unlockTimeBN = new BN(unlockTimeInt.toString());
-                // Verify BN is valid
-                if (!unlockTimeBN || (unlockTimeBN as any)._bn === undefined) {
-                    throw new Error(`Failed to create valid BN from unlockTime: ${unlockTimeInt}`);
+                // Use number directly - Anchor BN constructor accepts number
+                unlockTimeBN = new BN(unlockTimeInt);
+                
+                // Verify BN is valid by checking if it has the _bn property
+                if (!unlockTimeBN) {
+                    throw new Error(`BN is null or undefined`);
+                }
+                
+                // Check if _bn exists (this is what Anchor uses internally)
+                const hasBn = (unlockTimeBN as any)._bn !== undefined;
+                if (!hasBn) {
+                    // Try creating with string as fallback
+                    unlockTimeBN = new BN(unlockTimeInt.toString());
+                    if (!unlockTimeBN || (unlockTimeBN as any)._bn === undefined) {
+                        throw new Error(`Failed to create valid BN from unlockTime: ${unlockTimeInt}`);
+                    }
                 }
             } catch (bnError: any) {
-                throw new Error(`Failed to create BN for unlockTime: ${bnError?.message || 'Unknown error'}`);
+                throw new Error(`Failed to create BN for unlockTime: ${bnError?.message || 'Unknown error'}. unlockTimeInt=${unlockTimeInt}, type=${typeof unlockTimeInt}`);
+            }
+
+            // Validate all accounts before creating instruction
+            if (!savingsPotPDA) {
+                throw new Error('Failed to derive savings pot PDA');
+            }
+            if (!potAta) {
+                throw new Error('Failed to derive pot ATA');
+            }
+            if (!mintPubkey) {
+                throw new Error('CADPAY_MINT is not defined');
+            }
+            if (!userPubkey) {
+                throw new Error('User public key is invalid');
+            }
+
+            // Ensure all PublicKey objects are valid instances
+            const accountsToValidate: Record<string, PublicKey> = {
+                savingsPot: savingsPotPDA,
+                potAta: potAta,
+                mint: mintPubkey,
+                user: userPubkey,
+                systemProgram: SystemProgram.programId,
+            };
+
+            // Validate each account is a valid PublicKey
+            for (const [key, value] of Object.entries(accountsToValidate)) {
+                if (value === undefined || value === null) {
+                    throw new Error(`Account ${key} is undefined or null`);
+                }
+                if (!(value instanceof PublicKey)) {
+                    throw new Error(`Account ${key} is not a PublicKey instance. Got: ${typeof value}, value: ${value}`);
+                }
+                // Verify the PublicKey is valid by checking it has a toBase58 method
+                try {
+                    const address = value.toBase58();
+                    if (!address || address.length === 0) {
+                        throw new Error(`Account ${key} has invalid address`);
+                    }
+                } catch (e: any) {
+                    throw new Error(`Account ${key} is not a valid PublicKey: ${e.message}`);
+                }
+            }
+
+            // Validate program IDs
+            if (!TOKEN_PROGRAM_ID || !(TOKEN_PROGRAM_ID instanceof PublicKey)) {
+                throw new Error('TOKEN_PROGRAM_ID is not a valid PublicKey');
+            }
+            if (!ASSOCIATED_TOKEN_PROGRAM_ID || !(ASSOCIATED_TOKEN_PROGRAM_ID instanceof PublicKey)) {
+                throw new Error('ASSOCIATED_TOKEN_PROGRAM_ID is not a valid PublicKey');
+            }
+            if (!SystemProgram.programId || !(SystemProgram.programId instanceof PublicKey)) {
+                throw new Error('SystemProgram.programId is not a valid PublicKey');
+            }
+            if (!SYSVAR_RENT_PUBKEY || !(SYSVAR_RENT_PUBKEY instanceof PublicKey)) {
+                throw new Error('SYSVAR_RENT_PUBKEY is not a valid PublicKey');
             }
 
             // Create the transaction using Anchor's method builder
-            const tx = await program.methods
-                .createSavingsPot(name, unlockTimeBN)
-                .accounts({
+            // Build transaction manually to avoid Anchor's internal serialization issues
+            let tx = new Transaction();
+            let instruction;
+            
+            try {
+                // Final validation - ensure every account is a valid PublicKey before passing to Anchor
+                const allAccounts = {
                     savingsPot: savingsPotPDA,
-                    potAta: potAta,
-                    mint: CADPAY_MINT,
                     user: userPubkey,
+                    systemProgram: SystemProgram.programId,
+                    potAta: potAta,
+                    mint: mintPubkey,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    systemProgram: SystemProgram.programId,
                     rent: SYSVAR_RENT_PUBKEY,
-                })
-                .transaction();
+                };
+
+                // Double-check every account is a PublicKey instance
+                for (const [key, value] of Object.entries(allAccounts)) {
+                    if (value === undefined || value === null) {
+                        throw new Error(`Account ${key} is undefined or null before passing to Anchor`);
+                    }
+                    if (!(value instanceof PublicKey)) {
+                        throw new Error(`Account ${key} is not a PublicKey instance. Type: ${typeof value}, Value: ${value}`);
+                    }
+                }
+
+                // Log accounts before calling Anchor
+                console.log('Creating pot with validated accounts:', {
+                    savingsPot: savingsPotPDA.toBase58(),
+                    user: userPubkey.toBase58(),
+                    potAta: potAta.toBase58(),
+                    mint: mintPubkey.toBase58(),
+                    name,
+                    unlockTimeBN: unlockTimeBN.toString(),
+                    unlockTimeBNType: unlockTimeBN?.constructor?.name,
+                });
+
+                // Create instruction first (this is where the error might occur)
+                // The IDL shows only 3 accounts, but Anchor should auto-resolve others from constraints
+                // Try passing only IDL accounts first, then add others if needed
+                instruction = await program.methods
+                    .createSavingsPot(name, unlockTimeBN)
+                    .accounts({
+                        savingsPot: savingsPotPDA,
+                        user: userPubkey,
+                        systemProgram: SystemProgram.programId,
+                        // These should be auto-resolved by Anchor from constraints, but include them explicitly
+                        potAta: potAta,
+                        mint: mintPubkey,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        rent: SYSVAR_RENT_PUBKEY,
+                    } as any) // Use 'as any' to bypass TypeScript checking since IDL might be incomplete
+                    .instruction();
+                
+                // Add instruction to transaction
+                tx.add(instruction);
+            } catch (methodError: any) {
+                // More detailed error for debugging
+                console.error('Anchor method call failed:', {
+                    name,
+                    nameType: typeof name,
+                    nameLength: name?.length,
+                    unlockTimeBN: unlockTimeBN?.toString(),
+                    unlockTimeInt,
+                    unlockTimeBNType: typeof unlockTimeBN,
+                    unlockTimeBNHasBn: (unlockTimeBN as any)?._bn !== undefined,
+                    unlockTimeBNConstructor: unlockTimeBN?.constructor?.name,
+                    accountTypes: {
+                        savingsPot: savingsPotPDA?.constructor?.name,
+                        potAta: potAta?.constructor?.name,
+                        mint: mintPubkey?.constructor?.name,
+                        user: userPubkey?.constructor?.name,
+                    },
+                    accounts: {
+                        savingsPot: savingsPotPDA?.toBase58(),
+                        potAta: potAta?.toBase58(),
+                        mint: mintPubkey?.toBase58(),
+                        user: userPubkey?.toBase58(),
+                        systemProgram: SystemProgram.programId?.toBase58(),
+                    },
+                    error: methodError,
+                    errorMessage: methodError?.message,
+                    errorStack: methodError?.stack
+                });
+                throw new Error(`Failed to create instruction: ${methodError?.message || 'Unknown error'}. Check that all accounts are valid PublicKey instances.`);
+            }
 
             // Set fresh blockhash immediately before signing
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
