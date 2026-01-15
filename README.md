@@ -13,6 +13,7 @@ CadPay demonstrates the power of Lazorkit SDK by solving two major crypto UX pro
 **Key Features:**
 - 🔐 **Passkey Wallets** - Biometric login (Face ID, Touch ID, Windows Hello)
 - ⚡ **Gasless Transactions** - Users never need SOL for fees
+- 🏦 **Savings Pots** - Securely save USDC in time-locked vaults (PDAs)
 - 💳 **Subscription Management** - Netflix, Spotify, and custom services
 - 📊 **Merchant Dashboard** - Live transaction tracking and analytics
 - 🔄 **Session Persistence** - Seamless cross-device experience
@@ -215,6 +216,7 @@ This project was built for the **Lazorkit Passkey Integration Bounty** by Supert
 - ✅ Working Lazorkit SDK integration
 - ✅ Passkey-based wallet creation and login
 - ✅ Gasless transactions via Paymaster
+- ✅ USDC Savings Pots (Time-locked vaults)
 - ✅ Clean, documented codebase
 - ✅ 2+ step-by-step tutorials
 - ✅ Live demo on Devnet

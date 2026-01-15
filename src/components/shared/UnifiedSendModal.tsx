@@ -88,8 +88,8 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                 <button
                                     onClick={() => setMode('external')}
                                     className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'external'
-                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                            : 'text-zinc-500 hover:text-zinc-300'
+                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                                        : 'text-zinc-500 hover:text-zinc-300'
                                         }`}
                                 >
                                     <WalletIcon weight="bold" /> External
@@ -98,8 +98,8 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                     <button
                                         onClick={() => setMode('savings')}
                                         className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'savings'
-                                                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                                : 'text-zinc-500 hover:text-zinc-300'
+                                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                                            : 'text-zinc-500 hover:text-zinc-300'
                                             }`}
                                     >
                                         <PiggyBankIcon weight="bold" /> Savings Pot
@@ -129,8 +129,8 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                                     key={pot.name}
                                                     onClick={() => setSelectedPot(pot)}
                                                     className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedPot?.name === pot.name
-                                                            ? 'bg-orange-500/10 border-orange-500/40'
-                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
+                                                        ? 'bg-orange-500/10 border-orange-500/40'
+                                                        : 'bg-white/5 border-white/5 hover:border-white/10'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                                         </div>
                                                         <div className="text-left">
                                                             <p className="text-sm font-bold text-white">{pot.name}</p>
-                                                            <p className="text-[10px] text-zinc-500">{pot.balance.toFixed(4)} SOL</p>
+                                                            <p className="text-[10px] text-zinc-500">{pot.balance.toFixed(2)} USDC</p>
                                                         </div>
                                                     </div>
                                                     {selectedPot?.name === pot.name && <CheckCircleIcon size={20} className="text-orange-500" weight="fill" />}
@@ -150,7 +150,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                 )}
 
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Amount (SOL)</label>
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Amount (USDC)</label>
                                     <div className="relative">
                                         <input
                                             type="number"
@@ -167,7 +167,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                         </button>
                                     </div>
                                     <p className="text-[10px] text-zinc-500 mt-2 text-right uppercase tracking-widest">
-                                        Balance: <span className="text-zinc-300 font-bold">{balance.toFixed(4)} SOL</span>
+                                        Balance: <span className="text-zinc-300 font-bold">{balance.toFixed(2)} USDC</span>
                                     </p>
                                 </div>
 

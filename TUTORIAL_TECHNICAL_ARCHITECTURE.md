@@ -18,16 +18,25 @@ CadPay operates across three distinct layers to provide a seamless Web2-like exp
     - **Purpose**: Pays for Solana "Account Rent" so the user can store data on-chain.
 
 ### C. On-Chain (Anchor Program)
-- **Storage**: When a user onboards, the `initialize_user` instruction creates a `UserProfile` account.
-- **Data Struct**:
+- **Profile Storage**: Creates a `UserProfile` account for the user.
+- **Savings Pots**: Allows users to create locked savings accounts (PDAs) to store USDC securely.
+- **Data Structures**:
   ```rust
   pub struct UserProfile {
-      pub authority: Pubkey,   // The User's Smart Wallet
-      pub username: String,    // Display Name
-      pub avatar: String,      // Emoji/Avatar URL
-      pub gender: String,      // User preference
-      pub pin: String,         // Encrypted pin/security
-      pub bump: u8,            // PDA derivation safety
+      pub authority: Pubkey,
+      pub username: [u8; 16],
+      pub emoji: [u8; 4],
+      pub gender: [u8; 8],
+      pub pin: [u8; 4],
+  }
+
+  pub struct SavingsPot {
+      pub authority: Pubkey,
+      pub name: String,
+      pub unlock_time: u64,
+      pub balance: u64,
+      pub created_at: u64,
+      pub bump: u8,
   }
   ```
 
@@ -54,8 +63,14 @@ CadPay operates across three distinct layers to provide a seamless Web2-like exp
    - Anchor program creates the `UserProfile` account on-chain.
    - *Status: Data is permanently stored on the Solana ledger.*
 
+4. **Phase 4: Savings & Payments**
+   - User creates a Savings Pot (USDC).
+   - User deposits USDC into the pot (PDA).
+   - User can withdraw USDC back to their wallet or pay merchants directly.
+   - *Status: User has full control over their funds without needing to hold native SOL.*
+
 ## 3. Why This Matters
-Traditional Solana apps would fail at Phase 3 because the user has 0 SOL to pay for the 0.002 SOL "Rent" required to store their profile. By combining a **Private Faucet** with **Gasless Paymasters**, CadPay removes every technical hurdle for the end user.
+Traditional Solana apps fail because users need SOL for every account initialization (rent) and every transaction (fees). CadPay's 3-layer approach (Private Faucet + Paymasters + Savings Pots) ensures users only see USDC, while the underlying complexity is handled automatically.
 
 ---
 

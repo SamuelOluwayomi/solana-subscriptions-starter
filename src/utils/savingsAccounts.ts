@@ -1,4 +1,6 @@
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, TransactionInstruction } from '@solana/web3.js';
+import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { CADPAY_MINT } from './cadpayToken';
 
 const PROGRAM_ID = new PublicKey("6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz");
 
@@ -44,7 +46,7 @@ export async function createSavingsPotInstructions(
     connection: Connection
 ): Promise<TransactionInstruction[]> {
     const [savingsPotPDA, bump] = deriveSavingsPotPDA(userPublicKey, potName);
-    
+
     // Calculate rent requirement
     const rentLamports = await connection.getMinimumBalanceForRentExemption(
         8 + 32 + 32 + 8 + 8 + 8 + 1
@@ -69,10 +71,10 @@ export async function createSavingsPotInstructions(
 }
 
 /**
- * Deposit to a savings pot
+ * Deposit to a savings pot (USDC)
  * @param userPublicKey - The user's smart wallet address
  * @param potName - Name of the pot
- * @param amount - Amount in SOL to deposit
+ * @param amount - Amount in USDC to deposit
  * @param connection - Solana connection
  * @returns Transaction instruction for deposit
  */
@@ -83,12 +85,21 @@ export async function depositToPotInstruction(
     connection: Connection
 ): Promise<TransactionInstruction> {
     const [savingsPotPDA] = deriveSavingsPotPDA(userPublicKey, potName);
-    
-    return SystemProgram.transfer({
-        fromPubkey: userPublicKey,
-        toPubkey: savingsPotPDA,
-        lamports: amount * LAMPORTS_PER_SOL,
-    });
+
+    // Derive User ATA and Pot ATA
+    const userATA = await getAssociatedTokenAddress(CADPAY_MINT, userPublicKey, true);
+    const potATA = await getAssociatedTokenAddress(CADPAY_MINT, savingsPotPDA, true);
+
+    // This returns a standard SPL transfer instruction
+    // Note: The caller should ensure potATA is initialized if needed
+    return createTransferInstruction(
+        userATA,
+        potATA,
+        userPublicKey,
+        BigInt(amount * 1_000_000), // 6 decimals for USDC
+        [],
+        TOKEN_PROGRAM_ID
+    );
 }
 
 /**
@@ -134,11 +145,11 @@ export async function constructCreateSavingsPotTransaction(
 }
 
 /**
- * Get all savings pots for a user
+ * Get all savings pots for a user with USDC balances
  * @param userPublicKey - The user's smart wallet address
  * @param connection - Solana connection
  * @param potNames - Array of pot names to fetch
- * @returns Array of pot data with balances
+ * @returns Array of pot data with USDC balances
  */
 export async function fetchUserSavingsPots(
     userPublicKey: PublicKey,
@@ -153,12 +164,28 @@ export async function fetchUserSavingsPots(
         potNames.map(async (potName) => {
             const [potPDA] = deriveSavingsPotPDA(userPublicKey, potName);
             try {
-                const balance = await connection.getBalance(potPDA);
-                return {
-                    name: potName,
-                    address: potPDA.toBase58(),
-                    balance: balance / LAMPORTS_PER_SOL,
-                };
+                // Find the USDC ATA for this PDA
+                const potATA = await getAssociatedTokenAddress(
+                    CADPAY_MINT,
+                    potPDA,
+                    true
+                );
+
+                try {
+                    const balanceResponse = await connection.getTokenAccountBalance(potATA);
+                    return {
+                        name: potName,
+                        address: potPDA.toBase58(),
+                        balance: balanceResponse.value.uiAmount || 0,
+                    };
+                } catch (e) {
+                    // Pot exists but ATA might not yet
+                    return {
+                        name: potName,
+                        address: potPDA.toBase58(),
+                        balance: 0,
+                    };
+                }
             } catch (e) {
                 return null;
             }

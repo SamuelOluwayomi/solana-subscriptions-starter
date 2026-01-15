@@ -7,16 +7,16 @@ In traditional blockchain applications, users must pay "gas fees" for every tran
 ## Why Gasless Matters
 
 ### Traditional Web3 UX Problems
-❌ Users need native tokens (SOL, ETH) before they can transact  
-❌ Users must understand gas fees and network congestion  
-❌ Failed transactions still cost gas  
-❌ Friction in onboarding new users  
+- Users need native tokens (SOL, ETH) before they can transact  
+- Users must understand gas fees and network congestion  
+- Failed transactions still cost gas  
+- Friction in onboarding new users  
 
 ### CadPay's Solution
-✅ **Zero gas fees** for customers  
-✅ **Instant onboarding** - no SOL required  
-✅ **Merchant sponsors** all transaction costs  
-✅ **Frictionless UX** like traditional apps  
+- **Zero gas fees** for customers  
+- **Instant onboarding** - no SOL required  
+- **Merchant sponsors** all transaction costs  
+- **Frictionless UX** like traditional apps  
 
 ## How It Works
 
@@ -176,11 +176,11 @@ try {
 
 ## Best Practices
 
-1. ✅ **Monitor merchant SOL balance** regularly
-2. ✅ **Set up auto-refill** when balance drops below threshold
-3. ✅ **Track gas costs** per transaction type
-4. ✅ **Communicate value** to customers ("We pay your fees!")
-5. ✅ **Have fallback** for when sponsorship fails
+1. Monitor merchant SOL balance regularly
+2. Set up auto-refill when balance drops below threshold
+3. Track gas costs per transaction type
+4. Communicate value to customers ("We pay your fees!")
+5. Have fallback for when sponsorship fails
 
 ## Resources
 - [Solana Transaction Fees](https://docs.solana.com/transaction_fees)

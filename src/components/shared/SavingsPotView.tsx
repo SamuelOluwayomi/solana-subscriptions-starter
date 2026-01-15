@@ -59,7 +59,7 @@ export default function SavingsPotView({ pot, onWithdraw, onRefresh }: SavingsPo
                             </div>
                         )}
                     </h3>
-                    <p className="text-sm text-zinc-400 mt-1">Balance: <span className="text-white font-bold">{pot.balance.toFixed(4)} SOL</span></p>
+                    <p className="text-sm text-zinc-400 mt-1">Balance: <span className="text-white font-bold">{pot.balance.toFixed(2)} USDC</span></p>
                 </div>
                 <button
                     onClick={() => setShowQR(true)}
@@ -145,7 +145,7 @@ export default function SavingsPotView({ pot, onWithdraw, onRefresh }: SavingsPo
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Amount (SOL)</label>
+                                <label className="block text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Amount (USDC)</label>
                                 <input
                                     type="number"
                                     placeholder="0.00"

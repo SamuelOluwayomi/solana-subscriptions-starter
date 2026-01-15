@@ -36,11 +36,10 @@ Your actual wallet address is a **Program Derived Address (PDA)**. Unlike tradit
 - Your Passkey Public Key
 - A "salt" or index
 
-This ensures that even though you use a Passkey, you have a consistent, secure address on-chain.
-✅ **No seed phrase to lose or forget**  
-✅ **Phishing resistant** - keys can't be typed or copied  
-✅ **Hardware-backed security** - keys stored in secure enclave  
-✅ **Cross-device sync** (via iCloud/Google Password Manager)  
+- **No seed phrase to lose or forget**  
+- **Phishing resistant** - keys can't be typed or copied  
+- **Hardware-backed security** - keys stored in secure enclave  
+- **Cross-device sync** (via iCloud/Google Password Manager)
 
 ## Implementation in CadPay
 
@@ -72,10 +71,10 @@ When you first log in, CadPay checks if your `UserProfile` exists on-chain. If n
 3. **Data Binding**: Your Smart Wallet address is permanently linked to this `UserProfile` account.
 
 ```rust
-// Anchor Program Logic (Simplified)
-pub fn initialize_user(ctx: Context<InitializeUser>, username: String) -> Result<()> {
+// Anchor Program Logic
+pub fn initialize_user(ctx: Context<InitializeUser>, username: [u8; 16]) -> Result<()> {
     let user_profile = &mut ctx.accounts.user_profile;
-    user_profile.authority = ctx.accounts.signer.key();
+    user_profile.authority = ctx.accounts.user.key();
     user_profile.username = username;
     Ok(())
 }

@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer, Mint};
+use anchor_spl::associated_token::AssociatedToken;
 
 declare_id!("6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz");
 
@@ -62,23 +64,16 @@ pub mod cadpay_profiles {
     ) -> Result<()> {
         require!(amount > 0, CadpayError::InvalidAmount);
 
-        let savings_pot = &mut ctx.accounts.savings_pot;
-        
-        // Transfer SOL to the pot account
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
-            &ctx.accounts.user.key(),
-            &savings_pot.key(),
-            amount,
-        );
-        anchor_lang::solana_program::program::invoke(
-            &ix,
-            &[
-                ctx.accounts.user.to_account_info(),
-                savings_pot.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-        )?;
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.user_ata.to_account_info(),
+            to: ctx.accounts.pot_ata.to_account_info(),
+            authority: ctx.accounts.user.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        token::transfer(cpi_ctx, amount)?;
 
+        let savings_pot = &mut ctx.accounts.savings_pot;
         savings_pot.balance = savings_pot.balance.checked_add(amount).ok_or(CadpayError::BalanceOverflow)?;
         Ok(())
     }
@@ -93,12 +88,6 @@ pub mod cadpay_profiles {
         require!(current_time >= savings_pot.unlock_time, CadpayError::PotLocked);
         require!(amount > 0 && amount <= savings_pot.balance, CadpayError::InvalidWithdrawalAmount);
 
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
-            &savings_pot.key(),
-            &ctx.accounts.recipient.key(),
-            amount,
-        );
-
         let seeds = &[
             b"savings-pot-v1",
             savings_pot.authority.as_ref(),
@@ -107,51 +96,23 @@ pub mod cadpay_profiles {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        anchor_lang::solana_program::program::invoke_signed(
-            &ix,
-            &[
-                savings_pot.to_account_info(),
-                ctx.accounts.recipient.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-            signer_seeds,
-        )?;
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.pot_ata.to_account_info(),
+            to: ctx.accounts.recipient_ata.to_account_info(),
+            authority: savings_pot.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+        token::transfer(cpi_ctx, amount)?;
 
         savings_pot.balance = savings_pot.balance.checked_sub(amount).ok_or(CadpayError::BalanceUnderflow)?;
         Ok(())
     }
 
     pub fn close_savings_pot(
-        ctx: Context<CloseSavingsPot>,
+        _ctx: Context<CloseSavingsPot>,
     ) -> Result<()> {
-        let savings_pot = &mut ctx.accounts.savings_pot;
-        
-        if savings_pot.balance > 0 {
-            let ix = anchor_lang::solana_program::system_instruction::transfer(
-                &savings_pot.key(),
-                &ctx.accounts.authority.key(),
-                savings_pot.balance,
-            );
-
-            let seeds = &[
-                b"savings-pot-v1",
-                savings_pot.authority.as_ref(),
-                savings_pot.name.as_bytes(),
-                &[savings_pot.bump],
-            ];
-            let signer_seeds = &[&seeds[..]];
-
-            anchor_lang::solana_program::program::invoke_signed(
-                &ix,
-                &[
-                    savings_pot.to_account_info(),
-                    ctx.accounts.authority.to_account_info(),
-                    ctx.accounts.system_program.to_account_info(),
-                ],
-                signer_seeds,
-            )?;
-        }
-
+        // Rent is returned to authority via closing constraint
         Ok(())
     }
 }
@@ -190,15 +151,27 @@ pub struct CreateSavingsPot<'info> {
     #[account(
         init,
         payer = user,
-        // Calculation: Discriminator(8) + Auth(32) + String(4 + 32) + Unlock(8) + Bal(8) + Created(8) + Bump(1)
         space = 8 + 32 + (4 + 32) + 8 + 8 + 8 + 1,
         seeds = [b"savings-pot-v1", user.key().as_ref(), pot_name.as_bytes()],
         bump
     )]
     pub savings_pot: Account<'info, SavingsPot>,
+
+    #[account(
+        init,
+        payer = user,
+        associated_token::mint = mint,
+        associated_token::authority = savings_pot,
+    )]
+    pub pot_ata: Account<'info, TokenAccount>,
+
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub user: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
@@ -211,7 +184,11 @@ pub struct DepositToPot<'info> {
     pub savings_pot: Account<'info, SavingsPot>,
     #[account(mut)]
     pub user: Signer<'info>,
-    pub system_program: Program<'info, System>,
+    #[account(mut)]
+    pub user_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub pot_ata: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -224,9 +201,11 @@ pub struct WithdrawFromPot<'info> {
     )]
     pub savings_pot: Account<'info, SavingsPot>,
     pub authority: Signer<'info>,
-    /// CHECK: Target for withdrawal
-    pub recipient: AccountInfo<'info>,
-    pub system_program: Program<'info, System>,
+    #[account(mut)]
+    pub pot_ata: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub recipient_ata: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]

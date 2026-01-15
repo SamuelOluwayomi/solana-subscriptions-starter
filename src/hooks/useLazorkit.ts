@@ -1,7 +1,8 @@
+// Imports
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, Transaction, SystemProgram, TransactionInstruction } from '@solana/web3.js';
-// @ts-ignore - Assuming export exists, will fix if error
+// @ts-ignore
 import { useWallet } from '@lazorkit/wallet';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -25,8 +26,6 @@ export function useLazorkit() {
     const { connect, disconnect, wallet, signAndSendTransaction, isConnected, isLoading: sdkLoading, smartWalletPubkey, getBalance } = walletHook || {};
     const [localLoading, setLocalLoading] = useState(false);
 
-    // ✅ Stabilize the address and public key to prevent infinite loops
-    // address is a string (primitive), so it's a stable dependency
     // @ts-ignore
     const address = useMemo(() => smartWalletPubkey?.toBase58?.() || null, [smartWalletPubkey]);
 
@@ -201,32 +200,17 @@ export function useLazorkit() {
     const fetchPots = useCallback(async () => {
         if (!address || !stableSmartWalletPubkey) return;
         try {
-            // In a real app, you'd fetch from a registry. 
-            // For hackathon, we fetch names from localStorage and derive PDAs.
-            const potNames = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-            const fetchedPots = await Promise.all(potNames.map(async (pot: any) => {
-                try {
-                    // Derive PDA: [user_key, "savings", pot.name]
-                    const [potPda] = PublicKey.findProgramAddressSync(
-                        [stableSmartWalletPubkey.toBuffer(), Buffer.from("savings"), Buffer.from(pot.name)],
-                        new PublicKey("6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz") // Using session program ID or similar
-                    );
+            const potMetaData = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            const names = potMetaData.map((p: any) => p.name);
+            const fetchedPots = await fetchUserSavingsPots(stableSmartWalletPubkey, connection, names);
 
-                    const potAddress = potPda.toBase58();
-                    const lamports = await connection.getBalance(potPda);
+            // Merge with local metadata (unlockTime)
+            const enriched = fetchedPots.map(p => {
+                const meta = potMetaData.find((m: any) => m.name === p.name);
+                return { ...p, ...meta };
+            });
 
-                    return {
-                        ...pot,
-                        address: potAddress,
-                        balance: lamports / LAMPORTS_PER_SOL,
-                    };
-                } catch (e) {
-                    console.error("Error fetching pot:", pot.name, e);
-                    return null;
-                }
-            }));
-
-            setPots(fetchedPots.filter(p => p !== null));
+            setPots(enriched);
         } catch (e) {
             console.error("Failed to fetch pots", e);
         }
@@ -262,7 +246,7 @@ export function useLazorkit() {
             localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
 
             await fetchPots();
-            showToast(`Savings pot "${name}" created successfully! Rent funded via Paymaster pattern.`, 'success');
+            showToast(`Savings pot "${name}" created successfully!`, 'success');
             return signature;
         } catch (error: any) {
             console.error("Failed to create pot:", error);
@@ -271,30 +255,38 @@ export function useLazorkit() {
         }
     }, [address, signAndSendTransaction, connection, fetchPots, showToast]);
 
-    const withdrawFromPot = useCallback(async (potAddress: string, recipient: string, amount: number, note: string) => {
+    const withdrawFromPot = useCallback(async (potName: string, recipient: string, amount: number, note: string) => {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
 
         try {
-            const tx = new Transaction();
+            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
+            const idl = await import('../../anchor/target/idl/cadpay_profiles.json');
 
-            // A. Transfer Instruction
-            tx.add(
-                SystemProgram.transfer({
-                    fromPubkey: new PublicKey(potAddress),
-                    toPubkey: new PublicKey(recipient),
-                    lamports: amount * LAMPORTS_PER_SOL,
+            const [potPda] = deriveSavingsPotPDA(new PublicKey(address), potName);
+            const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+            const recipientAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(recipient), true);
+
+            // Construct Transaction
+            const provider = new AnchorProvider(connection, (wallet as any), {});
+            const program = new Program(idl as any, provider);
+
+            const tx = await program.methods
+                .withdrawFromPot(new BN(amount * 1_000_000))
+                .accounts({
+                    savingsPot: potPda,
+                    authority: new PublicKey(address),
+                    potAta: potAta,
+                    recipientAta: recipientAta,
+                    tokenProgram: TOKEN_PROGRAM_ID,
                 })
-            );
+                .transaction();
 
             // B. Memo Instruction
             if (note) {
-                tx.add(
-                    new TransactionInstruction({
-                        keys: [{ pubkey: new PublicKey(potAddress), isSigner: true, isWritable: true }],
-                        data: Buffer.from(note, "utf-8"),
-                        programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-                    })
-                );
+                const { createMemoInstruction } = await import('@solana/spl-memo');
+                tx.add(createMemoInstruction(note, [new PublicKey(address)]));
             }
 
             // Set fresh blockhash immediately before signing
@@ -303,8 +295,6 @@ export function useLazorkit() {
             tx.lastValidBlockHeight = lastValidBlockHeight;
             tx.feePayer = new PublicKey(address);
 
-            // In a real AA context, potAddress is a PDA and the Smart Wallet signs for it.
-            // LazorKit handles the 'isSigner' for Chunk PDAs automatically.
             const signature = await signAndSendTransaction(tx);
             showToast(`Withdrawal successful! tx: ${signature.slice(0, 8)}...`, 'success');
             await fetchPots();
@@ -315,16 +305,16 @@ export function useLazorkit() {
             showToast(`Withdrawal failed: ${e.message}`, 'error');
             throw e;
         }
-    }, [address, signAndSendTransaction, fetchPots, refreshBalance, showToast]);
+    }, [address, signAndSendTransaction, connection, fetchPots, refreshBalance, showToast]);
 
     useEffect(() => {
         if (isConnected && address) {
             fetchPots();
-            // Polling for pot balances every 10s (reduced frequency)
+            // Polling for pot balances
             const interval = setInterval(fetchPots, 10000);
             return () => clearInterval(interval);
         }
-    }, [isConnected, address]); // Removed fetchPots from deps to be extra safe
+    }, [isConnected, address]);
 
     return {
         // Core Logic

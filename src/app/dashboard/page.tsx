@@ -41,17 +41,14 @@ import { useToast } from '@/context/ToastContext';
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys' | 'savings';
 
 export default function Dashboard() {
-    const { address, loading, balance, requestAirdrop, logout, signAndSendTransaction, connection, pots, fetchPots, refreshBalance } = useLazorkit();
-    const { showToast } = useToast(); // Use toast context
+    const { address, wallet, loading, balance, requestAirdrop, logout, signAndSendTransaction, connection, pots, fetchPots, refreshBalance } = useLazorkit();
+    const { showToast } = useToast();
     const [activeSection, setActiveSection] = useState<NavSection>('overview');
     const [showSendModal, setShowSendModal] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true); // Open by default
-    // Use On-Chain Profile Hook
+    const [sidebarOpen, setSidebarOpen] = useState(true);
     const { profile, loading: profileLoading, createProfile, updateProfile } = useUserProfile();
     const router = useRouter();
 
-    // Derived State: Use on-chain profile if available, else fall back to local (for optimistic/legacy)
-    // Actually, let's trust the on-chain profile primarily
     const userProfile = {
         username: profile?.username || 'User',
         gender: profile?.gender || 'other',
@@ -78,16 +75,44 @@ export default function Dashboard() {
         }
 
         try {
-            // Create transfer instruction
-            const transferInstruction = SystemProgram.transfer({
-                fromPubkey: new PublicKey(address),
-                toPubkey: new PublicKey(recipient),
-                lamports: amount * LAMPORTS_PER_SOL,
-            });
+            const { constructTransferTransaction } = await import('@/utils/cadpayToken');
+            const { depositToPotInstruction, deriveSavingsPotPDA } = await import('@/utils/savingsAccounts');
+            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
+            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+            const idl = await import('../../../anchor/target/idl/cadpay_profiles.json');
 
-            // Create transaction with proper configuration
             const tx = new Transaction();
-            tx.add(transferInstruction);
+
+            if (isSavings) {
+                // Determine pot name from address (we've stored metadata)
+                const pot = pots.find(p => p.address === recipient);
+                if (!pot) throw new Error("Saving pot not found");
+
+                const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
+                const userAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true);
+                const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+
+                // Call Anchor program for deposit
+                const provider = new AnchorProvider(connection, (wallet as any), {});
+                const program = new Program(idl as any, provider);
+
+                const depositIx = await program.methods
+                    .depositToPot(new BN(amount * 1_000_000))
+                    .accounts({
+                        savingsPot: potPda,
+                        user: new PublicKey(address),
+                        userAta: userAta,
+                        potAta: potAta,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                    })
+                    .instruction();
+
+                tx.add(depositIx);
+            } else {
+                const instructions = await constructTransferTransaction(address, amount * 1_000_000, recipient);
+                tx.add(...instructions);
+            }
 
             // Set recent blockhash for transaction
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
@@ -98,13 +123,14 @@ export default function Dashboard() {
             // Sign and send the transaction using Lazorkit
             const signature = await signAndSendTransaction(tx);
 
-            showToast(`Funds sent successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
+            showToast(`USDC ${isSavings ? 'saved' : 'sent'} successfully! Signature: ${signature.slice(0, 8)}...`, 'success');
 
             // Refresh UI
             await fetchPots();
             await refreshBalance();
+            await refetchUsdc();
         } catch (e: any) {
-            showToast(`Send failed: ${e.message || 'Unknown error'}`, 'error');
+            showToast(`Transfer failed: ${e.message || 'Unknown error'}`, 'error');
             throw e;
         }
     };
@@ -112,11 +138,8 @@ export default function Dashboard() {
     // Use Real On-Chain Balance
     const { balance: usdcBalance, refetch: refetchUsdc } = useUSDCBalance(address);
 
-    // Check if onboarding is needed
     useEffect(() => {
         if (loading || profileLoading) return;
-
-        // If we have an address but NO profile on chain -> Show Onboarding
         if (address && !profile) {
             setShowOnboarding(true);
         } else {
@@ -124,7 +147,7 @@ export default function Dashboard() {
         }
     }, [address, loading, profile, profileLoading]);
 
-    // Handle onboarding completion -> CREATE ON-CHAIN PROFILE
+    // Onboarding handlers
     const handleOnboardingComplete = async (data: { username: string; pin: string; gender: string; avatar: string }) => {
         setIsOnboardingSubmitting(true);
         try {
@@ -570,8 +593,8 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
         return () => clearInterval(interval);
     }, [address, connection]);
 
-    const balanceValue = parseFloat(balance || '0');
-    const usdValue = solPrice ? (balanceValue * solPrice).toFixed(2) : '0.00';
+    const balanceValue = usdcBalance || 0;
+    const usdValue = balanceValue.toFixed(2);
 
     return (
         <div className="space-y-8">
@@ -662,18 +685,42 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                         onClick={async () => {
                                             if (!address) return;
                                             try {
-                                                const tx = new Transaction().add(
-                                                    SystemProgram.transfer({
-                                                        fromPubkey: new PublicKey(address),
-                                                        toPubkey: new PublicKey(pot.address),
-                                                        lamports: 0.1 * LAMPORTS_PER_SOL,
+                                                const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
+                                                const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+                                                const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+                                                const { deriveSavingsPotPDA } = await import('@/utils/savingsAccounts');
+                                                const idl = await import('@/../anchor/target/idl/cadpay_profiles.json');
+
+                                                const [potPda] = deriveSavingsPotPDA(new PublicKey(address), pot.name);
+                                                const userAta = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true);
+                                                const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+
+                                                const provider = new AnchorProvider(connection, (wallet as any), {});
+                                                const program = new Program(idl as any, provider);
+
+                                                const tx = await program.methods
+                                                    .depositToPot(new BN(1 * 1_000_000)) // Quick save 1 USDC
+                                                    .accounts({
+                                                        savingsPot: potPda,
+                                                        user: new PublicKey(address),
+                                                        userAta: userAta,
+                                                        potAta: potAta,
+                                                        tokenProgram: TOKEN_PROGRAM_ID,
                                                     })
-                                                );
+                                                    .transaction();
+
+                                                const { blockhash } = await connection.getLatestBlockhash();
+                                                tx.recentBlockhash = blockhash;
+                                                tx.feePayer = new PublicKey(address);
+
                                                 await signAndSendTransaction(tx);
                                                 fetchPots();
                                                 refreshBalance();
+                                                refetchUsdc();
+                                                showToast(`1 USDC saved to ${pot.name}`, 'success');
                                             } catch (e) {
                                                 console.error("Quick transfer failed", e);
+                                                showToast("Quick save failed", "error");
                                             }
                                         }}
                                         className="w-full flex items-center justify-between p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-all group"
@@ -681,7 +728,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                         <span className="text-xs text-zinc-300 group-hover:text-white transition-colors">{pot.name}</span>
                                         <div className="flex items-center gap-1">
                                             <PlusIcon size={12} className="text-orange-400" weight="bold" />
-                                            <span className="text-[10px] font-bold text-orange-400">0.1 SOL</span>
+                                            <span className="text-[10px] font-bold text-orange-400">1 USDC</span>
                                         </div>
                                     </button>
                                 ))}
