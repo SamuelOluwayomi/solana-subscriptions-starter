@@ -688,10 +688,13 @@ export function useLazorkit() {
             let data: Buffer;
             if (Buffer.isBuffer(instruction.data)) {
                 data = instruction.data;
-            } else if (instruction.data instanceof Uint8Array) {
-                data = Buffer.from(instruction.data);
             } else {
-                throw new Error(`Invalid instruction data type: ${typeof instruction.data}`);
+                // Try to convert to Buffer (handles Uint8Array, Array, etc.)
+                try {
+                    data = Buffer.from(instruction.data as any);
+                } catch (e: any) {
+                    throw new Error(`Invalid instruction data type: ${typeof instruction.data}. Cannot convert to Buffer: ${e.message}`);
+                }
             }
 
             // Create plain instruction
