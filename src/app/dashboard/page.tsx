@@ -117,7 +117,7 @@ export default function Dashboard() {
                 // Ensure BN is properly imported and amount is valid
                 // Anchor's BN constructor can accept number or string
                 // Use number directly for better compatibility
-                let depositAmount: BN;
+                let depositAmount;
                 try {
                     // Try creating BN with number first (more reliable)
                     depositAmount = new BN(rawAmount);
