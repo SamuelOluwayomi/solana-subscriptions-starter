@@ -215,31 +215,65 @@ export function useLazorkit() {
         if (!address || !stableSmartWalletPubkey) return;
         try {
             const potMetaData = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-            const names = potMetaData.map((p: any) => p.name);
-            const fetchedPots = await fetchUserSavingsPots(stableSmartWalletPubkey, connection, names);
+            
+            // Separate wallet-based pots from PDA-based pots
+            const walletBasedPots = potMetaData.filter((p: any) => p.isWalletBased);
+            const pdaBasedPots = potMetaData.filter((p: any) => !p.isWalletBased);
 
-            // Merge with local metadata (unlockTime)
-            const enriched = fetchedPots.map(p => {
-                const meta = potMetaData.find((m: any) => m.name === p.name);
-                return { ...p, ...meta };
-            });
+            // Fetch balances for wallet-based pots
+            const walletPotsWithBalance = await Promise.all(
+                walletBasedPots.map(async (pot: any) => {
+                    try {
+                        const balance = await connection.getBalance(new PublicKey(pot.address));
+                        const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+                        const { CADPAY_MINT } = await import('@/utils/cadpayToken');
+                        
+                        // Get USDC balance from ATA
+                        const ata = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(pot.address), true);
+                        const ataInfo = await connection.getTokenAccountBalance(ata).catch(() => null);
+                        const usdcBalance = ataInfo ? ataInfo.value.uiAmount || 0 : 0;
 
-            setPots(enriched);
+                        return {
+                            ...pot,
+                            balance: usdcBalance,
+                            solBalance: balance / LAMPORTS_PER_SOL,
+                        };
+                    } catch (e) {
+                        console.warn(`Failed to fetch balance for pot ${pot.name}:`, e);
+                        return { ...pot, balance: 0, solBalance: 0 };
+                    }
+                })
+            );
+
+            // Fetch PDA-based pots (existing logic)
+            let pdaPots: any[] = [];
+            if (pdaBasedPots.length > 0) {
+                try {
+                    const names = pdaBasedPots.map((p: any) => p.name);
+                    const fetchedPots = await fetchUserSavingsPots(stableSmartWalletPubkey, connection, names);
+                    pdaPots = fetchedPots.map(p => {
+                        const meta = pdaBasedPots.find((m: any) => m.name === p.name);
+                        return { ...p, ...meta };
+                    });
+                } catch (e) {
+                    console.warn("Failed to fetch PDA-based pots:", e);
+                }
+            }
+
+            // Combine both types
+            setPots([...walletPotsWithBalance, ...pdaPots]);
         } catch (e) {
             console.error("Failed to fetch pots", e);
+            // Fallback to just local metadata
+            const potMetaData = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            setPots(potMetaData);
         }
     }, [address, stableSmartWalletPubkey, connection]);
 
     const createPot = useCallback(async (name: string, unlockTime: number) => {
-        // 1. Safety Checks (Prevention of the '_bn' error)
+        // Basic validation
         if (!address) {
             throw new Error("Wallet address is not available. Please connect your wallet.");
-        }
-        if (!signAndSendTransaction) {
-            throw new Error("Wallet signer is not available. Please connect your wallet.");
-        }
-        if (!wallet) {
-            throw new Error("Wallet object is not available. Please connect your wallet.");
         }
         if (!connection) {
             throw new Error("Connection is not available.");
@@ -261,164 +295,67 @@ export function useLazorkit() {
 
         try {
             setLocalLoading(true);
-            showToast('Preparing savings pot creation...', 'info');
+            showToast('Creating new savings wallet...', 'info');
 
-            // 2. Import required modules
-            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
-            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
+            // 1. Generate a brand new account (wallet) for this specific pot
             const { Keypair } = await import('@solana/web3.js');
-            const idlModule = await import('../../anchor/target/idl/cadpay_profiles.json');
+            const potKeypair = Keypair.generate();
+            const potPubkey = potKeypair.publicKey;
 
-            // 2.1. Get CADPAY_MINT with fallback (critical to prevent _bn error)
-            let CADPAY_MINT: PublicKey;
-            try {
-                const cadpayTokenModule = await import('@/utils/cadpayToken');
-                if (cadpayTokenModule.CADPAY_MINT && cadpayTokenModule.CADPAY_MINT instanceof PublicKey) {
-                    CADPAY_MINT = cadpayTokenModule.CADPAY_MINT;
-                    console.log('✅ CADPAY_MINT imported:', CADPAY_MINT.toBase58());
-                } else {
-                    throw new Error('CADPAY_MINT is not a PublicKey');
-                }
-            } catch (e) {
-                // FALLBACK: Create from hardcoded secret
-                console.warn('⚠️ CADPAY_MINT import failed, using fallback');
-                const DEMO_MINT_SECRET = Uint8Array.from([123, 193, 13, 207, 96, 242, 30, 107, 150, 74, 0, 79, 34, 192, 8, 200, 226, 9, 25, 31, 5, 226, 254, 242, 67, 146, 26, 111, 192, 44, 200, 104, 61, 70, 49, 248, 129, 212, 154, 58, 25, 167, 92, 220, 81, 47, 21, 140, 65, 182, 52, 176, 134, 155, 239, 23, 247, 80, 127, 242, 82, 143, 23, 166]);
-                const MINT_KEYPAIR = Keypair.fromSecretKey(DEMO_MINT_SECRET);
-                CADPAY_MINT = MINT_KEYPAIR.publicKey;
-                console.log('✅ CADPAY_MINT from fallback:', CADPAY_MINT.toBase58());
+            console.log(`✅ New Pot Wallet Created: ${potPubkey.toBase58()}`);
+
+            // 2. Fund this new wallet from Treasury for Rent
+            showToast('Funding new wallet from treasury...', 'info');
+            const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(0); // Standard account rent
+            
+            const fundResponse = await fetch('/api/fund-rent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    accountAddress: potPubkey.toBase58(),
+                    rentAmount: rentExemptAmount
+                })
+            });
+
+            if (!fundResponse.ok) {
+                const errorData = await fundResponse.json();
+                throw new Error(`Treasury funding failed: ${errorData.error || 'Unknown error'}`);
             }
 
-            // 2.2. Final validation
-            if (!CADPAY_MINT || !(CADPAY_MINT instanceof PublicKey)) {
-                throw new Error('CADPAY_MINT is invalid after fallback');
-            }
+            const fundData = await fundResponse.json();
+            console.log('✅ Rent funded from treasury:', fundData.signature);
+            
+            // Wait a moment for the rent transfer to confirm
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // 2.2. Program ID (from Rust declare_id! macro)
-            const PROGRAM_ID = new PublicKey('6VvJbGzNHbtZLWxmLTYPpRz2F3oMDxdL1YRgV3b51Ccz');
-
-            // 2.3. Extract IDL from default export and add program address if missing (prevents _bn error)
-            const idl = (idlModule.default || idlModule) as any;
-            const idlWithAddress = {
-                ...idl,
-                metadata: {
-                    ...(idl.metadata || {}),
-                    address: PROGRAM_ID.toBase58(),
-                },
+            // 3. Save the Pot Metadata locally
+            const newPot = {
+                name,
+                address: potPubkey.toBase58(),
+                unlockTime: unlockTimeInt,
+                balance: 0,
+                isWalletBased: true, // Flag to identify wallet-based pots
+                createdAt: Date.now()
             };
 
-            // 3. Derive PDA and ATA for the Pot
-            const userPubKey = new PublicKey(address);
-            const [potPda] = deriveSavingsPotPDA(userPubKey, name);
-            const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potPda, true);
+            const existingPots = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            const updatedPots = [...existingPots.filter((p: any) => p.name !== name), newPot];
+            localStorage.setItem(`savings_pots_${address}`, JSON.stringify(updatedPots));
 
-            // 4. Fund Rent from Treasury (if needed)
-            const potAccountInfo = await connection.getAccountInfo(potPda);
-            const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(
-                8 + 32 + (4 + 32) + 8 + 8 + 8 + 1 // SavingsPot account size from Rust
-            );
-
-            if (!potAccountInfo || potAccountInfo.lamports < rentExemptAmount) {
-                showToast('Funding rent for savings pot from treasury...', 'info');
-                try {
-                    const fundRentResponse = await fetch('/api/fund-rent', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            accountAddress: potPda.toBase58(),
-                            rentAmount: rentExemptAmount,
-                        }),
-                    });
-
-                    if (!fundRentResponse.ok) {
-                        const errorData = await fundRentResponse.json();
-                        console.warn(`Failed to fund rent: ${errorData.error || 'Unknown error'}`);
-                        // Continue anyway - Anchor's init constraint will handle rent
-                    } else {
-                        const fundData = await fundRentResponse.json();
-                        console.log('Rent funded from treasury:', fundData.signature);
-                        // Wait a moment for the rent transfer to confirm
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                } catch (fundError: any) {
-                    console.warn('Treasury funding skipped or failed, proceeding with user funds:', fundError.message);
-                    // Continue - Anchor's init constraint will handle rent if needed
-                }
-            }
-
-            // 5. Setup Anchor Provider (with proper wallet casting to prevent _bn error)
-            const provider = new AnchorProvider(connection, (wallet as any), {
-                commitment: 'confirmed',
-            });
-            
-            // 5.1. Create Program - IDL now has metadata.address set, so it works correctly
-            const program = new Program(idlWithAddress as any, provider);
-
-            // 6. SIMPLIFIED APPROACH: Use .instruction() and pass directly to Lazorkit
-            // This avoids the complex conversion that causes _bn errors
-            console.log('🔍 CRITICAL CHECK before program.methods:', {
-                potPda: potPda?.toBase58(),
-                userPubKey: userPubKey?.toBase58(),
-                potAta: potAta?.toBase58(),
-                CADPAY_MINT: CADPAY_MINT?.toBase58(),
-            });
-
-            // Build the main instruction
-            const createPotInstruction = await program.methods
-                .createSavingsPot(name, new BN(unlockTimeInt))
-                .accounts({
-                    savingsPot: potPda,
-                    user: userPubKey,
-                    systemProgram: SystemProgram.programId,
-                    potAta: potAta,
-                    mint: CADPAY_MINT,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    rent: SYSVAR_RENT_PUBKEY,
-                } as any)
-                .instruction();
-
-            // 7. Execute via Lazorkit - pass instruction directly (no conversion needed)
-            showToast('Creating savings pot... Please authenticate', 'info');
-            
-            const signature = await signAndSendTransaction({
-                instructions: [createPotInstruction],
-                transactionOptions: {
-                    computeUnitLimit: 400_000, // Sufficient for account creation
-                }
-            });
-
-            // 9. Wait for confirmation
-            try {
-                await connection.confirmTransaction(signature, 'confirmed');
-            } catch (confirmError) {
-                // Transaction might still be processing
-                console.log('Transaction confirmation:', confirmError);
-            }
-
-            // 10. Update Local Storage for metadata
-            const potData = { 
-                name, 
-                unlockTime: unlockTimeInt, 
-                address: potPda.toBase58(), 
-                createdTx: signature 
-            };
-            const existingMeta = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-            const updatedMeta = [...existingMeta.filter((p: any) => p.name !== name), potData];
-            localStorage.setItem(`savings_pots_${address}`, JSON.stringify(updatedMeta));
-
-            // 11. Refresh pots and show success
+            // 4. Refresh pots and show success
             await fetchPots();
-            showToast(`Savings pot "${name}" created successfully!`, 'success');
-            return signature;
+            showToast(`Success! Savings pot "${name}" created as separate wallet.`, 'success');
+            
+            return potPubkey.toBase58();
 
         } catch (error: any) {
-            console.error("Failed to create pot:", error);
+            console.error("Failed to create separate wallet pot:", error);
             showToast(`Failed to create savings pot: ${error.message}`, 'error');
             throw error;
         } finally {
             setLocalLoading(false);
         }
-    }, [address, wallet, signAndSendTransaction, connection, fetchPots, showToast]);
+    }, [address, connection, fetchPots, showToast]);
 
     const withdrawFromPot = useCallback(async (potName: string, recipient: string, amount: number, note: string) => {
         if (!address || !signAndSendTransaction) throw new Error("Wallet not connected");
