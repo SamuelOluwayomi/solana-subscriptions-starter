@@ -734,15 +734,12 @@ export function useLazorkit() {
             // This requires user authentication via Lazorkit
             showToast('Creating savings pot... Please authenticate', 'info');
             
-            try {
-                const signature = await signAndSendTransaction({
-                    instructions: [plainInstruction],
-                    transactionOptions: {
-                        computeUnitLimit: 400_000, // Sufficient for account creation
-                    }
-                });
-                return signature;
-            } catch (lazorkitError: any) {
+            const signature = await signAndSendTransaction({
+                instructions: [plainInstruction],
+                transactionOptions: {
+                    computeUnitLimit: 400_000, // Sufficient for account creation
+                }
+            }).catch((lazorkitError: any) => {
                 // Enhanced error logging for Lazorkit errors
                 console.error('Lazorkit signAndSendTransaction failed:', {
                     error: lazorkitError,
@@ -760,24 +757,24 @@ export function useLazorkit() {
                     }
                 });
                 throw new Error(`Lazorkit transaction failed: ${lazorkitError?.message || 'Unknown error'}`);
+            });
+
+            // Wait for confirmation
+            try {
+                await connection.confirmTransaction(signature, 'confirmed');
+            } catch (confirmError) {
+                // Transaction might still be processing
+                console.log('Transaction confirmation:', confirmError);
             }
 
-                // Wait for confirmation
-                try {
-                    await connection.confirmTransaction(signature, 'confirmed');
-                } catch (confirmError) {
-                    // Transaction might still be processing
-                    console.log('Transaction confirmation:', confirmError);
-                }
+            // Store pot metadata locally for quick lookup
+            const potData = { name, unlockTime, address: savingsPotPDA.toBase58(), createdTx: signature };
+            const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
+            localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
 
-                // Store pot metadata locally for quick lookup
-                const potData = { name, unlockTime, address: savingsPotPDA.toBase58(), createdTx: signature };
-                const existing = JSON.parse(localStorage.getItem(`savings_pots_${address}`) || '[]');
-                localStorage.setItem(`savings_pots_${address}`, JSON.stringify([...existing, potData]));
-
-                await fetchPots();
-                showToast(`Savings pot "${name}" created successfully!`, 'success');
-                return signature;
+            await fetchPots();
+            showToast(`Savings pot "${name}" created successfully!`, 'success');
+            return signature;
         } catch (error: any) {
             console.error("Failed to create pot:", error);
             showToast(`Failed to create savings pot: ${error.message}`, 'error');
