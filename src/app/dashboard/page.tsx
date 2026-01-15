@@ -917,7 +917,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                         <span className="text-xs text-zinc-300 group-hover:text-white transition-colors">{pot.name}</span>
                                         <div className="flex items-center gap-1">
                                             <PlusIcon size={12} className="text-orange-400" weight="bold" />
-                                            <span className="text-[10px] font-bold text-orange-400">1 USDC</span>
+                                            <span className="text-[10px] font-bold text-orange-400"></span>
                                         </div>
                                     </button>
                                 ))}
