@@ -243,19 +243,14 @@ export default function Dashboard() {
 
                 // Add memo with STRICT 20-character limit to minimize transaction size
                 // Each character = ~1 byte, so 20 chars + overhead = ~25 bytes total
-                // 
-                // SPLITTING TRANSACTION:
-                // Because of the Smart Wallet wrappers, combining Deposit + Memo exceeds the 1232 byte MTU limit (1288 bytes).
-                // We must send the Memo as a SEPARATE transaction immediately after the deposit.
-                let memoTx = null;
                 if (memo && memo.trim().length > 0) {
                     const trimmedMemo = memo.trim().slice(0, 20); // Hard limit at 20 characters
                     try {
-                        memoTx = new Transaction().add(
-                            createMemoInstruction(trimmedMemo, [userPubkey])
-                        );
+                        const memoIx = createMemoInstruction(trimmedMemo, [userPubkey]);
+                        tx.add(memoIx);
                     } catch (memoError: any) {
-                        console.warn('Failed to prepare memo transaction:', memoError);
+                        // If memo fails, log but don't fail the transaction
+                        console.warn('Failed to add memo instruction:', memoError);
                     }
                 }
             } else {
@@ -282,11 +277,13 @@ export default function Dashboard() {
             // Fetch Address Lookup Table for transaction compression (reduces account size from 32 bytes to 1 byte)
             let lookupTableAccount = null;
             try {
+                // Use a reliable public lookup table or the one from env
                 const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
                 const lookupTableResult = await connection.getAddressLookupTable(lookupTableAddress);
                 lookupTableAccount = lookupTableResult.value;
+                if (lookupTableAccount) console.log("✅ Using ALT for compression:", lookupTableAddress.toBase58());
             } catch (altError) {
-                // ALT not critical, continue without it
+                // ALT not critical (will fallback to large tx), but highly recommended
                 console.warn('Failed to fetch Address Lookup Table:', altError);
             }
 
@@ -295,7 +292,7 @@ export default function Dashboard() {
             const signature = await signAndSendTransaction({
                 instructions: allInstructions,
                 transactionOptions: {
-                    computeUnitLimit: isSavings ? 300_000 : 400_000, // Lower limit for savings (no memo)
+                    computeUnitLimit: isSavings ? 300_000 : 400_000, // Lower limit for savings (no memo logic overhead)
                     addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
@@ -310,26 +307,8 @@ export default function Dashboard() {
                 console.log('Transaction confirmation:', confirmError);
             }
 
-            // [SPLIT TRANSACTION PART 2] Send Memo Transaction if it exists
-            // This is done AFTER the main transaction to ensure funds are moved first.
-            // @ts-ignore
-            if (isSavings && typeof memoTx !== 'undefined' && memoTx) {
-                try {
-                    showToast("Attaching memo...", "info");
-                    // Use the same optimized instruction sending method
-                    const memoSig = await signAndSendTransaction({
-                        instructions: (memoTx as Transaction).instructions,
-                        transactionOptions: {
-                            computeUnitLimit: 100_000, // Very small limit for simple memo
-                        }
-                    });
-                    console.log(`📝 Memo attached: ${memoSig}`);
-                    showToast("Memo attached successfully", "success");
-                } catch (memoSendError) {
-                    console.warn("Failed to send separate memo transaction:", memoSendError);
-                    showToast("Deposit successful, but failed to attach memo.", "warning");
-                }
-            }
+            // Revert Split Transaction Logic - Memo is now integrated
+
 
             // Refresh UI immediately and then again after a short delay for real-time updates
             await fetchPots();
