@@ -778,8 +778,14 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
         const fetchTransactions = async () => {
             if (!address || address === 'Loading...') return;
             try {
-                // Use shared connection if available, else fallback but don't spam
-                const conn = connection || new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com');
+                // Use shared connection if available, else fallback with robust error handling
+                let conn;
+                try {
+                    conn = connection || new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+                } catch (connError) {
+                    console.warn('Failed to create specific connection, falling back to public devnet:', connError);
+                    conn = new Connection('https://api.devnet.solana.com', 'confirmed');
+                }
                 const pubkey = new PublicKey(address);
                 const signatures = await conn.getSignaturesForAddress(pubkey, { limit: 10 });
                 setTransactions(prev => {
