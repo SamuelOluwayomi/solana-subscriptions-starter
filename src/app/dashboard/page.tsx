@@ -74,10 +74,6 @@ export default function Dashboard() {
             return;
         }
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:77', message: 'handleUnifiedSend entry', data: { recipient, amount, amountType: typeof amount, isSavings, isNaN: isNaN(amount) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'BN' }) }).catch(() => { });
-        // #endregion
-
         try {
             const tx = new Transaction();
 
@@ -98,10 +94,6 @@ export default function Dashboard() {
                 }
 
                 console.log(`💰 Depositing ${amount} USDC (${rawAmount} raw) to pot "${pot.name}"`);
-
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:109', message: 'Deriving accounts', data: { address, potName: pot.name, potAddress: pot.address }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'BN' }) }).catch(() => { });
-                // #endregion
 
                 // Check if this is a wallet-based pot
                 const isWalletBased = pot.isWalletBased === true;
@@ -147,14 +139,28 @@ export default function Dashboard() {
                             )
                         );
                         // Send ATA creation in separate transaction to keep deposit tx small
-                        await signAndSendTransaction(createAtaTx);
+                        const ataSignature = await signAndSendTransaction(createAtaTx);
+
+                        // CRITICAL: Wait for confirmation before proceeding
+                        try {
+                            await connection.confirmTransaction(ataSignature, 'confirmed');
+                            console.log(`✅ ATA creation confirmed: ${ataSignature}`);
+                        } catch (confirmError) {
+                            console.warn('ATA confirmation timeout, waiting additional time...');
+                            await new Promise(resolve => setTimeout(resolve, 3000));
+                        }
+
+                        // Verify the ATA now exists before proceeding
+                        const verifyAtaInfo = await connection.getAccountInfo(potAta);
+                        if (!verifyAtaInfo) {
+                            throw new Error(`ATA creation transaction sent but account not found. Please try depositing again in a few seconds.`);
+                        }
+
                         showToast(`Savings account initialized for "${pot.name}"`, 'success');
-                        // Wait for confirmation
-                        await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                 } catch (ataError: any) {
                     console.error('ATA pre-creation failed:', ataError);
-                    // Continue anyway - it might already exist or be created automatically
+                    throw new Error(`Failed to initialize savings account: ${ataError?.message || 'Unknown error'}. Please try again.`);
                 }
 
                 // For wallet-based pots, skip PDA verification (they're just regular wallet addresses)
@@ -711,7 +717,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             const signature = await sendTransaction();
             console.log(`✅ Mint transaction sent: ${signature}`);
 
-            // 3. Wait for confirmation and update UI
+            // 3. Wait for confirmation and update UI immediately
             try {
                 const conn = await (await import('@/utils/rpc')).createConnectionWithRetry();
                 await conn.confirmTransaction(signature, 'confirmed');
@@ -720,31 +726,19 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                 console.log('Transaction confirmation:', confirmError);
             }
 
-            // Immediate refresh
-            await refetchUsdc();
+            // Immediate parallel refresh - update all balances concurrently for faster UI update
+            await Promise.all([
+                refetchUsdc(),
+                refreshBalance()
+            ]);
 
-            // Additional refresh after delay to ensure balance is updated
+            // Quick second refresh after shorter delay to catch any processing delays
             setTimeout(async () => {
-                await refetchUsdc();
-                console.log('💰 Balance refreshed after mint - checking on-chain balance...');
-
-                // Verify the balance on-chain
-                try {
-                    const { getAssociatedTokenAddress } = await import('@solana/spl-token');
-                    const { CADPAY_MINT, TOKEN_PROGRAM_ID } = await import('@/utils/cadpayToken');
-                    const conn = await (await import('@/utils/rpc')).createConnectionWithRetry();
-                    const ata = await getAssociatedTokenAddress(CADPAY_MINT, new PublicKey(address), true, TOKEN_PROGRAM_ID);
-                    const balanceResponse = await conn.getTokenAccountBalance(ata);
-                    console.log(`💰 On-chain balance verification:`, {
-                        uiAmount: balanceResponse.value.uiAmount,
-                        rawAmount: balanceResponse.value.amount,
-                        decimals: balanceResponse.value.decimals,
-                        expected: 50
-                    });
-                } catch (verifyError) {
-                    console.error('Balance verification failed:', verifyError);
-                }
-            }, 3000);
+                await Promise.all([
+                    refetchUsdc(),
+                    refreshBalance()
+                ]);
+            }, 1500); // Reduced from 3000ms to 1500ms for faster updates
 
             // Add REAL transaction to history
             const newTx = {
@@ -1103,25 +1097,13 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
             // Processing subscription
 
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:886', message: 'About to call ensureMerchantHasATA', data: { targetMerchantAddress }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-            // #endregion
             try {
                 await ensureMerchantHasATA(targetMerchantAddress);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:890', message: 'ensureMerchantHasATA completed', data: { targetMerchantAddress }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-                // #endregion
             } catch (ensureError: any) {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:893', message: 'ensureMerchantHasATA failed', data: { targetMerchantAddress, error: ensureError?.message || String(ensureError) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-                // #endregion
                 throw ensureError;
             }
 
             // 3. Construct the transfer and memo instructions
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:889', message: 'About to construct transfer transaction', data: { address, targetMerchantAddress, amount: price * 1_000_000 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-            // #endregion
             const instructions = await constructTransferTransaction(
                 address,
                 price * 1_000_000,
@@ -1129,9 +1111,6 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 selectedService?.name || 'Unknown Service',
                 plan.name
             );
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:896', message: 'Transfer transaction constructed', data: { instructionCount: instructions.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-            // #endregion
 
             // 3.5. Fetch Address Lookup Table for transaction compression
             const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');

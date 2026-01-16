@@ -13,7 +13,7 @@ async function getConnection(): Promise<Connection> {
     if (!connectionInstance) {
         // #region agent log
         const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com';
-        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:10',message:'Creating connection for balance',data:{rpcUrl,envVar:process.env.NEXT_PUBLIC_RPC_URL||'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        
         // #endregion
         connectionInstance = await createConnectionWithRetry();
     }
@@ -36,7 +36,7 @@ export function useUSDCBalance(walletAddress: string | null) {
 
         setLoading(true);
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:32',message:'fetchBalance called',data:{walletAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        
         // #endregion
         try {
             const walletPubkey = new PublicKey(walletAddress);
@@ -51,7 +51,7 @@ export function useUSDCBalance(walletAddress: string | null) {
             );
             setTokenAccount(ata);
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:43',message:'ATA derived, fetching balance',data:{ata:ata.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            
             // #endregion
 
             try {
@@ -59,21 +59,21 @@ export function useUSDCBalance(walletAddress: string | null) {
                 const balanceResponse = await conn.getTokenAccountBalance(ata);
                 const usdcBalance = balanceResponse.value.uiAmount || 0;
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:57',message:'Balance fetched',data:{usdcBalance,rawAmount:balanceResponse.value.amount,decimals:balanceResponse.value.decimals,uiAmountString:balanceResponse.value.uiAmountString,ata:ata.toBase58()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                
                 // #endregion
                 // Removed console.log for cleaner console output
                 setBalance(usdcBalance);
             } catch (e: any) {
                 // Account doesn't exist or error fetching
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:66',message:'Balance fetch failed',data:{error:e?.message||String(e),errorType:e?.name||'Unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                
                 // #endregion
                 setBalance(0);
             }
         } catch (error: any) {
             console.error('Error fetching USDC balance:', error);
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:71',message:'fetchBalance outer catch',data:{error:error?.message||String(error),errorType:error?.name||'Unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            
             // #endregion
             setBalance(0);
         } finally {
@@ -109,7 +109,7 @@ export function useUSDCBalance(walletAddress: string | null) {
                     ata,
                     (accountInfo) => {
                         // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useUSDCBalance.ts:95',message:'Account change detected',data:{hasData:!!accountInfo.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                        
                         // #endregion
                         // Immediately fetch updated balance when account changes
                         fetchBalance();
