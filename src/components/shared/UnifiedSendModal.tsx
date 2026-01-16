@@ -22,6 +22,7 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
     const [recipient, setRecipient] = useState('');
     const [selectedPot, setSelectedPot] = useState<any>(null);
     const [amount, setAmount] = useState('');
+    const [memo, setMemo] = useState(''); // Add memo state
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +49,9 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
 
         setIsSubmitting(true);
         try {
-            await onSend(targetRecipient, numAmount, mode === 'savings');
+            // Pass memo only for savings deposits, trim to 20 chars
+            const trimmedMemo = mode === 'savings' && memo ? memo.trim().slice(0, 20) : undefined;
+            await onSend(targetRecipient, numAmount, mode === 'savings', trimmedMemo);
             onClose();
             // Reset state
             setRecipient('');
@@ -176,6 +179,29 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                                     </p>
                                 </div>
 
+                                {/* Memo Input - Only for Savings Mode */}
+                                {mode === 'savings' && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
+                                            Memo (Optional)
+                                            <span className="text-[10px] ml-2 text-zinc-600">Max 20 chars to minimize tx size</span>
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                placeholder="e.g., Vacation fund"
+                                                maxLength={20}
+                                                className="w-full bg-zinc-900/60 border border-white/10 p-4 rounded-2xl text-white text-sm focus:outline-none focus:border-orange-500/50 transition-all"
+                                                value={memo}
+                                                onChange={(e) => setMemo(e.target.value)}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600 font-mono">
+                                                {memo.length}/20
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {error && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
@@ -211,8 +237,5 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
             )}
         </AnimatePresence>
     );
-}
-function setMemo(arg0: string) {
-    throw new Error('Function not implemented.');
 }
 

@@ -13,22 +13,16 @@ import {
     PaperPlaneTiltIcon
 } from '@phosphor-icons/react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
-import Link from 'next/link';
-import { SiSolana } from 'react-icons/si';
 import LogoField from '@/components/shared/LogoField';
-import AddFundsModal from '@/components/shared/AddFundsModal';
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { SERVICES, CATEGORIES, Service, SubscriptionPlan } from '@/data/subscriptions';
 import { useSubscriptions } from '@/hooks/useSubscriptions';
 import ServiceCard from '@/components/subscriptions/ServiceCard';
 import SubscribeModal from '@/components/subscriptions/SubscribeModal';
 import ActiveSubscriptionCard from '@/components/subscriptions/ActiveSubscriptionCard';
-
 import SecuritySettings from '@/components/security/SecuritySettings';
-import TransactionDetailsModal from '@/components/shared/TransactionDetailsModal';
 import FullProfileEditModal from '@/components/shared/FullProfileEditModal';
 import OnboardingModal from '@/components/shared/OnboardingModal';
-import USDCFaucet from '@/components/shared/USDCFaucet';
 import { useUSDCBalance } from '@/hooks/useUSDCBalance';
 import { constructMintTransaction, constructTransferTransaction, DEMO_MERCHANT_WALLET, ensureMerchantHasATA } from '@/utils/cadpayToken';
 import CopyButton from '@/components/shared/CopyButton';
@@ -37,6 +31,12 @@ import CreateSavingsModal from '@/components/shared/CreateSavingsModal';
 import SavingsPotView from '@/components/shared/SavingsPotView';
 import UnifiedSendModal from '@/components/shared/UnifiedSendModal';
 import { useToast } from '@/context/ToastContext';
+import { AnchorProvider, Program, BN } from '@coral-xyz/anchor';
+import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, ASSOCIATED_TOKEN_PROGRAM_ID, createTransferInstruction } from '@solana/spl-token';
+import { CADPAY_MINT } from '@/utils/cadpayToken';
+import { deriveSavingsPotPDA } from '@/utils/savingsAccounts';
+import idl from '../../../anchor/target/idl/cadpay_profiles.json';
+import { createMemoInstruction } from '@solana/spl-memo';
 
 type NavSection = 'overview' | 'subscriptions' | 'wallet' | 'security' | 'payment-link' | 'invoices' | 'dev-keys' | 'savings';
 
@@ -75,17 +75,10 @@ export default function Dashboard() {
         }
 
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:77',message:'handleUnifiedSend entry',data:{recipient,amount,amountType:typeof amount,isSavings,isNaN:isNaN(amount)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:77', message: 'handleUnifiedSend entry', data: { recipient, amount, amountType: typeof amount, isSavings, isNaN: isNaN(amount) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'BN' }) }).catch(() => { });
         // #endregion
-        
-        try {
-            const { constructTransferTransaction } = await import('@/utils/cadpayToken');
-            const { depositToPotInstruction, deriveSavingsPotPDA } = await import('@/utils/savingsAccounts');
-            const { AnchorProvider, Program, BN } = await import('@coral-xyz/anchor');
-            const { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } = await import('@solana/spl-token');
-            const { CADPAY_MINT } = await import('@/utils/cadpayToken');
-            const idl = await import('../../../anchor/target/idl/cadpay_profiles.json');
 
+        try {
             const tx = new Transaction();
 
             if (isSavings) {
@@ -107,12 +100,12 @@ export default function Dashboard() {
                 console.log(`💰 Depositing ${amount} USDC (${rawAmount} raw) to pot "${pot.name}"`);
 
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:109',message:'Deriving accounts',data:{address,potName:pot.name,potAddress:pot.address},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'BN'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:109', message: 'Deriving accounts', data: { address, potName: pot.name, potAddress: pot.address }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'BN' }) }).catch(() => { });
                 // #endregion
 
                 // Check if this is a wallet-based pot
                 const isWalletBased = pot.isWalletBased === true;
-                
+
                 // For wallet-based pots, use the address directly; for PDA-based, derive PDA
                 let potAddress: PublicKey;
                 if (isWalletBased && pot.address) {
@@ -135,6 +128,33 @@ export default function Dashboard() {
                 const potAta = await getAssociatedTokenAddress(CADPAY_MINT, potAddress, true);
                 if (!potAta) {
                     throw new Error(`Failed to derive pot ATA`);
+                }
+
+                // CRITICAL: Pre-create the Pot's ATA if it doesn't exist to avoid ATA creation in deposit tx
+                // This reduces transaction size significantly (ATA creation adds ~200 bytes)
+                try {
+                    const potAtaInfo = await connection.getAccountInfo(potAta);
+                    if (!potAtaInfo) {
+                        showToast(`Initializing savings account for "${pot.name}"...`, 'info');
+                        const createAtaTx = new Transaction().add(
+                            createAssociatedTokenAccountInstruction(
+                                new PublicKey(address), // payer
+                                potAta, // ata
+                                potAddress, // owner
+                                CADPAY_MINT, // mint
+                                TOKEN_PROGRAM_ID,
+                                ASSOCIATED_TOKEN_PROGRAM_ID
+                            )
+                        );
+                        // Send ATA creation in separate transaction to keep deposit tx small
+                        await signAndSendTransaction(createAtaTx);
+                        showToast(`Savings account initialized for "${pot.name}"`, 'success');
+                        // Wait for confirmation
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                } catch (ataError: any) {
+                    console.error('ATA pre-creation failed:', ataError);
+                    // Continue anyway - it might already exist or be created automatically
                 }
 
                 // For wallet-based pots, skip PDA verification (they're just regular wallet addresses)
@@ -173,10 +193,9 @@ export default function Dashboard() {
 
                 // For wallet-based pots, use simple token transfer; for PDA-based, use Anchor program
                 const userPubkey = new PublicKey(address);
-                
+
                 if (isWalletBased) {
                     // Wallet-based: Simple token transfer (no Anchor program needed)
-                    const { createTransferInstruction } = await import('@solana/spl-token');
                     const transferIx = createTransferInstruction(
                         userAta,
                         potAta,
@@ -218,12 +237,12 @@ export default function Dashboard() {
                     tx.add(depositIx);
                 }
 
-                // Add memo instruction if provided (but only if it won't exceed transaction size)
-                // Memo adds ~50-100 bytes, so we only add it if memo is short enough
-                if (memo && memo.trim().length > 0 && memo.length <= 50) {
+                // Add memo with STRICT 20-character limit to minimize transaction size
+                // Each character = ~1 byte, so 20 chars + overhead = ~25 bytes total
+                if (memo && memo.trim().length > 0) {
+                    const trimmedMemo = memo.trim().slice(0, 20); // Hard limit at 20 characters
                     try {
-                        const { createMemoInstruction } = await import('@solana/spl-memo');
-                        const memoIx = createMemoInstruction(memo.trim(), [userPubkey]);
+                        const memoIx = createMemoInstruction(trimmedMemo, [userPubkey]);
                         tx.add(memoIx);
                     } catch (memoError: any) {
                         // If memo fails, log but don't fail the transaction
@@ -233,7 +252,7 @@ export default function Dashboard() {
             } else {
                 const transferInstructions = await constructTransferTransaction(address, amount * 1_000_000, recipient);
                 tx.add(...transferInstructions);
-                
+
                 // Add memo for external transfers if provided (with size limit)
                 if (memo && memo.trim().length > 0 && memo.length <= 50) {
                     try {
@@ -250,13 +269,25 @@ export default function Dashboard() {
             // Extract instructions from transaction and pass directly (avoids extra serialization overhead)
             // This is critical for smart wallets which add wrapper instructions
             const allInstructions = tx.instructions;
-            
+
+            // Fetch Address Lookup Table for transaction compression (reduces account size from 32 bytes to 1 byte)
+            let lookupTableAccount = null;
+            try {
+                const lookupTableAddress = new PublicKey(process.env.NEXT_PUBLIC_LOOKUP_TABLE_ADDRESS || '3yf26dUdvL6TYbRbvpCvdWU8JjL6AwjuXMcYiigmAB2D');
+                const lookupTableResult = await connection.getAddressLookupTable(lookupTableAddress);
+                lookupTableAccount = lookupTableResult.value;
+            } catch (altError) {
+                // ALT not critical, continue without it
+                console.warn('Failed to fetch Address Lookup Table:', altError);
+            }
+
             // Sign and send using instruction-based API (more efficient for smart wallets)
             // This reduces transaction size by avoiding Transaction object serialization overhead
             const signature = await signAndSendTransaction({
                 instructions: allInstructions,
                 transactionOptions: {
-                    computeUnitLimit: 400_000,
+                    computeUnitLimit: isSavings ? 300_000 : 400_000, // Lower limit for savings (no memo)
+                    addressLookupTableAccounts: lookupTableAccount ? [lookupTableAccount] : undefined,
                 }
             });
 
@@ -274,7 +305,7 @@ export default function Dashboard() {
             await fetchPots();
             await refreshBalance();
             await refetchUsdc();
-            
+
             // Additional refresh after 2 seconds to catch any delayed updates
             setTimeout(async () => {
                 await refetchUsdc();
@@ -688,15 +719,15 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
             } catch (confirmError) {
                 console.log('Transaction confirmation:', confirmError);
             }
-            
+
             // Immediate refresh
             await refetchUsdc();
-            
+
             // Additional refresh after delay to ensure balance is updated
             setTimeout(async () => {
                 await refetchUsdc();
                 console.log('💰 Balance refreshed after mint - checking on-chain balance...');
-                
+
                 // Verify the balance on-chain
                 try {
                     const { getAssociatedTokenAddress } = await import('@solana/spl-token');
@@ -884,7 +915,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                                 // Quick save 1 USDC - ensure BN is created properly
                                                 const quickSaveAmount = 1 * 1_000_000; // 1 USDC in raw units
                                                 const quickSaveBN = new BN(quickSaveAmount.toString());
-                                                
+
                                                 const tx = await program.methods
                                                     .depositToPot(quickSaveBN)
                                                     .accounts({
@@ -899,7 +930,7 @@ function OverviewSection({ userName, balance, address, usdcBalance, refetchUsdc,
                                                 // Don't set blockhash manually - Lazorkit's signAndSendTransaction handles it
                                                 // Setting it here can cause "TransactionTooOld" errors if there's any delay
                                                 // Lazorkit will fetch a fresh blockhash when signing
-                                                
+
                                                 tx.feePayer = new PublicKey(address);
 
                                                 await signAndSendTransaction(tx);
@@ -1073,23 +1104,23 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
 
             // 2. Ensure Merchant Has ATA (System-sponsored if needed)
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:886',message:'About to call ensureMerchantHasATA',data:{targetMerchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:886', message: 'About to call ensureMerchantHasATA', data: { targetMerchantAddress }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
             // #endregion
             try {
                 await ensureMerchantHasATA(targetMerchantAddress);
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:890',message:'ensureMerchantHasATA completed',data:{targetMerchantAddress},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:890', message: 'ensureMerchantHasATA completed', data: { targetMerchantAddress }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
                 // #endregion
             } catch (ensureError: any) {
                 // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:893',message:'ensureMerchantHasATA failed',data:{targetMerchantAddress,error:ensureError?.message||String(ensureError)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:893', message: 'ensureMerchantHasATA failed', data: { targetMerchantAddress, error: ensureError?.message || String(ensureError) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
                 // #endregion
                 throw ensureError;
             }
 
             // 3. Construct the transfer and memo instructions
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:889',message:'About to construct transfer transaction',data:{address,targetMerchantAddress,amount:price*1_000_000},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:889', message: 'About to construct transfer transaction', data: { address, targetMerchantAddress, amount: price * 1_000_000 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
             // #endregion
             const instructions = await constructTransferTransaction(
                 address,
@@ -1099,7 +1130,7 @@ function SubscriptionsSection({ usdcBalance, refetchUsdc }: { usdcBalance: numbe
                 plan.name
             );
             // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard/page.tsx:896',message:'Transfer transaction constructed',data:{instructionCount:instructions.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7242/ingest/a77a3c9b-d5a3-44e5-bf0a-030a0ae824ab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'dashboard/page.tsx:896', message: 'Transfer transaction constructed', data: { instructionCount: instructions.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
             // #endregion
 
             // 3.5. Fetch Address Lookup Table for transaction compression
