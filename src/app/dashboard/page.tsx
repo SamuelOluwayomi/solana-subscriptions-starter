@@ -122,15 +122,13 @@ export default function Dashboard() {
                     throw new Error(`Failed to derive pot ATA`);
                 }
 
-                // CRITICAL: Pre-create the Pot's ATA if it doesn't exist to avoid ATA creation in deposit tx
-                // This reduces transaction size significantly (ATA creation adds ~200 bytes)
                 try {
                     const potAtaInfo = await connection.getAccountInfo(potAta);
                     if (!potAtaInfo) {
                         showToast(`Initializing savings account for "${pot.name}"...`, 'info');
                         const createAtaTx = new Transaction().add(
                             createAssociatedTokenAccountInstruction(
-                                new PublicKey(address), // payer
+                                (wallet as any)?.publicKey || new PublicKey(address), // payer - MUST be the signer (EOA), not the Smart Wallet PDA
                                 potAta, // ata
                                 potAddress, // owner
                                 CADPAY_MINT, // mint

@@ -81,9 +81,12 @@ export default function UnifiedSendModal({ isOpen, onClose, onSend, pots, balanc
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        onClick={(e) => {
+                            if (e.target === e.currentTarget) onClose();
+                        }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
                     >
-                        <div className="bg-[#1a1b1f] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-hidden">
+                        <div className="bg-[#1a1b1f] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
                             <div className="flex items-center justify-between mb-8">
                                 <h2 className="text-2xl font-bold text-white">Send Funds</h2>
                                 <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors">
