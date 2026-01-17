@@ -98,15 +98,10 @@ npm start
 
 This project demonstrates **two distinct integration examples** to meet bounty requirements:
 
-### Example 1: Jupiter DEX Integration (Existing Protocol)
-- **Protocol:** Jupiter Aggregator - Solana's leading DEX aggregator
-- **Feature:** Auto-swap subscriptions (USDC → SOL)
-- **Demo Page:** `/jupiter`
-- **Highlights:**
-  - Fetches best swap rates across all Solana DEXs
-  - Executes gasless swaps via Lazorkit
-  - Live quote display with slippage protection
-  - Transaction history with Explorer links
+### Example 1:Integration of Spl Memo (Existing Protocol)
+- Users can make transactions and add memo's that would be seen on the network.
+-Every subscription automatically sends a memo containing the details of the subscription and can be seen if check on solana explorer
+
 
 ### Example 2: CadPay Platform (Original Idea)
 - **Concept:** Netflix-style recurring crypto payments
@@ -127,10 +122,9 @@ This project demonstrates **two distinct integration examples** to meet bounty r
 Comprehensive step-by-step guides for developers and judges:
 
 1. **[Bounty Requirements](./BOUNTY_REQUIREMENTS.md)** - Overview of both examples
-2. **[Jupiter DEX Integration](./TUTORIAL_JUPITER_INTEGRATION.md)** - Build auto-swap subscriptions
-3. **[Creating a Passkey Wallet](./TUTORIAL_PASSKEY_WALLET.md)** - Biometric authentication guide
-4. **[Gasless Transactions](./TUTORIAL_GASLESS_TRANSACTIONS.md)** - How Paymaster works
-5. **[Devnet Deployment Guide](./TUTORIAL_DEVNET_DEPLOYMENT.md)** - Deploy & test on Solana devnet
+2. **[Creating a Passkey Wallet](./TUTORIAL_PASSKEY_WALLET.md)** - Biometric authentication guide
+3. **[Gasless Transactions](./TUTORIAL_GASLESS_TRANSACTIONS.md)** - How Paymaster works
+4. **[Devnet Deployment Guide](./TUTORIAL_DEVNET_DEPLOYMENT.md)** - Deploy & test on Solana devnet
 
 ## 🎮 User Flow
 
